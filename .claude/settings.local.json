@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(set TURBOPACK=0)",
+      "Bash(dir:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npm run postinstall:*)",
+      "Bash(npm install:*)",
+      "Bash(find:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,1951 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// Core user and org models
+model User {
+  id                    String      @id @default(auto()) @map("_id") @db.ObjectId
+  email                 String      @unique
+  password              String
+  isActive              Boolean     @default(true)
+  emailVerified         Boolean     @default(false)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  lastLoginAt           DateTime?
+  defaultOrganizationId String?     @db.ObjectId
+  defaultOrganization   Organization? @relation("UserDefaultOrganization", fields: [defaultOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ownedOrganizations    Organization[] @relation("OrganizationOwner")
+  memberships           OrganizationMembership[]
+  profile               UserProfile?
+  roles                 UserRole[]
+  departmentId          String?      @db.ObjectId
+  department            Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  managerId             String?     @db.ObjectId
+  manager               User?       @relation("UserManager", fields: [managerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reports               User[]      @relation("UserManager")
+  activities            Activity[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+  qualityTests          QualityTest[]
+  ticketComments        TicketComment[]
+  documentsUploaded     Document[]
+  salesTargets          SalesTarget[]
+  commissions           Commission[]
+  verificationTokens    VerificationToken[]
+  magicLinkTokens       MagicLinkToken[] @relation("MagicLinkTokens")
+  passwordResetTokens   PasswordResetToken[] @relation("PasswordResetTokens")
+  emailVerificationTokens EmailVerificationToken[] @relation("EmailVerificationTokens")
+  invitationsSent       OrganizationInvite[] @relation("InvitedBy")
+  materialRequests      MaterialRequest[]
+  tasksAssigned         Task[]      @relation("TaskAssignedTo")
+  tasksCreated          Task[]      @relation("TaskAssignedBy")
+  taskAssignments      TaskAssignee[]
+  taskComments          TaskComment[]
+  taskCommentReads      TaskCommentRead[]
+  taskAttachments       TaskAttachment[]
+  attendance            Attendance[]
+  leaveRequests         LeaveRequest[]
+  approvedLeaves        LeaveRequest[] @relation("LeaveApprover")
+  shiftId               String?     @db.ObjectId
+  shift                 Shift?      @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  pushSubscriptions     PushSubscription[]
+  createdConnections    Connection[] @relation("CreatedConnections")
+  connectionId          String?      @db.ObjectId
+  connection            Connection?  @relation("UserConnection", fields: [connectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionPlansCreated ProductionPlan[] @relation("ProductionPlanCreator")
+  productionPlansApproved ProductionPlan[] @relation("ProductionPlanApprover")
+  stockAlertsAcknowledged StockAlert[] @relation("AlertAcknowledger")
+  posCashierTransactions POSTransaction[] @relation("POSCashier")
+  posSessions            POSSession[] @relation("POSSessionCashier")
+}
+
+model Organization {
+  id        String                   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  slug      String                   @unique
+  code      String                   @unique // 6-8 character alphanumeric code for joining
+  ownerId   String                   @db.ObjectId
+  procurementWorkflowMode String?    @default("FULL") // "FULL" or "DIRECT"
+  // Catalog settings
+  catalogPricingMode String?         @default("SHOW_MARKED") // SHOW_MARKED, SHOW_SELLING, HIDE_PRICING, CONTACT_FOR_PRICE
+  catalogEnabled     Boolean         @default(false) // Enable public catalog for this org
+  catalogDescription String?         // Public catalog description
+  catalogLogoUrl     String?         // Logo for public catalog
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+
+  owner     User                     @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  memberships OrganizationMembership[]
+  defaultUsers User[] @relation("UserDefaultOrganization")
+
+  connections        Connection[]
+  products           Product[]
+  milkCollectionCenters MilkCollectionCenter[]
+  milkProcurements   MilkProcurementEntry[]
+  milkRateCharts     MilkRateChart[]
+  customerMilkCollections CustomerMilkCollection[]
+  mandaliSessionSummaries MandaliSessionSummary[]
+  bmcMilkCollections BMCMilkCollection[]
+  bmcStorage         BMCStorage[]
+  bmcDailySummaries  BMCDailySummary[]
+  tankers            Tanker[]
+  tankerLoads        TankerLoad[]
+  dairyMilkReceipts  DairyMilkReceipt[]
+  directDairyReceipts DirectDairyReceipt[]
+  paymentLedgers     PaymentLedger[]
+  customerPayments   CustomerPayment[]
+  mandaliPayments     MandaliPayment[]
+  bmcPayments        BMCPayment[]
+  productionBatches  ProductionBatch[]
+  qualityTests       QualityTest[]
+  salesInquiries     SalesInquiry[]
+  quotations         Quotation[]
+  salesOrders        SalesOrder[]
+  orderItems         OrderItem[]
+  invoices           Invoice[]
+  payments           Payment[]
+  deliveryChallans   DeliveryChallan[]
+  storageLocations   StorageLocation[]
+  inventoryStocks    InventoryStock[]
+  inventoryTransactions InventoryTransaction[]
+  materialRequests   MaterialRequest[]
+  purchaseOrders     PurchaseOrder[]
+  bills              Bill[]
+  supportTickets     SupportTicket[]
+  supplierFeedbacks  SupplierFeedback[]
+  activities         Activity[]
+  documents          Document[]
+  notifications      Notification[]
+  salesTargets       SalesTarget[]
+  commissions        Commission[]
+  commissionRules    CommissionRule[]
+  auditLogs          AuditLog[]
+  invites            OrganizationInvite[]
+  gateEntries        GateEntry[]
+  massComplaints     MassComplaint[]
+  festivalData       FestivalData[]
+  workflowStatuses   WorkflowStatus[]
+  tasks              Task[]
+  machines           Machine[]
+  attendance         Attendance[]
+  leaveRequests      LeaveRequest[]
+  pushSubscriptions  PushSubscription[]
+  shifts             Shift[]
+  recipes            Recipe[]
+  whatsappContacts   WhatsAppContact[]
+  customerMargins    CustomerMargin[]
+  productMargins     ProductMargin[]
+  customerProductMargins CustomerProductMargin[]
+  productionPlans    ProductionPlan[]
+  stockAlerts        StockAlert[]
+  productImages      ProductImage[]
+  productCategories  ProductCategory[]
+  publicInquiries    PublicInquiry[]
+  posCustomers       POSCustomer[] @relation("POSCustomers")
+  posTransactions    POSTransaction[] @relation("POSTransactions")
+  posSessions        POSSession[] @relation("POSSessions")
+}
+
+model OrganizationMembership {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String        @db.ObjectId
+  organizationId String        @db.ObjectId
+  role           String
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([userId, organizationId])
+}
+
+model Task {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String        @db.ObjectId
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  assignedById   String        @db.ObjectId
+  assignedBy     User          @relation("TaskAssignedBy", fields: [assignedById], references: [id], onDelete: NoAction)
+  assignedToId   String?       @db.ObjectId
+  assignedTo     User?         @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assigneeName   String?
+  roleOfAssignee String        // lowercase role key: admin, supervisor, operator, etc.
+  priority       TaskPriority  @default(MEDIUM)
+  status         TaskStatus    @default(PENDING)
+  dueDate        DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  assignmentEmailSent   Boolean   @default(false)
+  assignmentEmailSentAt DateTime?
+  assignmentEmailError  String?
+
+  // Multiple assignees support (new)
+  assignees      TaskAssignee[]
+  // Legacy single assignee (kept for backward compatibility)
+  comments      TaskComment[]
+  attachments   TaskAttachment[]
+  notifications Notification[] @relation("TaskNotifications")
+
+  @@index([organizationId, assignedToId])
+  @@index([organizationId, status])
+}
+
+model TaskComment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  taskId    String   @db.ObjectId
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String   @db.ObjectId
+  author    User     @relation(fields: [authorId], references: [id], onDelete: NoAction)
+  content   String
+  createdAt DateTime @default(now())
+  readBy    TaskCommentRead[]
+}
+
+model TaskAttachment {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  taskId       String   @db.ObjectId
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedById String   @db.ObjectId
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: NoAction)
+  fileName     String
+  fileUrl      String
+  fileType     String?
+  fileSize     Int?
+  createdAt    DateTime @default(now())
+}
+
+// TaskAssignee: Many-to-many relationship for multiple assignees per task
+// Supports both single assignee (via assignedToId) and multiple assignees (via this model)
+model TaskAssignee {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  taskId    String   @db.ObjectId
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+  
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+}
+
+// TaskCommentRead: Tracks which comments have been read by which users
+model TaskCommentRead {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  commentId String   @db.ObjectId
+  comment   TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt    DateTime @default(now())
+  
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
+}
+
+model UserProfile {
+  id               String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String  @unique @db.ObjectId
+  user             User    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fullName         String
+  phone            String?
+  address          String?
+  city             String?
+  state            String?
+  postalCode       String?
+  country          String?
+  roleTitle        String?
+  profilePictureUrl String?
+  bio              String?
+}
+
+model Role {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  name  String @unique
+  desc  String?
+  users UserRole[]
+}
+
+model UserRole {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId String @db.ObjectId
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roleId String @db.ObjectId
+
+  @@unique([userId, roleId])
+}
+
+model Department {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  name  String @unique
+  desc  String?
+  users User[]
+}
+
+// Connections and contacts
+model Connection {
+  id                 String           @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId     String           @db.ObjectId
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name               String
+  type               String           // e.g., "SUPPLIER", "CUSTOMER", "BOTH"
+  businessCategory   String           // e.g., "DAIRY_FARM", "DISTRIBUTOR"
+  primaryContactId   String?
+  createdById        String?          @db.ObjectId // Track who created this connection
+  createdBy          User?            @relation("CreatedConnections", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  contacts           ContactPerson[]
+  fssaiLicenses      FSSAILicense[]
+  gstNumber          String?
+  creditLimit        Float?           @default(0)
+  paymentTermsDays   Int?             @default(0)
+  hasColdStorage     Boolean?         @default(false)
+  deliveryPreferences String?
+  discountPercent    Float?           @default(0) // Discount/margin percentage for this connection
+  village            String?          // Customer village/location
+  state              String?          // Customer state
+  defaultCollectionCenterId String?   @db.ObjectId
+  defaultCollectionCenter   MilkCollectionCenter? @relation("DefaultCollectionCenter", fields: [defaultCollectionCenterId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  procurements       MilkProcurementEntry[]
+  customerMilkCollections CustomerMilkCollection[]
+  directDairyReceipts DirectDairyReceipt[]
+  customerPayments   CustomerPayment[]
+  salesInquiries     SalesInquiry[]
+  quotations         Quotation[]
+  salesOrders        SalesOrder[]
+  purchaseOrders     PurchaseOrder[]
+  bills              Bill[]
+  supportTickets     SupportTicket[]
+  supplierFeedbacks  SupplierFeedback[]
+  gateEntries        GateEntry[]
+  massComplaints     MassComplaint[]
+  whatsappContacts   WhatsAppContact[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  
+  users              User[]           @relation("UserConnection")
+  invites            OrganizationInvite[] @relation("ConnectionInvite")
+  customerMargin     CustomerMargin?
+  customerProductMargins CustomerProductMargin[]
+  materialRequirements ProductionMaterialRequirement[] @relation("MaterialSupplier")
+  stockAlerts        StockAlert[] @relation("AlertSupplier")
+
+  @@index([createdById])
+}
+
+model ContactPerson {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  connection    Connection @relation(fields: [connectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  connectionId  String     @db.ObjectId
+  fullName      String
+  email         String?
+  phone         String?
+  isPrimary     Boolean    @default(false)
+}
+
+model FSSAILicense {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  connection    Connection @relation(fields: [connectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  connectionId  String     @db.ObjectId
+  licenseNumber String
+  issueDate     DateTime?
+  expiryDate    DateTime?
+}
+
+// Products & catalog
+model Product {
+  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId     String               @db.ObjectId
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sku                String?              @unique
+  name               String
+  category           String               // e.g., "MILK", "CURD", "BUTTER"
+  subCategory        String?
+  description        String?
+  unit               String               // e.g., "LITRE", "KG", "PIECE"
+  packSize           String?              // human readable: "200 ml", "1 L"
+  minFatPercent      Float?
+  minSnfPercent      Float?
+  shelfLifeDays      Int?
+  storageTempMin     Float?
+  storageTempMax     Float?
+  requiresColdChain  Boolean             @default(false)
+  unitPrice          Float?                // Selling price
+  costPrice          Float?                // Internal cost (for profit calculation)
+  markedPrice        Float?                // MRP - Maximum Retail Price (displayed)
+  currentStock       Float?                @default(0) // Float for Float
+  reorderLevel       Float?                @default(0) // Float for Float
+  minOrderQuantity   Float?                @default(0) // Float for Float
+  // Catalog fields
+  longDescription    String?              // Rich description for catalog
+  youtubeVideoUrl    String?              // Embedded YouTube video URL
+  isPublished        Boolean              @default(false) // Show on public catalog?
+  catalogOrder       Int?                 // Display order in catalog
+  categoryId         String?              @db.ObjectId // Link to ProductCategory
+  productCategory    ProductCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  priceHistory       ProductPriceHistory[]
+  inventoryStocks    InventoryStock[]
+  orderItems         OrderItem[]
+  productionBatches  ProductionBatchItem[]
+  productionBatchesByProduct ProductionBatch[]
+  quoteLineItems     QuoteLineItem[]
+  salesInquiries     SalesInquiry[]
+  massComplaints     MassComplaint[]
+  festivalData       FestivalData[]
+  materialRequests   MaterialRequest[]
+  productMargin      ProductMargin?
+  customerProductMargins CustomerProductMargin[]
+  productionPlanItems ProductionPlanItem[] @relation("PlanProducts")
+  materialRequirementsFor ProductionMaterialRequirement[] @relation("MaterialProduct")
+  posTransactionItems POSTransactionItem[] @relation("POSTransactionItems")
+  stockAlerts        StockAlert[] @relation("ProductAlerts")
+  images             ProductImage[]       // Multiple product images
+  publicInquiries    PublicInquiry[]      // Inquiries about this product
+}
+
+model ProductPriceHistory {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  product    Product  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId  String   @db.ObjectId
+  unitPrice  Float
+  costPrice  Float?
+  startDate  DateTime
+  endDate    DateTime?
+}
+
+// Milk procurement
+model MilkCollectionCenter {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId     String   @db.ObjectId
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name               String
+  latitude           Float?
+  longitude          Float?
+  dailyCapacityL     Float?    @default(0)
+  bmrAvailable       Boolean?  @default(false)
+  hasTestingEquip    Boolean?  @default(false)
+  type               String?   // "MANDALI", "BMC", "STANDARD" or null for backward compatibility
+  parentMandaliId    String?   @db.ObjectId // For BMC → Mandali relationship
+  parentMandali      MilkCollectionCenter? @relation("MandaliToBMC", fields: [parentMandaliId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  bmcCenters         MilkCollectionCenter[] @relation("MandaliToBMC")
+  procurements       MilkProcurementEntry[]
+  customerCollections CustomerMilkCollection[]
+  mandaliSummaries   MandaliSessionSummary[]
+  bmcCollections     BMCMilkCollection[] @relation("BMCCenter")
+  bmcCollectionsFromMandali BMCMilkCollection[] @relation("BMCMandali")
+  bmcStorage         BMCStorage[]
+  bmcDailySummaries  BMCDailySummary[]
+  tankerLoads        TankerLoad[]
+  tankers            Tanker[] @relation("TankerBMC")
+  mandaliPayments    MandaliPayment[]
+  bmcPayments        BMCPayment[]
+  defaultConnections Connection[] @relation("DefaultCollectionCenter")
+  
+  @@index([type])
+  @@index([parentMandaliId])
+}
+
+model MilkProcurementEntry {
+  id                String                     @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String                     @db.ObjectId
+  organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId        String                     @db.ObjectId
+  supplier          Connection                 @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  collectionCenterId String?                   @db.ObjectId
+  collectionCenter  MilkCollectionCenter?      @relation(fields: [collectionCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  datetime          DateTime
+  quantityL         Float
+  fatPercent        Float?
+  snfPercent        Float?
+  clrReading        Float?
+  temperatureC      Float?
+  qualityGrade      String                     // e.g., "A", "B", "C"
+  ratePerLitre      Float
+  totalAmount       Float
+  paymentStatus     String   @default("PENDING") // e.g., "PENDING", "PAID"
+  milkType          String?
+  createdAt         DateTime  @default(now())
+  dairyReceipt      DairyMilkReceipt?
+  directDairyReceipt DirectDairyReceipt?
+}
+
+model MilkRateChart {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fatPercentMin Float
+  fatPercentMax Float
+  snfPercentMin Float
+  snfPercentMax Float
+  milkType     String
+  qualityGrade String
+  ratePerLitre Float
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+}
+
+// Dairy Procurement Workflow Models
+
+model CustomerMilkCollection {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId    String   @db.ObjectId
+  customer      Connection @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  mandaliId     String   @db.ObjectId
+  mandali       MilkCollectionCenter @relation(fields: [mandaliId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  session       String   // "morning" or "evening"
+  date          DateTime @db.Date
+  quantity      Float    // Liters
+  fat           Float
+  snf           Float
+  clr           Float
+  ratePerLiter  Float
+  amount        Float
+  createdAt     DateTime @default(now())
+  
+  @@unique([customerId, mandaliId, session, date])
+  @@index([mandaliId])
+  @@index([date])
+  @@index([session])
+  @@index([organizationId])
+}
+
+model MandaliSessionSummary {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String   @db.ObjectId
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mandaliId         String   @db.ObjectId
+  mandali           MilkCollectionCenter @relation(fields: [mandaliId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  date              DateTime @db.Date
+  session           String   // "morning" or "evening"
+  totalMilk         Float    // Total liters
+  avgFat            Float
+  avgSnf            Float
+  avgClr            Float
+  totalAmountPayable Float
+  customerCount     Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([mandaliId, date, session])
+  @@index([mandaliId])
+  @@index([date])
+  @@index([organizationId])
+}
+
+model BMCMilkCollection {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bmcId          String   @db.ObjectId
+  bmc            MilkCollectionCenter @relation("BMCCenter", fields: [bmcId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  mandaliId      String   @db.ObjectId
+  mandali        MilkCollectionCenter @relation("BMCMandali", fields: [mandaliId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  date           DateTime @db.Date
+  session        String   // "morning" or "evening"
+  receivedMilk   Float    // Liters received
+  fat            Float
+  snf            Float
+  clr            Float
+  acceptedMilk   Float    // Liters accepted after testing
+  rejectedMilk   Float    // Liters rejected
+  testedAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
+  
+  storage        BMCStorage[]
+  
+  @@index([bmcId])
+  @@index([mandaliId])
+  @@index([date])
+  @@index([organizationId])
+}
+
+model BMCStorage {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bmcId          String   @db.ObjectId
+  bmc            MilkCollectionCenter @relation(fields: [bmcId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  collectionId   String   @db.ObjectId
+  collection     BMCMilkCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  storedAt       DateTime @default(now())
+  quantity       Float    // Liters stored
+  session        String   // "morning" or "evening"
+  status         String   @default("STORED") // "STORED" or "LOADED"
+  createdAt      DateTime @default(now())
+  
+  @@index([bmcId])
+  @@index([status])
+  @@index([organizationId])
+}
+
+model BMCDailySummary {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bmcId           String   @db.ObjectId
+  bmc             MilkCollectionCenter @relation(fields: [bmcId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  date            DateTime @db.Date
+  totalStoredMilk Float    // Total liters stored
+  morningMilk     Float    // Morning session milk
+  eveningMilk     Float    // Evening session milk
+  avgFat          Float
+  avgSnf          Float
+  avgClr          Float
+  readyForTanker  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([bmcId, date])
+  @@index([bmcId])
+  @@index([date])
+  @@index([readyForTanker])
+  @@index([organizationId])
+}
+
+model Tanker {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bmcId           String?  @db.ObjectId
+  bmc             MilkCollectionCenter? @relation("TankerBMC", fields: [bmcId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tankerNumber    String
+  capacityL       Float    // Capacity in liters
+  status          String   @default("AVAILABLE") // "AVAILABLE", "IN_TRANSIT", "LOADED"
+  currentBmcId    String?  @db.ObjectId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  loads           TankerLoad[]
+  
+  @@unique([organizationId, tankerNumber])
+  @@index([status])
+  @@index([organizationId])
+}
+
+model TankerLoad {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tankerId      String   @db.ObjectId
+  tanker        Tanker   @relation(fields: [tankerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  bmcId         String   @db.ObjectId
+  bmc           MilkCollectionCenter @relation(fields: [bmcId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dispatchDate  DateTime
+  totalMilk     Float    // Total liters loaded
+  avgFat        Float
+  avgSnf        Float
+  avgClr        Float
+  loadedAt      DateTime @default(now())
+  status        String   @default("LOADED") // "LOADED", "IN_TRANSIT", "DELIVERED"
+  
+  // Security fields for dairy entry
+  challanNumber   String?
+  vehicleNumber   String?
+  grossWeight     Float?
+  tareWeight      Float?
+  netMilkWeight   Float?
+  securityCheckedAt DateTime?
+  securityCheckedById String?  @db.ObjectId
+  securityRemarks   String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  dairyReceipt  DairyMilkReceipt?
+  
+  @@index([tankerId])
+  @@index([bmcId])
+  @@index([status])
+  @@index([organizationId])
+}
+
+model DairyMilkReceipt {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String   @db.ObjectId
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tankerLoadId      String   @unique @db.ObjectId
+  tankerLoad        TankerLoad @relation(fields: [tankerLoadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  receivedAt        DateTime @default(now())
+  receivedMilk      Float    // Liters received at dairy
+  fat               Float
+  snf               Float
+  clr               Float
+  qcStatus          String   // "PASS" or "FAIL"
+  qcNotes           String?
+  procurementEntryId String? @unique @db.ObjectId
+  procurementEntry  MilkProcurementEntry? @relation(fields: [procurementEntryId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  createdAt         DateTime @default(now())
+  
+  @@index([organizationId])
+}
+
+model DirectDairyReceipt {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String   @db.ObjectId
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId        String   @db.ObjectId
+  customer          Connection @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  date              DateTime
+  session           String   // "morning" or "evening"
+  receivedMilk      Float    // Liters received at dairy
+  fat               Float
+  snf               Float
+  clr               Float
+  ratePerLiter      Float
+  totalAmount       Float
+  qcStatus          String?  // "PASS" or "FAIL"
+  qcNotes           String?
+  procurementEntryId String? @unique @db.ObjectId
+  procurementEntry  MilkProcurementEntry? @relation(fields: [procurementEntryId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([date])
+}
+
+model PaymentLedger {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entityType    String   // "CUSTOMER", "MANDALI", "BMC"
+  entityId      String   @db.ObjectId
+  periodStart   DateTime
+  periodEnd     DateTime
+  totalAmount   Float
+  paidAmount    Float    @default(0)
+  status        String   @default("PENDING") // "PENDING", "PARTIAL", "PAID"
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  customerPayments CustomerPayment[]
+  mandaliPayments  MandaliPayment[]
+  bmcPayments      BMCPayment[]
+  
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([organizationId])
+}
+
+model CustomerPayment {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ledgerId      String   @db.ObjectId
+  ledger        PaymentLedger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  customerId    String   @db.ObjectId
+  customer      Connection @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  collectionIds String[] @db.ObjectId // Array of CustomerMilkCollection IDs
+  directReceiptIds String[] @db.ObjectId // Array of DirectDairyReceipt IDs
+  amount        Float
+  paidAt        DateTime?
+  createdAt     DateTime @default(now())
+  
+  @@index([customerId])
+  @@index([organizationId])
+}
+
+model MandaliPayment {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ledgerId      String   @db.ObjectId
+  ledger        PaymentLedger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  mandaliId     String   @db.ObjectId
+  mandali       MilkCollectionCenter @relation(fields: [mandaliId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  summaryIds    String[] @db.ObjectId // Array of MandaliSessionSummary IDs
+  baseAmount    Float
+  commission    Float    // Commission earned by Mandali
+  deductions    Float    @default(0) // Any deductions
+  totalAmount   Float
+  paidAt        DateTime?
+  createdAt     DateTime @default(now())
+  
+  @@index([mandaliId])
+  @@index([organizationId])
+}
+
+model BMCPayment {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ledgerId      String   @db.ObjectId
+  ledger        PaymentLedger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  bmcId         String   @db.ObjectId
+  bmc           MilkCollectionCenter @relation(fields: [bmcId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  collectionIds String[] @db.ObjectId // Array of BMCMilkCollection IDs
+  baseAmount    Float
+  transportDeduction Float @default(0)
+  otherDeductions Float  @default(0)
+  totalAmount   Float
+  paidAt        DateTime?
+  createdAt     DateTime @default(now())
+  
+  @@index([bmcId])
+  @@index([organizationId])
+}
+
+// Production
+model ProductionBatch {
+  id               String                 @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String                 @db.ObjectId
+  organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  batchNumber      String                 @unique
+  productId        String                 @db.ObjectId
+  product          Product                @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  producedQty      Float
+  productionDate   DateTime
+  manufacturingDate DateTime?
+  expiryDate       DateTime?
+  status           String   @default("IN_PRODUCTION") // e.g., "IN_PRODUCTION", "COMPLETED"
+  items            ProductionBatchItem[]
+  orderItems       OrderItem[]
+  inventoryStocks  InventoryStock[]
+  massComplaints   MassComplaint[]
+  
+  // Link to production plan
+  productionPlanId String?  @db.ObjectId
+  productionPlan   ProductionPlan? @relation("PlanBatches", fields: [productionPlanId], references: [id], onDelete: SetNull)
+  planItems        ProductionPlanItem[] @relation("PlanItemBatch")
+}
+
+model ProductionBatchItem {
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  batchId        String @db.ObjectId
+  batch          ProductionBatch @relation(fields: [batchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId      String @db.ObjectId
+  product        Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rawMilkUsedL   Float?
+  quantity       Float
+}
+
+// Recipe & BOM (Bill of Materials)
+model Recipe {
+  id               String             @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String             @db.ObjectId
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String             // e.g., "Standard Paneer", "Misti Doi"
+  productCategory  String             // e.g., "PANEER", "CURD", "GHEE"
+  outputUnit       String             // e.g., "KG", "LITRE"
+  outputQuantity   Float              @default(1) // Standard output (e.g., 1 KG)
+  description      String?
+  processTimeMins  Int?               // Total process time in minutes
+  minFatPercent    Float?             // Minimum fat % required in input milk
+  minSnfPercent    Float?             // Minimum SNF % required
+  expectedYield    Float?             // Expected yield percentage (e.g., 85 for 85%)
+  processSteps     String?            // JSON or text describing process steps
+  isActive         Boolean            @default(true)
+  isDefault        Boolean            @default(false) // Mark as default recipe for category
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  ingredients      RecipeIngredient[]
+}
+
+model RecipeIngredient {
+  id              String  @id @default(auto()) @map("_id") @db.ObjectId
+  recipeId        String  @db.ObjectId
+  recipe          Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredientName  String  // e.g., "Raw Milk", "Citric Acid", "Culture"
+  ingredientType  String  // e.g., "RAW_MATERIAL", "CULTURE", "ADDITIVE"
+  quantity        Float   // Quantity needed
+  unit            String  // e.g., "LITRE", "GRAM", "ML"
+  isOptional      Boolean @default(false)
+  notes           String? // e.g., "Use fresh culture only"
+}
+
+// Quality control
+model QualityTest {
+  id             String     @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  testDate       DateTime
+  testedById     String?   @db.ObjectId
+  testedBy       User?      @relation(fields: [testedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  targetType     String     // e.g., "RawMilk", "Batch", "InProcess"
+  targetId       String?    // reference id
+  parameters     Json?      // JSON field
+  outcome        String     // e.g., "PASS", "FAIL", "CONDITIONAL"
+  remarks        String?
+}
+
+// Sales pipeline
+model SalesInquiry {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inquiryNumber String    @unique
+  connectionId  String    @db.ObjectId
+  connection    Connection @relation(fields: [connectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId     String?    @db.ObjectId
+  product       Product?  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity      Float?
+  quotedPrice   Float?
+  status        String?
+  source        String?
+  createdAt     DateTime  @default(now())
+}
+
+model Quotation {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String         @db.ObjectId
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quoteRef       String         @unique
+  connectionId   String         @db.ObjectId
+  connection     Connection     @relation(fields: [connectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subtotal       Float
+  gstCGST        Float?
+  gstSGST        Float?
+  gstIGST        Float?
+  discount       Float?
+  transportCharges Float?
+  coldChainCharges Float?
+  deliveryTerms  String?
+  paymentTerms   String?
+  status         String?
+  createdAt      DateTime       @default(now())
+  lineItems      QuoteLineItem[]
+}
+
+model QuoteLineItem {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quotationId String    @db.ObjectId
+  productId   String    @db.ObjectId
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  qty         Float
+  unitPrice   Float
+  totalPrice  Float
+}
+
+model SalesOrder {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orderRef       String    @unique
+  connectionId   String    @db.ObjectId
+  connection     Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  stage          String?
+  deliveryAddress String?
+  distanceKm     Float?
+  vehicleReq     String?
+  createdAt      DateTime  @default(now())
+  items          OrderItem[]
+  invoices       Invoice[]
+  productionPlanItems ProductionPlanItem[] @relation("OrderPlanItems")
+}
+
+model OrderItem {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesOrder    SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  salesOrderId  String     @db.ObjectId
+  productId     String     @db.ObjectId
+  product       Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  qty           Float
+  price         Float
+  batchId       String?    @db.ObjectId
+  batch         ProductionBatch? @relation(fields: [batchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  mfgDate       DateTime?
+  expiryDate    DateTime?
+  productionPlanItems ProductionPlanItem[] @relation("OrderItemPlan")
+}
+
+model Invoice {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceNumber  String    @unique
+  salesOrderId   String?   @db.ObjectId
+  salesOrder     SalesOrder? @relation(fields: [salesOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dueDate        DateTime?
+  totalAmount    Float
+  paidAmount     Float      @default(0)
+  status         String?
+  // Approval workflow fields
+  approvalStatus String    @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED
+  approvedById   String?   @db.ObjectId
+  approvedAt     DateTime?
+  rejectionReason String?
+  // Customer GST and billing details (copied from connection at invoice time)
+  customerGstNumber String?
+  customerName   String?
+  customerAddress String?
+  customerState  String?
+  // Invoice notes and terms
+  notes          String?
+  termsAndConditions String?
+  // Email tracking
+  sentToCustomer Boolean   @default(false)
+  sentAt         DateTime?
+  customerEmail  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  payments       Payment[]
+}
+
+model Payment {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceId     String?   @db.ObjectId
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  amount        Float
+  method        String
+  referenceNo   String?
+  bankName      String?
+  paidAt        DateTime
+  status        String?
+}
+
+model DeliveryChallan {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  challanNumber   String   @unique
+  salesOrderId    String?
+  vehicleNumber   String?
+  driverName      String?
+  driverPhone     String?
+  routeNumber     Int?     // Numeric route (e.g., 1, 2, 3)
+  dispatchTime    DateTime? // Time when dispatch started
+  estimatedArrival DateTime? // Estimated arrival time
+  actualArrival   DateTime? // Actual arrival time
+  tempInitialC    Float?
+  tempFinalC      Float?
+  signedBy        String?
+  deliveredAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Inventory
+model StorageLocation {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  type           String   // Cold Room / Freezer / Refrigerated Warehouse
+  capacity       Float?
+  currentLoad    Float?    @default(0)
+  tempMin        Float?
+  tempMax        Float?
+  currentTemp    Float?
+  operational    Boolean?  @default(true)
+  maintenanceLog Json?     // JSON field
+  stocks         InventoryStock[]
+}
+
+model InventoryStock {
+  id               String          @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String          @db.ObjectId
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productId        String          @db.ObjectId
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  batchId          String?         @db.ObjectId
+  batch            ProductionBatch? @relation(fields: [batchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  storageLocationId String          @db.ObjectId
+  storageLocation  StorageLocation @relation(fields: [storageLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity         Float
+  mfgDate          DateTime?
+  expiryDate       DateTime?
+  createdAt        DateTime        @default(now())
+  txns             InventoryTransaction[]
+}
+
+model InventoryTransaction {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String   @db.ObjectId
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stockId          String   @db.ObjectId
+  stock            InventoryStock @relation(fields: [stockId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type             String   // e.g., "IN", "OUT", "ADJUSTMENT"
+  qty              Float
+  referenceType    String?   // e.g., "SalesOrder", "ProductionBatch"
+  referenceId      String?
+  createdAt        DateTime  @default(now())
+}
+
+// Material Requests
+model MaterialRequest {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestedById  String       @db.ObjectId
+  requestedBy    User         @relation(fields: [requestedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId      String?      @db.ObjectId
+  product        Product?     @relation(fields: [productId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  material       String?      // Material name (if not a product)
+  quantity       Float
+  unit           String       // e.g., "KG", "L", "PIECE"
+  priority       String?      // e.g., "LOW", "MEDIUM", "HIGH", "URGENT"
+  status         String       @default("PENDING") // PENDING, APPROVED, REJECTED, FULFILLED, CANCELLED
+  notes          String?
+  requestedDate  DateTime     @default(now())
+  fulfilledDate  DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model PurchaseOrder {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  poRef          String    @unique
+  type           String
+  supplierId     String    @db.ObjectId
+  supplier       Connection @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  expectedDate   DateTime?
+  actualDate     DateTime?
+  createdAt      DateTime  @default(now())
+  items          POItem[]
+  materialRequirements ProductionMaterialRequirement[] @relation("MaterialPO")
+}
+
+model POItem {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  purchaseOrder  PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  purchaseOrderId String      @db.ObjectId
+  description    String
+  qty            Float
+  unitPrice      Float
+}
+
+model Bill {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  billNumber   String   @unique
+  supplierId   String   @db.ObjectId
+  supplier     Connection @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  dueDate      DateTime?
+  amount       Float
+  paidAmount   Float     @default(0)
+  status       String?
+}
+
+model SupportTicket {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ticketNumber String      @unique
+  connectionId String?     @db.ObjectId
+  connection   Connection? @relation(fields: [connectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issueType    String
+  priority     String      // e.g., "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  status       String      // e.g., "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"
+  createdAt    DateTime    @default(now())
+  comments     TicketComment[]
+}
+
+model TicketComment {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  ticketId     String       @db.ObjectId
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  authorId     String?      @db.ObjectId
+  author       User?         @relation(fields: [authorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  content      String
+  isInternal   Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+}
+
+model SupplierFeedback {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId   String   @db.ObjectId
+  supplier     Connection @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  feedbackType String
+  details      String?
+  resolved     Boolean  @default(false)
+}
+
+model Activity {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId       String?  @db.ObjectId
+  user         User?    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type         String
+  notes        String?
+  relatedType  String?
+  relatedId    String?
+  createdAt    DateTime  @default(now())
+}
+
+model Document {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name         String
+  path         String
+  category     String?
+  relatedType  String?
+  relatedId    String?
+  uploadedById String?  @db.ObjectId
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  uploadedAt   DateTime  @default(now())
+}
+
+model Notification {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String   @db.ObjectId
+  user           User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title          String
+  body           String?
+  isRead         Boolean  @default(false)
+  taskId         String?  @db.ObjectId
+  task           Task?    @relation("TaskNotifications", fields: [taskId], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now())
+}
+
+model PushSubscription {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String   @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  userAgent      String?
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([userId, organizationId])
+}
+
+// Analytics & commission
+model SalesTarget {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId    String?  @db.ObjectId
+  user      User?    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  period    String
+  amount    Float
+  achieved  Float     @default(0)
+}
+
+model CommissionRule {
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productCategory String?
+  minAmount    Float?
+  maxAmount    Float?
+  percentage   Float
+}
+
+model Commission {
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId       String? @db.ObjectId
+  user         User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  orderId      String?
+  amount       Float
+  paidStatus   String?
+}
+
+// Audit
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId    String?  @db.ObjectId
+  user      User?    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  action    String
+  entity    String
+  entityId  String?
+  meta      Json?    // JSON field
+  createdAt DateTime  @default(now())
+}
+
+// Email Verification
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  token      String   @unique
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+}
+
+// Magic Link Login
+model MagicLinkToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  token      String   @unique
+  userId     String   @db.ObjectId
+  user       User     @relation("MagicLinkTokens", fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+}
+
+// Password Reset Token
+model PasswordResetToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  tokenHash  String   @unique
+  userId     String   @db.ObjectId
+  user       User     @relation("PasswordResetTokens", fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+}
+
+// Email Verification Token (with hashed token)
+model EmailVerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  tokenHash  String   @unique
+  userId     String   @db.ObjectId
+  user       User     @relation("EmailVerificationTokens", fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+}
+
+// Organization Invitations
+model OrganizationInvite {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String   // "ADMIN" or "MEMBER"
+  userRole       String?  // Functional role key (e.g., "10" for HR, "3" for QC)
+  invitedById    String   @db.ObjectId
+  invitedBy      User     @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  token          String   @unique
+  status         String   @default("PENDING") // "PENDING", "ACCEPTED", "CANCELLED", "EXPIRED"
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  connectionId   String?  @db.ObjectId
+  connection     Connection? @relation("ConnectionInvite", fields: [connectionId], references: [id], onDelete: Cascade)
+}
+
+// Gate Entry (Gate Operator workflow)
+model GateEntry {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entryNumber     String   @unique
+  vehicleNumber   String
+  supplierId      String?  @db.ObjectId
+  supplier        Connection? @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entryTime       DateTime
+  expectedQuantity Float?   // Expected quantity in litres
+  actualQuantity  Float?    // Actual quantity received
+  driverName      String?
+  driverPhone     String?
+  status          String   @default("PENDING") // PENDING, RECEIVED, REJECTED
+  remarks         String?
+  createdById     String?  @db.ObjectId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Mass Complaining (replaces Market Returns)
+model MassComplaint {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  complaintNumber String   @unique
+  customerId      String?  @db.ObjectId
+  customer        Connection? @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId       String?  @db.ObjectId
+  product         Product? @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  batchId         String?  @db.ObjectId
+  batch           ProductionBatch? @relation(fields: [batchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issueType       String   // e.g., "POUCH_LEAKAGE", "SOUR_CURD", "PANEER_DEFECT", "EXPIRED", "OTHER"
+  quantity        Float    // Quantity affected
+  description     String?
+  complaintDate   DateTime
+  status          String   @default("OPEN") // OPEN, INVESTIGATING, RESOLVED, CLOSED
+  resolution      String?
+  resolvedAt      DateTime?
+  creditNoteId    String?
+  totalAmount     Float?   // Refund/credit amount
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Festival Data for spike calculations
+model FestivalData {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  festival        String   // e.g., "Diwali", "Holi", "Eid"
+  festivalDate    DateTime
+  year            Int
+  productId       String?  @db.ObjectId
+  product         Product? @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity        Float    // Quantity produced/sold during festival
+  unit            String   // e.g., "LITRE", "KG"
+  extraPercent    Float?   // Extra percentage increase
+  extraQuantity   Float?   // Extra quantity
+  keyProducts     Json?    // Array of key products
+  recommendation  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Workflow Status Tracking
+model WorkflowStatus {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entityType      String   // e.g., "GATE_ENTRY", "PROCUREMENT", "PRODUCTION_BATCH", "DISPATCH"
+  entityId        String   @db.ObjectId
+  currentStage    String   // e.g., "GATE_ENTRY", "STORE", "QC", "PRODUCTION", "DISPATCH", "FINANCE", "MANAGEMENT"
+  status          String   @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, BLOCKED, REJECTED
+  assignedTo      String?  // Role or user ID
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([entityType, entityId])
+  @@index([organizationId, currentStage])
+}
+
+// Maintenance
+model Machine {
+  id                  String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId      String       @db.ObjectId
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                String
+  type                String       // e.g. "PASTEURIZER", "CHILLER"
+  status              String       @default("OPERATIONAL") // "OPERATIONAL", "BREAKDOWN", "MAINTENANCE"
+  efficiency          Float?       @default(100)
+  lastMaintenanceDate DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+// HR
+model Attendance {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date           DateTime
+  status         String       // "PRESENT", "ABSENT", "LEAVE", "HALF_DAY"
+  checkInTime    DateTime?
+  checkOutTime   DateTime?
+  hoursWorked    Float?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model LeaveRequest {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startDate      DateTime
+  endDate        DateTime
+  reason         String?
+  status         String       @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  approvedById   String?      @db.ObjectId
+  approvedBy     User?        @relation("LeaveApprover", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Shift {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String       // e.g. "Morning", "Evening", "Night"
+  startTime      String       // "06:00"
+  endTime        String       // "14:00"
+  users          User[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+}
+
+// WhatsApp Contacts for Procurement
+model WhatsAppContact {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  phoneNumber    String
+  connectionId   String?      @db.ObjectId
+  connection     Connection?  @relation(fields: [connectionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, phoneNumber])
+  @@index([organizationId])
+  @@index([phoneNumber])
+}
+
+// Margin Management Models
+// Customer default margin - applies to all products for this customer
+model CustomerMargin {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connectionId   String       @unique @db.ObjectId  // Customer connection
+  connection     Connection   @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  marginPercent  Float        // Default margin % for this customer (e.g., 10 = 10%)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  @@index([organizationId])
+}
+
+// Product global margin - applies to all customers
+model ProductMargin {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productId      String       @unique @db.ObjectId
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  marginPercent  Float        // Global margin % for this product
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  @@index([organizationId])
+}
+
+// Customer-specific product margin (override)
+model CustomerProductMargin {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connectionId   String       @db.ObjectId  // Customer connection
+  connection     Connection   @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  productId      String       @db.ObjectId
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  marginPercent  Float        // Override margin % for this customer-product combo
+  // Target price support (bidirectional calculation)
+  targetPrice    Float?       // If set, discount is calculated from markedPrice
+  calculatedFrom String?      // "DISCOUNT" or "TARGET_PRICE" - which was set manually
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  @@unique([connectionId, productId])  // One margin per customer-product pair
+  @@index([organizationId])
+}
+
+// ==========================================
+// Production Planning System
+// ==========================================
+
+// ProductionPlan: Master planning document for production scheduling
+// Links orders to production batches and manages material requirements
+model ProductionPlan {
+  id                String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String       @db.ObjectId
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  planNumber        String       @unique  // e.g., "PP-2026-001"
+  name              String?      // Optional plan name
+  plannedDate       DateTime     // When production is planned
+  startDate         DateTime?    // Actual start date
+  endDate           DateTime?    // Actual/expected end date
+  status            String       @default("DRAFT") // DRAFT, APPROVED, IN_PROGRESS, COMPLETED, CANCELLED
+  priority          String       @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  notes             String?
+  createdById       String?      @db.ObjectId
+  createdBy         User?        @relation("ProductionPlanCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedById      String?      @db.ObjectId
+  approvedBy        User?        @relation("ProductionPlanApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt        DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  items             ProductionPlanItem[]
+  materialRequirements ProductionMaterialRequirement[]
+  productionBatches ProductionBatch[] @relation("PlanBatches")
+  stockAlerts       StockAlert[] @relation("PlanAlerts")
+  
+  @@index([organizationId])
+  @@index([plannedDate])
+  @@index([status])
+}
+
+// ProductionPlanItem: Individual product targets in a production plan
+// Can be linked to sales orders (demand-driven) or standalone (forecast-driven)
+model ProductionPlanItem {
+  id                String         @id @default(auto()) @map("_id") @db.ObjectId
+  productionPlanId  String         @db.ObjectId
+  productionPlan    ProductionPlan @relation(fields: [productionPlanId], references: [id], onDelete: Cascade)
+  productId         String         @db.ObjectId
+  product           Product        @relation("PlanProducts", fields: [productId], references: [id], onDelete: Cascade)
+  targetQuantity    Float          // Quantity to produce
+  producedQuantity  Float          @default(0) // Actual quantity produced
+  unit              String         // e.g., "KG", "LITRE", "PIECE"
+  priority          String         @default("MEDIUM")
+  status            String         @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  notes             String?
+  
+  // Link to sales order (optional - for demand-driven production)
+  salesOrderId      String?        @db.ObjectId
+  salesOrder        SalesOrder?    @relation("OrderPlanItems", fields: [salesOrderId], references: [id], onDelete: SetNull)
+  orderItemId       String?        @db.ObjectId
+  orderItem         OrderItem?     @relation("OrderItemPlan", fields: [orderItemId], references: [id], onDelete: SetNull)
+  
+  // Link to production batch when production starts
+  productionBatchId String?        @db.ObjectId
+  productionBatch   ProductionBatch? @relation("PlanItemBatch", fields: [productionBatchId], references: [id], onDelete: SetNull)
+  
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  @@index([productionPlanId])
+  @@index([productId])
+  @@index([salesOrderId])
+}
+
+// ProductionMaterialRequirement: Raw materials and supplies needed for production
+// Links suppliers (connections) to production plans for sourcing
+model ProductionMaterialRequirement {
+  id                String         @id @default(auto()) @map("_id") @db.ObjectId
+  productionPlanId  String         @db.ObjectId
+  productionPlan    ProductionPlan @relation(fields: [productionPlanId], references: [id], onDelete: Cascade)
+  materialName      String         // e.g., "Raw Milk", "Citric Acid", "Packaging Material"
+  materialType      String         // RAW_MATERIAL, PACKAGING, ADDITIVE, CULTURE, OTHER
+  productId         String?        @db.ObjectId  // If material is a tracked product
+  product           Product?       @relation("MaterialProduct", fields: [productId], references: [id], onDelete: SetNull)
+  requiredQuantity  Float          // Total quantity needed
+  availableQuantity Float          @default(0) // Current available stock
+  orderedQuantity   Float          @default(0) // Quantity ordered from suppliers
+  receivedQuantity  Float          @default(0) // Quantity received
+  unit              String         // e.g., "LITRE", "KG", "PIECE"
+  estimatedCost     Float?
+  actualCost        Float?
+  status            String         @default("PENDING") // PENDING, ORDERED, PARTIAL, FULFILLED, SHORTAGE
+  requiredByDate    DateTime?      // When material is needed
+  
+  // Link to preferred supplier (connection)
+  supplierId        String?        @db.ObjectId
+  supplier          Connection?    @relation("MaterialSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
+  
+  // Link to purchase order (when created)
+  purchaseOrderId   String?        @db.ObjectId
+  purchaseOrder     PurchaseOrder? @relation("MaterialPO", fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  
+  notes             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  @@index([productionPlanId])
+  @@index([supplierId])
+  @@index([status])
+}
+
+// StockAlert: Automated stock level alerts based on production requirements
+model StockAlert {
+  id                String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String       @db.ObjectId
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  alertType         String       // LOW_STOCK, OUT_OF_STOCK, REORDER_POINT, PRODUCTION_SHORTAGE
+  severity          String       @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status            String       @default("ACTIVE") // ACTIVE, ACKNOWLEDGED, RESOLVED, IGNORED
+  
+  // What triggered the alert
+  productId         String?      @db.ObjectId
+  product           Product?     @relation("ProductAlerts", fields: [productId], references: [id], onDelete: Cascade)
+  materialName      String?      // For non-product materials
+  
+  // Stock levels
+  currentQuantity   Float        // Current stock level
+  minimumQuantity   Float        // Minimum required/reorder level
+  requiredQuantity  Float?       // Additional quantity needed (e.g., for production plan)
+  shortfallQuantity Float?       // How much is short
+  
+  // Links to related entities
+  productionPlanId  String?      @db.ObjectId
+  productionPlan    ProductionPlan? @relation("PlanAlerts", fields: [productionPlanId], references: [id], onDelete: SetNull)
+  supplierId        String?      @db.ObjectId
+  supplier          Connection?  @relation("AlertSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
+  
+  // Alert details
+  title             String
+  message           String
+  acknowledgedById  String?      @db.ObjectId
+  acknowledgedBy    User?        @relation("AlertAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  acknowledgedAt    DateTime?
+  resolvedAt        DateTime?
+  
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  @@index([organizationId])
+  @@index([status])
+  @@index([alertType])
+  @@index([productId])
+}
+
+// ==========================================
+// E-commerce Catalog & Inquiry System
+// ==========================================
+
+// Product Images - Multiple images per product with Azure Blob Storage
+model ProductImage {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productId      String       @db.ObjectId
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url            String       // Azure Blob Storage URL
+  altText        String?      // Alt text for accessibility
+  isPrimary      Boolean      @default(false) // Primary display image
+  order          Int          @default(0) // Display order
+  createdAt      DateTime     @default(now())
+  
+  @@index([productId])
+  @@index([organizationId])
+}
+
+// Product Category - Hierarchical categories for catalog navigation
+model ProductCategory {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String           @db.ObjectId
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String           // e.g., "Dairy Products", "Ghee & Butter"
+  slug           String           // URL-friendly: "dairy-products"
+  description    String?
+  iconUrl        String?          // Category icon (Azure Blob Storage)
+  parentId       String?          @db.ObjectId // For sub-categories
+  parent         ProductCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children       ProductCategory[] @relation("CategoryHierarchy")
+  order          Int              @default(0) // Display order
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  products       Product[]
+  
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([parentId])
+}
+
+// Public Inquiry - Anonymous visitor inquiries from catalog
+model PublicInquiry {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String       @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inquiryNumber   String       @unique // Auto-generated: INQ-2026-0001
+  
+  // Visitor Details
+  visitorName     String
+  visitorEmail    String
+  visitorPhone    String?
+  companyName     String?      // Optional business name
+  
+  // Inquiry Details
+  productId       String?      @db.ObjectId
+  product         Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  categoryInterest String?     // Category they're interested in
+  quantityInterest Float?      // Approximate quantity needed
+  message         String       // Inquiry message
+  
+  // Tracking
+  status          String       @default("NEW") // NEW, CONTACTED, CONVERTED, CLOSED
+  source          String       @default("CATALOG") // CATALOG, DIRECT_LINK, REFERRAL
+  assignedToId    String?      @db.ObjectId
+  notes           String?      // Internal notes
+  
+  // Conversion tracking
+  convertedToInquiryId String? @db.ObjectId // Link to SalesInquiry if converted
+  convertedToConnectionId String? @db.ObjectId // Link to Connection if converted
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@index([organizationId])
+  @@index([status])
+  @@index([productId])
+  @@index([createdAt])
+}
+
+// ==========================================
+// POS (Point of Sale) System
+// ==========================================
+
+// POS Customer - Quick customer records for receipts and history
+model POSCustomer {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String       @db.ObjectId
+  organization    Organization @relation("POSCustomers", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name            String
+  phone           String?
+  email           String?
+  address         String?
+  
+  // Loyalty & Analytics
+  totalPurchases  Float        @default(0)
+  totalVisits     Int          @default(0)
+  lastVisitDate   DateTime?
+  
+  // Optional loyalty points
+  loyaltyPoints   Int          @default(0)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  // Relations
+  transactions    POSTransaction[]
+  
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+  @@index([phone])
+}
+
+// POS Transaction - Main sales transaction record
+model POSTransaction {
+  id                String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String       @db.ObjectId
+  organization      Organization @relation("POSTransactions", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Transaction Details
+  receiptNumber     String       @unique // Auto-generated: POS-20260103-0001
+  transactionDate   DateTime     @default(now())
+  
+  // Customer Info (optional)
+  customerId        String?      @db.ObjectId
+  customer          POSCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName      String?      // For quick walk-in sales without customer record
+  customerPhone     String?
+  
+  // Financial Details
+  subtotal          Float        // Sum of all items before discount/tax
+  discountAmount    Float        @default(0)
+  discountPercent   Float?       // If discount was percentage-based
+  taxAmount         Float        @default(0)
+  taxPercent        Float?       // Tax percentage applied
+  totalAmount       Float        // Final amount after discount and tax
+  
+  // Payment Details
+  paymentMethod     String       // CASH, CARD, UPI, WALLET, SPLIT
+  amountPaid        Float
+  changeGiven       Float        @default(0)
+  
+  // Split payment support
+  cashAmount        Float?
+  cardAmount        Float?
+  upiAmount         Float?
+  walletAmount      Float?
+  
+  // Additional Info
+  notes             String?
+  cashierId         String?      @db.ObjectId // User who processed the sale
+  cashier           User?        @relation("POSCashier", fields: [cashierId], references: [id], onDelete: SetNull)
+  
+  // Status
+  status            String       @default("COMPLETED") // COMPLETED, VOID, REFUNDED
+  voidReason        String?
+  voidedAt          DateTime?
+  voidedById        String?      @db.ObjectId
+  
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  // Relations
+  items             POSTransactionItem[]
+  
+  @@index([organizationId])
+  @@index([transactionDate])
+  @@index([customerId])
+  @@index([status])
+}
+
+// POS Transaction Item - Individual items in a transaction
+model POSTransactionItem {
+  id              String         @id @default(auto()) @map("_id") @db.ObjectId
+  transactionId   String         @db.ObjectId
+  transaction     POSTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  
+  // Product Info
+  productId       String         @db.ObjectId
+  product         Product        @relation("POSTransactionItems", fields: [productId], references: [id], onDelete: NoAction)
+  productName     String         // Snapshot at time of sale
+  productSku      String?
+  
+  // Quantity & Price
+  quantity        Float
+  unitPrice       Float          // Price per unit at time of sale
+  discountAmount  Float          @default(0)
+  taxAmount       Float          @default(0)
+  subtotal        Float          // quantity * unitPrice
+  total           Float          // After discount and tax
+  
+  createdAt       DateTime       @default(now())
+  
+  @@index([transactionId])
+  @@index([productId])
+}
+
+// POS Session - Cash drawer/shift management
+model POSSession {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String       @db.ObjectId
+  organization    Organization @relation("POSSessions", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Session Info
+  sessionNumber   String       @unique // AUTO-generated
+  cashierId       String       @db.ObjectId
+  cashier         User         @relation("POSSessionCashier", fields: [cashierId], references: [id], onDelete: NoAction)
+  
+  // Opening
+  openedAt        DateTime     @default(now())
+  openingBalance  Float        // Starting cash in drawer
+  
+  // Closing
+  closedAt        DateTime?
+  closingBalance  Float?       // Expected cash at close
+  actualCash      Float?       // Actual cash counted
+  cashDifference  Float?       // Difference (actualCash - closingBalance)
+  
+  // Session Summary
+  totalSales      Float        @default(0)
+  totalCash       Float        @default(0)
+  totalCard       Float        @default(0)
+  totalUPI        Float        @default(0)
+  totalWallet     Float        @default(0)
+  transactionCount Int         @default(0)
+  
+  // Status
+  status          String       @default("OPEN") // OPEN, CLOSED
+  notes           String?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@index([organizationId])
+  @@index([cashierId])
+  @@index([status])
+  @@index([openedAt])
+}
