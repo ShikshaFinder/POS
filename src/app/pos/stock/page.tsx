@@ -73,7 +73,7 @@ export default function StockPage() {
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
         <div className="bg-white rounded-lg border border-gray-200 p-5">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <Package className="h-8 w-8 text-blue-500" />
             </div>
             <div className="ml-4">
@@ -84,7 +84,7 @@ export default function StockPage() {
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-5">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <AlertTriangle className="h-8 w-8 text-orange-500" />
             </div>
             <div className="ml-4">
@@ -97,7 +97,7 @@ export default function StockPage() {
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-5">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <TrendingDown className="h-8 w-8 text-red-500" />
             </div>
             <div className="ml-4">

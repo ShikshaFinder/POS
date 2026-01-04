@@ -11,12 +11,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!session.user.currentOrganizationId) {
+      return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
+    }
+
     const searchParams = req.nextUrl.searchParams
     const search = searchParams.get('search')
     const phone = searchParams.get('phone')
 
     const where: any = {
-      organizationId: (session.user as any).currentOrganizationId,
+      organizationId: session.user.currentOrganizationId,
     }
 
     if (search) {
@@ -69,6 +73,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!session.user.currentOrganizationId) {
+      return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
+    }
+
     const body = await req.json()
     const { name, phone, email, address } = body
 
@@ -83,7 +91,7 @@ export async function POST(req: NextRequest) {
     if (phone) {
       const existing = await prisma.pOSCustomer.findFirst({
         where: {
-          organizationId: (session.user as any).currentOrganizationId,
+          organizationId: session.user.currentOrganizationId,
           phone,
         },
       })
@@ -98,7 +106,7 @@ export async function POST(req: NextRequest) {
 
     const customer = await prisma.pOSCustomer.create({
       data: {
-        organizationId: (session.user as any).currentOrganizationId,
+        organizationId: session.user.currentOrganizationId,
         name,
         phone,
         email,

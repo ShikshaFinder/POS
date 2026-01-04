@@ -11,51 +11,86 @@ export async function GET(req: NextRequest) {
     }
 
     const organizationId = (session.user as any).currentOrganizationId
-    
+    const userId = (session.user as any).id
+
     // Get today's date range
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
 
-    // Today's sales
-    const todayInvoices = await prisma.invoice.findMany({
+    // Today's POS transactions
+    const todayTransactions = await prisma.pOSTransaction.findMany({
       where: {
         organizationId,
-        createdAt: {
+        transactionDate: {
           gte: today,
           lt: tomorrow
         },
-        status: 'PAID'
-      }
+        status: 'COMPLETED'
+      },
+      orderBy: { transactionDate: 'desc' }
     })
 
-    const todaySales = todayInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
-    const todayOrders = todayInvoices.length
+    const todaySales = todayTransactions.reduce((sum, t) => sum + t.totalAmount, 0)
+    const todayTransactionCount = todayTransactions.length
+    const averageTicket = todayTransactionCount > 0 ? todaySales / todayTransactionCount : 0
+
+    // Payment breakdown
+    const paymentBreakdown = {
+      cash: todayTransactions.filter(t => t.paymentMethod === 'CASH').reduce((sum, t) => sum + t.totalAmount, 0),
+      card: todayTransactions.filter(t => t.paymentMethod === 'CARD').reduce((sum, t) => sum + t.totalAmount, 0),
+      upi: todayTransactions.filter(t => t.paymentMethod === 'UPI').reduce((sum, t) => sum + t.totalAmount, 0),
+      wallet: todayTransactions.filter(t => t.paymentMethod === 'WALLET').reduce((sum, t) => sum + t.totalAmount, 0)
+    }
+
+    // Recent transactions
+    const recentTransactions = todayTransactions.slice(0, 5).map(t => ({
+      receiptNumber: t.receiptNumber,
+      amount: t.totalAmount,
+      time: t.transactionDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      paymentMethod: t.paymentMethod
+    }))
 
     // Low stock items
     const lowStockItems = await prisma.product.count({
       where: {
         organizationId,
-        currentStock: {
-          lte: 10 // You can adjust this threshold
-        }
+        AND: [
+          { currentStock: { not: null } },
+          { reorderLevel: { not: null } },
+          { currentStock: { lte: 10 } } // Threshold
+        ]
       }
     })
 
-    // Total customers (connections)
-    const totalCustomers = await prisma.connection.count({
+    // Total POS customers
+    const totalCustomers = await prisma.pOSCustomer.count({
+      where: { organizationId }
+    })
+
+    // Active session for current user
+    const activeSession = await prisma.pOSSession.findFirst({
       where: {
         organizationId,
-        type: 'CUSTOMER'
+        cashierId: userId,
+        status: 'OPEN'
       }
     })
 
     return NextResponse.json({
       todaySales,
-      todayOrders,
+      todayTransactions: todayTransactionCount,
+      averageTicket,
       lowStockItems,
-      totalCustomers
+      totalCustomers,
+      paymentBreakdown,
+      recentTransactions,
+      activeSession: activeSession ? {
+        sessionNumber: activeSession.sessionNumber,
+        openedAt: activeSession.openedAt.toISOString(),
+        totalSales: activeSession.totalSales
+      } : null
     })
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)

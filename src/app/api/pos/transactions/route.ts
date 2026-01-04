@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 
 // GET /api/pos/transactions - Get all transactions with filters
 export async function GET(req: NextRequest) {
@@ -9,6 +9,10 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!session.user.currentOrganizationId) {
+      return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -19,7 +23,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
 
     const where: any = {
-      organizationId: session.user.organizationId,
+      organizationId: session.user.currentOrganizationId,
     }
 
     if (startDate && endDate) {
@@ -52,8 +56,7 @@ export async function GET(req: NextRequest) {
             email: true,
             profile: {
               select: {
-                firstName: true,
-                lastName: true,
+                fullName: true,
               },
             },
           },
@@ -83,6 +86,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!session.user.currentOrganizationId) {
+      return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
+    }
+
     const body = await req.json()
     const {
       items,
@@ -110,7 +117,17 @@ export async function POST(req: NextRequest) {
 
     // Calculate subtotal
     let subtotal = 0
-    const processedItems = []
+    const processedItems: {
+      productId: string
+      productName: string
+      productSku: string | null
+      quantity: number
+      unitPrice: number
+      discountAmount: number
+      taxAmount: number
+      subtotal: number
+      total: number
+    }[] = []
 
     for (const item of items) {
       const product = await prisma.product.findUnique({
@@ -180,7 +197,7 @@ export async function POST(req: NextRequest) {
     const dateStr = today.toISOString().split('T')[0].replace(/-/g, '')
     const count = await prisma.pOSTransaction.count({
       where: {
-        organizationId: session.user.organizationId,
+        organizationId: session.user.currentOrganizationId,
         transactionDate: {
           gte: new Date(today.setHours(0, 0, 0, 0)),
           lte: new Date(today.setHours(23, 59, 59, 999)),
@@ -194,7 +211,7 @@ export async function POST(req: NextRequest) {
       // Create transaction
       const newTransaction = await tx.pOSTransaction.create({
         data: {
-          organizationId: session.user.organizationId,
+          organizationId: session.user!.currentOrganizationId!,
           receiptNumber,
           customerId,
           customerName,
@@ -213,7 +230,7 @@ export async function POST(req: NextRequest) {
           upiAmount,
           walletAmount,
           notes,
-          cashierId: session.user.id,
+          cashierId: session.user!.id,
           items: {
             create: processedItems,
           },

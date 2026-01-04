@@ -71,7 +71,7 @@ export default function TodaysSalesPage() {
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
         <div className="bg-white rounded-lg border border-gray-200 p-5">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <div className="rounded-md p-3 bg-green-500">
                 <DollarSign className="h-6 w-6 text-white" />
               </div>
@@ -86,7 +86,7 @@ export default function TodaysSalesPage() {
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-5">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <div className="rounded-md p-3 bg-blue-500">
                 <ShoppingCart className="h-6 w-6 text-white" />
               </div>
@@ -101,7 +101,7 @@ export default function TodaysSalesPage() {
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-5">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <div className="rounded-md p-3 bg-purple-500">
                 <TrendingUp className="h-6 w-6 text-white" />
               </div>

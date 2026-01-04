@@ -3,42 +3,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-interface CheckoutItem {
-  productId: string
-  quantity: number
-  price: number
-  discount: number
-  discountType: 'flat' | 'percent'
-}
-
-interface CheckoutData {
-  items: CheckoutItem[]
-  customerId?: string
-  customerName?: string
-  customerPhone?: string
-  // Payment details
-  paymentMethod: 'CASH' | 'CARD' | 'UPI' | 'WALLET' | 'SPLIT'
-  amountPaid: number
-  changeGiven: number
-  cashAmount: number
-  cardAmount: number
-  upiAmount: number
-  walletAmount: number
-  // Discounts and taxes
-  billDiscount: number
-  billDiscountType: 'flat' | 'percent'
-  couponCode?: string
-  couponDiscount: number
-  taxPercent: number
-  taxAmount: number
-  roundOff: number
-  // Totals
-  subtotal: number
-  totalAmount: number
-  // Notes
-  notes?: string
-}
-
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -47,30 +11,8 @@ export async function POST(req: NextRequest) {
     }
 
     const organizationId = (session.user as any).currentOrganizationId
-    const userId = (session.user as any).id
-    const body: CheckoutData = await req.json()
-
-    const {
-      items,
-      customerId,
-      customerName,
-      customerPhone,
-      paymentMethod = 'CASH',
-      amountPaid,
-      changeGiven = 0,
-      cashAmount = 0,
-      cardAmount = 0,
-      upiAmount = 0,
-      walletAmount = 0,
-      billDiscount = 0,
-      couponCode,
-      couponDiscount = 0,
-      taxAmount = 0,
-      roundOff = 0,
-      subtotal,
-      totalAmount,
-      notes
-    } = body
+    const body = await req.json()
+    const { items, customerName, customerPhone, totalAmount } = body
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 })
@@ -93,111 +35,97 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Generate receipt number
-      const today = new Date()
-      const datePrefix = today.toISOString().slice(0, 10).replace(/-/g, '')
-      const count = await tx.pOSTransaction.count({
+      // Create invoice/order
+      const invoiceNumber = `INV-${Date.now()}`
+      
+      // For POS, we'll create a sales order and invoice
+      // First, create or get walk-in customer connection
+      let connection = await tx.connection.findFirst({
         where: {
           organizationId,
-          transactionDate: {
-            gte: new Date(today.setHours(0, 0, 0, 0)),
-            lt: new Date(today.setHours(23, 59, 59, 999))
-          }
+          name: customerName || 'Walk-in Customer',
+          type: 'CUSTOMER'
         }
       })
-      const receiptNumber = `RCP-${datePrefix}-${String(count + 1).padStart(4, '0')}`
 
-      // Get or create POS customer
-      let posCustomerId = customerId
-      if (!posCustomerId && (customerName || customerPhone)) {
-        // Try to find existing customer by phone
-        let customer = customerPhone
-          ? await tx.pOSCustomer.findFirst({
-            where: { organizationId, phone: customerPhone }
-          })
-          : null
-
-        if (!customer) {
-          customer = await tx.pOSCustomer.create({
-            data: {
-              organizationId,
-              name: customerName || 'Walk-in Customer',
-              phone: customerPhone
-            }
-          })
-        }
-        posCustomerId = customer.id
+      if (!connection && customerName) {
+        connection = await tx.connection.create({
+          data: {
+            organizationId,
+            name: customerName,
+            type: 'CUSTOMER',
+            businessCategory: 'RETAIL',
+            contacts: customerPhone ? {
+              create: {
+                fullName: customerName,
+                phone: customerPhone,
+                isPrimary: true
+              }
+            } : undefined
+          }
+        })
       }
 
-      // Create POS Transaction
-      const transaction = await tx.pOSTransaction.create({
+      // Create sales order
+      const orderRef = `SO-${Date.now()}`
+      
+      // Ensure we have a connection (required by schema)
+      if (!connection) {
+        throw new Error('Customer connection is required')
+      }
+      
+      const salesOrder = await tx.salesOrder.create({
         data: {
           organizationId,
-          receiptNumber,
-          transactionDate: new Date(),
-          customerId: posCustomerId,
-          customerName: customerName || 'Walk-in Customer',
-          customerPhone,
-          // Amounts
-          subtotal,
-          discountAmount: billDiscount + couponDiscount + items.reduce((sum, item) => sum + item.discount, 0),
-          taxAmount,
-          totalAmount,
-          // Note: roundOff amount is included in totalAmount calculation
-          // Payment
-          paymentMethod,
-          amountPaid,
-          changeGiven,
-          cashAmount: paymentMethod === 'CASH' ? amountPaid : (paymentMethod === 'SPLIT' ? cashAmount : 0),
-          cardAmount: paymentMethod === 'CARD' ? totalAmount : (paymentMethod === 'SPLIT' ? cardAmount : 0),
-          upiAmount: paymentMethod === 'UPI' ? totalAmount : (paymentMethod === 'SPLIT' ? upiAmount : 0),
-          walletAmount: paymentMethod === 'WALLET' ? totalAmount : (paymentMethod === 'SPLIT' ? walletAmount : 0),
-          // Status
-          status: 'COMPLETED',
-          notes,
-          cashierId: userId,
-          // Create transaction items
+          orderRef,
+          connectionId: connection.id,
+          stage: 'COMPLETED',
           items: {
-            create: items.map((item) => ({
+            create: items.map((item: any) => ({
+              organizationId,
               productId: item.productId,
-              productName: '', // Will be updated below
-              productSku: '',
-              quantity: item.quantity,
-              unitPrice: item.price,
-              discountAmount: item.discount,
-              taxAmount: 0, // Per-item tax if needed
-              subtotal: item.price * item.quantity,
-              total: (item.price * item.quantity) - item.discount
+              qty: item.quantity,
+              price: item.price
             }))
           }
         },
         include: {
-          items: true
+          items: {
+            include: {
+              product: true
+            }
+          }
         }
       })
 
-      // Update product names in transaction items and deduct stock
-      for (const item of items) {
-        const product = await tx.product.findUnique({
-          where: { id: item.productId },
-          select: { name: true, sku: true }
-        })
-
-        if (product) {
-          // Update transaction item with product details
-          await tx.pOSTransactionItem.updateMany({
-            where: {
-              transactionId: transaction.id,
-              productId: item.productId
-            },
-            data: {
-              productName: product.name,
-              productSku: product.sku || ''
-            }
-          })
+      // Create invoice
+      const invoice = await tx.invoice.create({
+        data: {
+          organizationId,
+          invoiceNumber,
+          salesOrderId: salesOrder.id,
+          totalAmount,
+          paidAmount: totalAmount,
+          status: 'PAID',
+          approvalStatus: 'APPROVED',
+          customerName: customerName || 'Walk-in Customer'
         }
+      })
 
-        // Deduct stock
+      // Create payment record
+      await tx.payment.create({
+        data: {
+          organizationId,
+          invoiceId: invoice.id,
+          amount: totalAmount,
+          method: 'CASH',
+          paidAt: new Date(),
+          status: 'COMPLETED'
+        }
+      })
+
+      // Update stock levels
+      for (const item of items) {
         await tx.product.update({
           where: { id: item.productId },
           data: {
@@ -207,7 +135,7 @@ export async function POST(req: NextRequest) {
           }
         })
 
-        // Create inventory transaction if stock exists
+        // Create inventory transaction
         const stock = await tx.inventoryStock.findFirst({
           where: {
             organizationId,
@@ -222,57 +150,20 @@ export async function POST(req: NextRequest) {
               stockId: stock.id,
               type: 'OUT',
               qty: item.quantity,
-              referenceType: 'POSTransaction',
-              referenceId: transaction.id
+              referenceType: 'SalesOrder',
+              referenceId: salesOrder.id
             }
           })
         }
       }
 
-      // Update POS session totals if there's an active session
-      const activeSession = await tx.pOSSession.findFirst({
-        where: {
-          organizationId,
-          cashierId: userId,
-          status: 'OPEN'
-        }
-      })
-
-      if (activeSession) {
-        await tx.pOSSession.update({
-          where: { id: activeSession.id },
-          data: {
-            totalSales: { increment: totalAmount },
-            totalCash: { increment: cashAmount || (paymentMethod === 'CASH' ? amountPaid : 0) },
-            totalCard: { increment: cardAmount || (paymentMethod === 'CARD' ? totalAmount : 0) },
-            totalUPI: { increment: upiAmount || (paymentMethod === 'UPI' ? totalAmount : 0) },
-            totalWallet: { increment: walletAmount || (paymentMethod === 'WALLET' ? totalAmount : 0) },
-            transactionCount: { increment: 1 }
-          }
-        })
-      }
-
-      // Update customer loyalty points if applicable
-      if (posCustomerId) {
-        const pointsEarned = Math.floor(totalAmount / 100) // 1 point per ₹100
-        await tx.pOSCustomer.update({
-          where: { id: posCustomerId },
-          data: {
-            loyaltyPoints: { increment: pointsEarned },
-            totalPurchases: { increment: totalAmount },
-            totalVisits: { increment: 1 },
-            lastVisitDate: new Date()
-          }
-        })
-      }
-
-      return transaction
+      return { salesOrder, invoice }
     })
 
     return NextResponse.json({
       success: true,
-      transactionId: result.id,
-      receiptNumber: result.receiptNumber
+      orderId: result.salesOrder.id,
+      invoiceNumber: result.invoice.invoiceNumber
     })
   } catch (error: any) {
     console.error('Checkout error:', error)

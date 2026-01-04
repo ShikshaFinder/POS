@@ -6,6 +6,8 @@ declare module "next-auth" {
       id: string;
       name?: string | null;
       email?: string | null;
+      currentOrganizationId?: string;
+      role?: string;
     };
   }
 
@@ -14,6 +16,8 @@ declare module "next-auth" {
     name?: string | null;
     email?: string | null;
     emailVerified?: Date | null;
+    currentOrganizationId?: string;
+    role?: string;
   }
 }
 
