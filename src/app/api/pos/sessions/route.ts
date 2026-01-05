@@ -202,7 +202,7 @@ export async function PATCH(req: NextRequest) {
                 actualCash,
                 cashDifference,
                 status: 'CLOSED',
-                notes
+                closingNotes: notes
             }
         })
 

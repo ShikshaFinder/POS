@@ -81,6 +81,7 @@ model User {
   posAlertsAcknowledged   POSStockAlert[]    @relation("POSAlertAcknowledger")
   posOrdersCreated        POSOrder[]         @relation("POSOrderCreator")
   posTransactionsCashier  POSTransaction[]   @relation("POSTransactionCashier")
+  posSessions             POSSession[]       @relation("POSSessionCashier")
 }
 
 model Organization {
@@ -173,6 +174,8 @@ model Organization {
   posOrders        POSOrder[]
   posInvoices      POSInvoice[]
   posTransactions  POSTransaction[]
+  posCustomers     POSCustomer[]
+  posSessions      POSSession[]
 }
 
 model OrganizationMembership {
@@ -374,7 +377,6 @@ model Connection {
   customerProductMargins CustomerProductMargin[]
   materialRequirements   ProductionMaterialRequirement[] @relation("MaterialSupplier")
   stockAlerts            StockAlert[]                    @relation("AlertSupplier")
-  posTransactions        POSTransaction[]                @relation("POSTransactionCustomer")
 
   @@index([createdById])
 }
@@ -1884,6 +1886,8 @@ model POSLocation {
   orders        POSOrder[]
   invoices      POSInvoice[]
   transactions  POSTransaction[]
+  customers     POSCustomer[]      @relation("POSLocationCustomers")
+  sessions      POSSession[]       @relation("POSLocationSessions")
   invites       OrganizationInvite[] @relation("POSLocationInvite")
 
   @@unique([organizationId, code])
@@ -2099,43 +2103,51 @@ model POSPayment {
 
 // POS Transaction - Retail sales transactions at POS location
 model POSTransaction {
-  id              String       @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String       @db.ObjectId
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  posLocationId   String       @db.ObjectId
-  posLocation     POSLocation  @relation(fields: [posLocationId], references: [id], onDelete: Cascade)
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String        @db.ObjectId
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  posLocationId   String?       @db.ObjectId
+  posLocation     POSLocation?  @relation(fields: [posLocationId], references: [id], onDelete: SetNull)
 
   // Transaction Info
-  receiptNumber   String       @unique
-  transactionDate DateTime     @default(now())
-  status          String       @default("COMPLETED") // PENDING, COMPLETED, CANCELLED, REFUNDED
+  receiptNumber   String        @unique
+  transactionDate DateTime      @default(now())
+  status          String        @default("COMPLETED") // PENDING, COMPLETED, CANCELLED, REFUNDED
 
   // Customer Info (optional for walk-in)
-  customerId      String?      @db.ObjectId
-  customer        Connection?  @relation("POSTransactionCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+  customerId      String?       @db.ObjectId
+  customer        POSCustomer?  @relation("POSCustomerTransactions", fields: [customerId], references: [id], onDelete: SetNull)
   customerName    String?
   customerPhone   String?
 
   // Cashier
-  cashierId       String       @db.ObjectId
-  cashier         User         @relation("POSTransactionCashier", fields: [cashierId], references: [id])
+  cashierId       String        @db.ObjectId
+  cashier         User          @relation("POSTransactionCashier", fields: [cashierId], references: [id])
 
   // Financials
-  subtotal        Float        @default(0)
-  discountAmount  Float        @default(0)
-  taxAmount       Float        @default(0)
-  totalAmount     Float        @default(0)
-  paidAmount      Float        @default(0)
-  changeAmount    Float        @default(0)
+  subtotal        Float         @default(0)
+  discountAmount  Float         @default(0)
+  discountPercent Float         @default(0)
+  taxAmount       Float         @default(0)
+  taxPercent      Float         @default(0)
+  totalAmount     Float         @default(0)
+  amountPaid      Float         @default(0)  // Alias for paidAmount
+  paidAmount      Float         @default(0)
+  changeGiven     Float         @default(0)  // Alias for changeAmount
+  changeAmount    Float         @default(0)
 
-  // Payment Info
-  paymentMethod   String       @default("CASH") // CASH, CARD, UPI, MIXED
-  paymentDetails  String?      // JSON for mixed payments
+  // Payment Info - Primary method and breakdown
+  paymentMethod   String        @default("CASH") // CASH, CARD, UPI, WALLET, MIXED
+  cashAmount      Float         @default(0)
+  cardAmount      Float         @default(0)
+  upiAmount       Float         @default(0)
+  walletAmount    Float         @default(0)
+  paymentDetails  String?       // JSON for mixed payments
 
   notes           String?
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   // Relations
   items           POSTransactionItem[]
@@ -2153,7 +2165,8 @@ model POSTransactionItem {
   productId     String         @db.ObjectId
   product       Product        @relation("POSTransactionItemProduct", fields: [productId], references: [id])
 
-  productName    String // Snapshot of product name at time of sale
+  productName    String  // Snapshot of product name at time of sale
+  productSku     String? // Snapshot of product SKU
   quantity       Float
   unitPrice      Float
   discountAmount Float   @default(0)
@@ -2161,4 +2174,79 @@ model POSTransactionItem {
   total          Float
 
   @@index([transactionId])
+}
+
+// POS Customer - Retail customers for POS transactions
+model POSCustomer {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  posLocationId  String?      @db.ObjectId
+  posLocation    POSLocation? @relation("POSLocationCustomers", fields: [posLocationId], references: [id], onDelete: SetNull)
+
+  // Customer Info
+  name           String
+  phone          String?
+  email          String?
+  address        String?
+
+  // Loyalty & Analytics
+  totalSpent     Float    @default(0)
+  visitCount     Int      @default(0)
+  lastVisitDate  DateTime?
+  loyaltyPoints  Int      @default(0)
+
+  notes          String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  transactions   POSTransaction[] @relation("POSCustomerTransactions")
+
+  @@index([organizationId])
+  @@index([posLocationId])
+  @@index([phone])
+}
+
+// POS Session - Cashier session management
+model POSSession {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  posLocationId  String?      @db.ObjectId
+  posLocation    POSLocation? @relation("POSLocationSessions", fields: [posLocationId], references: [id], onDelete: SetNull)
+
+  // Session Info
+  sessionNumber  String       @unique
+  cashierId      String       @db.ObjectId
+  cashier        User         @relation("POSSessionCashier", fields: [cashierId], references: [id])
+
+  // Status: OPEN, CLOSED, SUSPENDED
+  status         String       @default("OPEN")
+
+  // Opening
+  openingBalance Float        @default(0)
+  openedAt       DateTime     @default(now())
+
+  // Closing
+  closingBalance Float?
+  closedAt       DateTime?
+  actualCash     Float?
+  cashDifference Float?       @default(0)
+  closingNotes   String?
+
+  // Totals
+  totalSales     Float        @default(0)
+  totalCash      Float        @default(0)
+  totalCard      Float        @default(0)
+  totalUpi       Float        @default(0)
+  transactionCount Int        @default(0)
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, status])
+  @@index([cashierId])
+  @@index([openedAt])
 }

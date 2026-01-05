@@ -262,10 +262,10 @@ export async function POST(req: NextRequest) {
         await tx.pOSCustomer.update({
           where: { id: customerId },
           data: {
-            totalPurchases: {
+            totalSpent: {
               increment: totalAmount,
             },
-            totalVisits: {
+            visitCount: {
               increment: 1,
             },
             lastVisitDate: new Date(),

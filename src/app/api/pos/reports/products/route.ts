@@ -65,8 +65,9 @@ export async function GET(req: NextRequest) {
                     transactionCount: 0
                 }
             }
+            const subtotal = item.unitPrice * item.quantity
             productSales[item.productId].quantitySold += item.quantity
-            productSales[item.productId].revenue += item.subtotal
+            productSales[item.productId].revenue += subtotal
             productSales[item.productId].discount += item.discountAmount
             productSales[item.productId].netRevenue += item.total
             productSales[item.productId].transactionCount += 1
