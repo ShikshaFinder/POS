@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma_v2"
 }
 
 datasource db {
@@ -74,8 +75,6 @@ model User {
   productionPlansCreated ProductionPlan[] @relation("ProductionPlanCreator")
   productionPlansApproved ProductionPlan[] @relation("ProductionPlanApprover")
   stockAlertsAcknowledged StockAlert[] @relation("AlertAcknowledger")
-  posCashierTransactions POSTransaction[] @relation("POSCashier")
-  posSessions            POSSession[] @relation("POSSessionCashier")
 }
 
 model Organization {
@@ -160,9 +159,7 @@ model Organization {
   productImages      ProductImage[]
   productCategories  ProductCategory[]
   publicInquiries    PublicInquiry[]
-  posCustomers       POSCustomer[] @relation("POSCustomers")
-  posTransactions    POSTransaction[] @relation("POSTransactions")
-  posSessions        POSSession[] @relation("POSSessions")
+  storage            OrganizationStorage?
 }
 
 model OrganizationMembership {
@@ -221,16 +218,32 @@ model TaskComment {
 }
 
 model TaskAttachment {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  taskId       String   @db.ObjectId
-  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  uploadedById String   @db.ObjectId
-  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: NoAction)
-  fileName     String
-  fileUrl      String
-  fileType     String?
-  fileSize     Int?
-  createdAt    DateTime @default(now())
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  taskId         String    @db.ObjectId
+  task           Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedById   String    @db.ObjectId
+  uploadedBy     User      @relation(fields: [uploadedById], references: [id], onDelete: NoAction)
+  fileName       String
+  fileUrl        String
+  fileType       String?
+  fileSize       Int?
+  blobName       String?   // Azure blob name for direct reference
+  lastAccessedAt DateTime? // Track when file was last accessed
+  videoUrl       String?   // YouTube or external video URL reference
+  createdAt      DateTime  @default(now())
+
+  @@index([taskId])
+  @@index([uploadedById])
+}
+
+// Track organization storage usage for 20GB limit
+model OrganizationStorage {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @unique @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  usedBytes      Float        @default(0)  // Total bytes used
+  fileCount      Int          @default(0)  // Total file count
+  updatedAt      DateTime     @updatedAt
 }
 
 // TaskAssignee: Many-to-many relationship for multiple assignees per task
@@ -416,7 +429,6 @@ model Product {
   customerProductMargins CustomerProductMargin[]
   productionPlanItems ProductionPlanItem[] @relation("PlanProducts")
   materialRequirementsFor ProductionMaterialRequirement[] @relation("MaterialProduct")
-  posTransactionItems POSTransactionItem[] @relation("POSTransactionItems")
   stockAlerts        StockAlert[] @relation("ProductAlerts")
   images             ProductImage[]       // Multiple product images
   publicInquiries    PublicInquiry[]      // Inquiries about this product
@@ -1788,164 +1800,4 @@ model PublicInquiry {
   @@index([status])
   @@index([productId])
   @@index([createdAt])
-}
-
-// ==========================================
-// POS (Point of Sale) System
-// ==========================================
-
-// POS Customer - Quick customer records for receipts and history
-model POSCustomer {
-  id              String       @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String       @db.ObjectId
-  organization    Organization @relation("POSCustomers", fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  name            String
-  phone           String?
-  email           String?
-  address         String?
-  
-  // Loyalty & Analytics
-  totalPurchases  Float        @default(0)
-  totalVisits     Int          @default(0)
-  lastVisitDate   DateTime?
-  
-  // Optional loyalty points
-  loyaltyPoints   Int          @default(0)
-  
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  
-  // Relations
-  transactions    POSTransaction[]
-  
-  @@unique([organizationId, phone])
-  @@index([organizationId])
-  @@index([phone])
-}
-
-// POS Transaction - Main sales transaction record
-model POSTransaction {
-  id                String       @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId    String       @db.ObjectId
-  organization      Organization @relation("POSTransactions", fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  // Transaction Details
-  receiptNumber     String       @unique // Auto-generated: POS-20260103-0001
-  transactionDate   DateTime     @default(now())
-  
-  // Customer Info (optional)
-  customerId        String?      @db.ObjectId
-  customer          POSCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  customerName      String?      // For quick walk-in sales without customer record
-  customerPhone     String?
-  
-  // Financial Details
-  subtotal          Float        // Sum of all items before discount/tax
-  discountAmount    Float        @default(0)
-  discountPercent   Float?       // If discount was percentage-based
-  taxAmount         Float        @default(0)
-  taxPercent        Float?       // Tax percentage applied
-  totalAmount       Float        // Final amount after discount and tax
-  
-  // Payment Details
-  paymentMethod     String       // CASH, CARD, UPI, WALLET, SPLIT
-  amountPaid        Float
-  changeGiven       Float        @default(0)
-  
-  // Split payment support
-  cashAmount        Float?
-  cardAmount        Float?
-  upiAmount         Float?
-  walletAmount      Float?
-  
-  // Additional Info
-  notes             String?
-  cashierId         String?      @db.ObjectId // User who processed the sale
-  cashier           User?        @relation("POSCashier", fields: [cashierId], references: [id], onDelete: SetNull)
-  
-  // Status
-  status            String       @default("COMPLETED") // COMPLETED, VOID, REFUNDED
-  voidReason        String?
-  voidedAt          DateTime?
-  voidedById        String?      @db.ObjectId
-  
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  
-  // Relations
-  items             POSTransactionItem[]
-  
-  @@index([organizationId])
-  @@index([transactionDate])
-  @@index([customerId])
-  @@index([status])
-}
-
-// POS Transaction Item - Individual items in a transaction
-model POSTransactionItem {
-  id              String         @id @default(auto()) @map("_id") @db.ObjectId
-  transactionId   String         @db.ObjectId
-  transaction     POSTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  
-  // Product Info
-  productId       String         @db.ObjectId
-  product         Product        @relation("POSTransactionItems", fields: [productId], references: [id], onDelete: NoAction)
-  productName     String         // Snapshot at time of sale
-  productSku      String?
-  
-  // Quantity & Price
-  quantity        Float
-  unitPrice       Float          // Price per unit at time of sale
-  discountAmount  Float          @default(0)
-  taxAmount       Float          @default(0)
-  subtotal        Float          // quantity * unitPrice
-  total           Float          // After discount and tax
-  
-  createdAt       DateTime       @default(now())
-  
-  @@index([transactionId])
-  @@index([productId])
-}
-
-// POS Session - Cash drawer/shift management
-model POSSession {
-  id              String       @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String       @db.ObjectId
-  organization    Organization @relation("POSSessions", fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  // Session Info
-  sessionNumber   String       @unique // AUTO-generated
-  cashierId       String       @db.ObjectId
-  cashier         User         @relation("POSSessionCashier", fields: [cashierId], references: [id], onDelete: NoAction)
-  
-  // Opening
-  openedAt        DateTime     @default(now())
-  openingBalance  Float        // Starting cash in drawer
-  
-  // Closing
-  closedAt        DateTime?
-  closingBalance  Float?       // Expected cash at close
-  actualCash      Float?       // Actual cash counted
-  cashDifference  Float?       // Difference (actualCash - closingBalance)
-  
-  // Session Summary
-  totalSales      Float        @default(0)
-  totalCash       Float        @default(0)
-  totalCard       Float        @default(0)
-  totalUPI        Float        @default(0)
-  totalWallet     Float        @default(0)
-  transactionCount Int         @default(0)
-  
-  // Status
-  status          String       @default("OPEN") // OPEN, CLOSED
-  notes           String?
-  
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  
-  @@index([organizationId])
-  @@index([cashierId])
-  @@index([status])
-  @@index([openedAt])
 }
