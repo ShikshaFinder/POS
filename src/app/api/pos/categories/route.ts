@@ -37,14 +37,14 @@ export async function GET(req: NextRequest) {
 
         // Transform data
         const transformedCategories = [
-            ...categories.map(cat => ({
+            ...categories.map((cat) => ({
                 id: cat.id,
                 name: cat.name,
                 productCount: cat._count.products
             })),
             ...legacyCategories
-                .filter(cat => cat.category) // Filter out nulls
-                .map(cat => ({
+                .filter((cat) => cat.category) // Filter out nulls
+                .map((cat) => ({
                     id: `legacy_${cat.category}`,
                     name: cat.category,
                     productCount: cat._count.id

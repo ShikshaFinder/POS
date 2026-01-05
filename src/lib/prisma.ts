@@ -1,16 +1,27 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/generated/prisma_v2";
 
-const globalForPrisma = globalThis as unknown as {
-  prisma?: PrismaClient;
-};
-
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+// Extend the global scope so TypeScript knows about `globalThis.prisma`
+declare global {
+  // eslint-disable-next-line no-var
+  var prisma: PrismaClient | undefined;
 }
 
+// Ensure DATABASE_URL is available
+// if (!process.env.DATABASE_URL) {
+//   throw new Error('DATABASE_URL environment variable is not set. Please check your .env file.');
+// }
+
+// Re-use PrismaClient across hot-reloads in dev
+const prisma =
+  globalThis.prisma ??
+  new PrismaClient({
+    // MongoDB connection is handled via DATABASE_URL environment variable
+  });
+
+// Cache the instance globally in dev mode
+if (process.env.NODE_ENV !== "production") {
+  globalThis.prisma = prisma;
+}
+
+export { prisma };
+export default prisma;
