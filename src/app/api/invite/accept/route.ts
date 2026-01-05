@@ -106,24 +106,50 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Create UserRole for POS_OWNER
-      const existingRole = await prisma.userRole.findFirst({
+      // Find or create POS_OWNER role and assign to user
+      let posOwnerRole = await prisma.role.findUnique({
+        where: { name: 'POS_OWNER' },
+      });
+
+      if (!posOwnerRole) {
+        posOwnerRole = await prisma.role.create({
+          data: {
+            name: 'POS_OWNER',
+            desc: 'POS Location Owner',
+          },
+        });
+      }
+
+      const existingUserRole = await prisma.userRole.findFirst({
         where: {
           userId: user.id,
-          roleValue: '13', // POS_OWNER
+          roleId: posOwnerRole.id,
         },
       });
 
-      if (!existingRole) {
+      if (!existingUserRole) {
         await prisma.userRole.create({
           data: {
             userId: user.id,
-            roleValue: '13',
-            roleKey: 'POS_OWNER',
+            roleId: posOwnerRole.id,
           },
         });
       }
     } else {
+      // Find or create POS_OWNER role first
+      let posOwnerRole = await prisma.role.findUnique({
+        where: { name: 'POS_OWNER' },
+      });
+
+      if (!posOwnerRole) {
+        posOwnerRole = await prisma.role.create({
+          data: {
+            name: 'POS_OWNER',
+            desc: 'POS Location Owner',
+          },
+        });
+      }
+
       // Create new user
       user = await prisma.user.create({
         data: {
@@ -145,8 +171,7 @@ export async function POST(req: NextRequest) {
           },
           roles: {
             create: {
-              roleValue: '13', // POS_OWNER
-              roleKey: 'POS_OWNER',
+              roleId: posOwnerRole.id,
             },
           },
         },
