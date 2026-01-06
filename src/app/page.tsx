@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { format } from 'date-fns'
 import {
   ShoppingCart, Package, DollarSign, Users,
@@ -91,7 +92,6 @@ export default function POSHomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
@@ -137,6 +137,22 @@ export default function POSHomePage() {
               Streamline your retail operations with our comprehensive point of sale system.
               Fast, reliable, and packed with features to help you succeed.
             </p>
+            <div className="flex items-center justify-center gap-4 mt-6">
+              <Link
+                href="/signin"
+                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold text-lg shadow-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+              >
+                <Store className="h-5 w-5" />
+                Get Started
+              </Link>
+              <Link
+                href="/pos/products"
+                className="px-6 py-3 bg-white text-gray-700 rounded-xl font-semibold text-lg shadow-lg hover:bg-gray-50 transition-colors border border-gray-200 inline-flex items-center gap-2"
+              >
+                <Package className="h-5 w-5" />
+                View Products
+              </Link>
+            </div>
           </div>
 
           {/* Stats Overview */}
@@ -206,9 +222,12 @@ export default function POSHomePage() {
               Access the dashboard to start managing your business operations
             </p>
             <div className="flex items-center justify-center gap-4">
-              <div className="px-6 py-3 bg-white text-blue-600 rounded-xl font-semibold text-lg shadow-lg">
+              <a
+                href="/signin"
+                className="px-6 py-3 bg-white text-blue-600 rounded-xl font-semibold text-lg shadow-lg hover:bg-gray-50 transition-colors cursor-pointer inline-block"
+              >
                 → Go to Dashboard
-              </div>
+              </a>
             </div>
           </div>
         </div>

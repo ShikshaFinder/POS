@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { sendInvoiceNotification } from '@/lib/whatsapp-service'
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
 
       // Create invoice/order
       const invoiceNumber = `INV-${Date.now()}`
-      
+
       // For POS, we'll create a sales order and invoice
       // First, create or get walk-in customer connection
       let connection = await tx.connection.findFirst({
@@ -68,12 +69,12 @@ export async function POST(req: NextRequest) {
 
       // Create sales order
       const orderRef = `SO-${Date.now()}`
-      
+
       // Ensure we have a connection (required by schema)
       if (!connection) {
         throw new Error('Customer connection is required')
       }
-      
+
       const salesOrder = await tx.salesOrder.create({
         data: {
           organizationId,
@@ -160,10 +161,71 @@ export async function POST(req: NextRequest) {
       return { salesOrder, invoice }
     })
 
+    // 🔔 Send WhatsApp notification with PDF invoice (async - non-blocking)
+    if (customerPhone) {
+      // Get POS location for store info
+      const posLocation = await prisma.pOSLocation.findFirst({
+        where: { organizationId },
+        select: { name: true, address: true, contactPhone: true }
+      });
+
+      // Generate and upload PDF invoice in background
+      const sendNotificationWithPDF = async () => {
+        let pdfUrl: string | undefined;
+
+        try {
+          // Dynamic import to avoid build issues if modules missing
+          const { generateInvoiceHTML, buildInvoiceData } = await import('@/lib/invoice-generator');
+          const { uploadInvoicePDF, isAzureStorageConfigured } = await import('@/lib/azure-blob');
+
+          if (isAzureStorageConfigured()) {
+            // Build invoice data
+            const invoiceData = buildInvoiceData({
+              invoice: result.invoice,
+              items: result.salesOrder.items.map((item: any) => ({
+                product: item.product,
+                qty: item.qty,
+                price: item.price
+              })),
+              posLocation,
+              customer: { name: customerName, phone: customerPhone }
+            });
+
+            // Generate HTML and convert to PDF buffer
+            const html = generateInvoiceHTML(invoiceData);
+            const pdfBuffer = Buffer.from(html, 'utf-8');
+
+            // Upload to Azure
+            pdfUrl = await uploadInvoicePDF(pdfBuffer, organizationId, result.invoice.invoiceNumber);
+            console.log('[Invoice] PDF uploaded:', pdfUrl);
+          }
+        } catch (err) {
+          console.error('[Invoice] PDF generation/upload failed:', err);
+          // Continue without PDF - WhatsApp will be sent without link
+        }
+
+        // Send WhatsApp with or without PDF URL
+        sendInvoiceNotification({
+          customerName: customerName || 'Valued Customer',
+          customerPhone,
+          invoiceNumber: result.invoice.invoiceNumber,
+          amount: totalAmount,
+          invoiceDate: new Date(),
+          storeName: posLocation?.name || 'Our Store',
+          invoiceId: result.invoice.id,
+          pdfUrl,
+        });
+      };
+
+      // Fire and forget
+      sendNotificationWithPDF().catch(console.error);
+    }
+
     return NextResponse.json({
       success: true,
       orderId: result.salesOrder.id,
-      invoiceNumber: result.invoice.invoiceNumber
+      invoiceNumber: result.invoice.invoiceNumber,
+      whatsAppSent: !!customerPhone, // Indicates if WhatsApp notification was triggered
     })
   } catch (error: any) {
     console.error('Checkout error:', error)

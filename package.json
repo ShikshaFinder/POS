@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
+    "@azure/storage-blob": "^12.29.1",
     "@base-ui-components/react": "^1.0.0-beta.6",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^5.19.1",
