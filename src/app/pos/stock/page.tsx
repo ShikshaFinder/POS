@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Package, AlertTriangle, TrendingDown, Search } from 'lucide-react'
+import { Package, AlertTriangle, TrendingDown, Search, ClipboardCheck } from 'lucide-react'
 
 interface StockItem {
   id: string
@@ -34,7 +34,7 @@ export default function StockPage() {
       const params = new URLSearchParams()
       if (filter !== 'all') params.append('filter', filter)
       if (searchQuery) params.append('search', searchQuery)
-      
+
       const res = await fetch(`/api/pos/stock?${params}`)
       if (res.ok) {
         const data = await res.json()
@@ -66,6 +66,22 @@ export default function StockPage() {
           <p className="mt-1 text-sm text-gray-500">
             Monitor and manage your inventory
           </p>
+        </div>
+        <div className="flex gap-3">
+          <a
+            href="/pos/stock/receive"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            <Package className="h-4 w-4" />
+            Receive Stock
+          </a>
+          <a
+            href="/pos/stock/count"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            Daily Count
+          </a>
         </div>
       </div>
 
@@ -125,31 +141,28 @@ export default function StockPage() {
         <div className="flex gap-2">
           <button
             onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === 'all'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'all'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
           >
             All Items
           </button>
           <button
             onClick={() => setFilter('low')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === 'low'
-                ? 'bg-orange-600 text-white'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'low'
+              ? 'bg-orange-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
           >
             Low Stock
           </button>
           <button
             onClick={() => setFilter('out')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === 'out'
-                ? 'bg-red-600 text-white'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'out'
+              ? 'bg-red-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
           >
             Out of Stock
           </button>

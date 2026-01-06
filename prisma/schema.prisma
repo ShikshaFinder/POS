@@ -82,6 +82,16 @@ model User {
   posOrdersCreated        POSOrder[]         @relation("POSOrderCreator")
   posTransactionsCashier  POSTransaction[]   @relation("POSTransactionCashier")
   posSessions             POSSession[]       @relation("POSSessionCashier")
+
+  // Stock Management Relations (Phase 1)
+  snapshotsVerified       StockSnapshot[]        @relation("SnapshotVerifier")
+  transfersRequested      StockTransferOrder[]   @relation("TransferRequester")
+  transfersApproved       StockTransferOrder[]   @relation("TransferApprover")
+  transfersReceived       StockTransferOrder[]   @relation("TransferReceiver")
+  
+  // Approval Relations (Phase 3)
+  approvalsRequested      ApprovalQueue[]        @relation("ApprovalRequester")
+  approvalsApproved       ApprovalQueue[]        @relation("ApprovalApprover")
 }
 
 model Organization {
@@ -169,13 +179,24 @@ model Organization {
   storage                 OrganizationStorage?
 
   // POS Relations
-  posLocations     POSLocation[]
-  posStockAlerts   POSStockAlert[]
-  posOrders        POSOrder[]
-  posInvoices      POSInvoice[]
-  posTransactions  POSTransaction[]
-  posCustomers     POSCustomer[]
-  posSessions      POSSession[]
+  posLocations       POSLocation[]
+  posStockAlerts     POSStockAlert[]
+  posOrders          POSOrder[]
+  posInvoices        POSInvoice[]
+  posTransactions    POSTransaction[]
+  posCustomers       POSCustomer[]
+  posSessions        POSSession[]
+
+  // Stock Management Relations (Phase 1)
+  stockSnapshots     StockSnapshot[]
+  stockTransfers     StockTransferOrder[]
+
+  // Multi-Tier Pricing (Phase 2)
+  tierPricing        TierPricing[]
+
+  // Automation & Reporting (Phase 3)
+  eodReports         EODReport[]
+  approvalQueue      ApprovalQueue[]
 }
 
 model OrganizationMembership {
@@ -352,6 +373,12 @@ model Connection {
   discountPercent           Float?                   @default(0) // Discount/margin percentage for this connection
   village                   String? // Customer village/location
   state                     String? // Customer state
+  
+  // Multi-Tier Pricing (Phase 2)
+  customerTier              CustomerTier             @default(CUSTOMER) // VENDOR, RETAILER, CUSTOMER
+  tierAssignedAt            DateTime?
+  tierAssignedById          String?                  @db.ObjectId
+  
   defaultCollectionCenterId String?                  @db.ObjectId
   defaultCollectionCenter   MilkCollectionCenter?    @relation("DefaultCollectionCenter", fields: [defaultCollectionCenterId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   procurements              MilkProcurementEntry[]
@@ -455,6 +482,13 @@ model Product {
   posStockAlerts      POSStockAlert[]        @relation("POSStockAlertProduct")
   posOrderItems       POSOrderItem[]         @relation("POSOrderItemProduct")
   posTransactionItems POSTransactionItem[]   @relation("POSTransactionItemProduct")
+
+  // Stock Management Relations (Phase 1)
+  stockSnapshots      StockSnapshot[]        @relation("ProductSnapshots")
+  stockTransferItems  StockTransferItem[]    @relation("TransferItemProduct")
+  
+  // Multi-Tier Pricing (Phase 2)
+  tierPricing         TierPricing[]          @relation("ProductTierPricing")
 }
 
 model ProductPriceHistory {
@@ -986,6 +1020,7 @@ model SalesOrder {
   deliveryAddress     String?
   distanceKm          Float?
   vehicleReq          String?
+  deliveryDate        DateTime?            // Customer requested delivery date
   createdAt           DateTime             @default(now())
   items               OrderItem[]
   invoices            Invoice[]
@@ -1092,6 +1127,11 @@ model StorageLocation {
   operational    Boolean?         @default(true)
   maintenanceLog Json? // JSON field
   stocks         InventoryStock[]
+
+  // Stock Management Relations (Phase 1)
+  stockSnapshots   StockSnapshot[]        @relation("StorageLocationSnapshots")
+  transfersFrom    StockTransferOrder[]   @relation("TransferFromStorage")
+  transfersTo      StockTransferOrder[]   @relation("TransferToStorage")
 }
 
 model InventoryStock {
@@ -1793,6 +1833,9 @@ model ProductCategory {
   updatedAt      DateTime          @updatedAt
   products       Product[]
 
+  // Multi-Tier Pricing (Phase 2)
+  tierPricing    TierPricing[]     @relation("CategoryTierPricing")
+
   @@unique([organizationId, slug])
   @@index([organizationId])
   @@index([parentId])
@@ -1876,19 +1919,31 @@ model POSLocation {
   useCustomPricing      Boolean @default(false)
   globalDiscountPercent Float?  @default(0) // Global discount for this POS
 
+  // Stock Management Settings (Phase 1)
+  stockMode              String  @default("INDEPENDENT") // "INDEPENDENT" or "SHARED"
+  snapshotFrequency      String  @default("DAILY")       // "DAILY", "SHIFT", "HOURLY"
+  autoReorderEnabled     Boolean @default(true)
+  varianceAlertThreshold Float   @default(5)             // Alert if variance > 5%
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  stockSettings POSProductStock[]
-  customPricing POSProductPricing[]
-  stockAlerts   POSStockAlert[]
-  orders        POSOrder[]
-  invoices      POSInvoice[]
-  transactions  POSTransaction[]
-  customers     POSCustomer[]      @relation("POSLocationCustomers")
-  sessions      POSSession[]       @relation("POSLocationSessions")
-  invites       OrganizationInvite[] @relation("POSLocationInvite")
+  stockSettings    POSProductStock[]
+  customPricing    POSProductPricing[]
+  stockAlerts      POSStockAlert[]
+  orders           POSOrder[]
+  invoices         POSInvoice[]
+  transactions     POSTransaction[]
+  customers        POSCustomer[]        @relation("POSLocationCustomers")
+  sessions         POSSession[]         @relation("POSLocationSessions")
+  invites          OrganizationInvite[] @relation("POSLocationInvite")
+  stockSnapshots   StockSnapshot[]      @relation("POSLocationSnapshots")
+  transfersFrom    StockTransferOrder[] @relation("TransferFromPOS")
+  transfersTo      StockTransferOrder[] @relation("TransferToPOS")
+  
+  // Automation & Reporting (Phase 3)
+  eodReports       EODReport[]          @relation("POSLocationEODReports")
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -2249,4 +2304,266 @@ model POSSession {
   @@index([organizationId, status])
   @@index([cashierId])
   @@index([openedAt])
+}
+
+// ============================================
+// STOCK MANAGEMENT MODELS (Phase 1)
+// ============================================
+
+// Stock Snapshot - Daily/periodic snapshots of stock levels for reconciliation
+model StockSnapshot {
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String       @db.ObjectId
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Location (one of these will be set)
+  storageLocationId String?      @db.ObjectId  // CRM StorageLocation
+  storageLocation   StorageLocation? @relation("StorageLocationSnapshots", fields: [storageLocationId], references: [id], onDelete: SetNull)
+  posLocationId     String?      @db.ObjectId  // POS Location
+  posLocation       POSLocation? @relation("POSLocationSnapshots", fields: [posLocationId], references: [id], onDelete: SetNull)
+  
+  productId        String       @db.ObjectId
+  product          Product      @relation("ProductSnapshots", fields: [productId], references: [id], onDelete: Cascade)
+  
+  date             DateTime     @db.Date
+  session          String       @default("EOD")  // "SOD" (Start of Day), "EOD" (End of Day), "SHIFT_1", "SHIFT_2", etc.
+  
+  openingStock     Float        // Opening stock quantity
+  closingStock     Float        // Closing stock quantity (system calculated)
+  systemStock      Float        // What system calculated should be
+  physicalStock    Float?       // Manual count (if entered)
+  variance         Float?       // Difference between system and physical
+  varianceReason   String?      // Reason for variance
+  variancePercent  Float?       // Variance as percentage
+  
+  status           String       @default("PENDING") // PENDING, VERIFIED, ADJUSTED, FLAGGED
+  verifiedById     String?      @db.ObjectId
+  verifiedBy       User?        @relation("SnapshotVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  verifiedAt       DateTime?
+  adjustedAt       DateTime?
+  
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  
+  @@unique([organizationId, posLocationId, productId, date, session])
+  @@index([organizationId, date])
+  @@index([posLocationId, date])
+  @@index([storageLocationId, date])
+  @@index([status])
+}
+
+// Stock Transfer Order - Track stock movements between CRM warehouse and POS locations
+model StockTransferOrder {
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String       @db.ObjectId
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  transferNumber   String       @unique  // e.g., "STO-2026-001"
+  
+  // Source location
+  fromType         String       // "WAREHOUSE" or "POS"
+  fromStorageId    String?      @db.ObjectId  // If from warehouse
+  fromStorage      StorageLocation? @relation("TransferFromStorage", fields: [fromStorageId], references: [id], onDelete: SetNull)
+  fromPosId        String?      @db.ObjectId  // If from POS
+  fromPos          POSLocation? @relation("TransferFromPOS", fields: [fromPosId], references: [id], onDelete: SetNull)
+  
+  // Destination location
+  toType           String       // "WAREHOUSE" or "POS"
+  toStorageId      String?      @db.ObjectId  // If to warehouse
+  toStorage        StorageLocation? @relation("TransferToStorage", fields: [toStorageId], references: [id], onDelete: SetNull)
+  toPosId          String?      @db.ObjectId  // If to POS
+  toPos            POSLocation? @relation("TransferToPOS", fields: [toPosId], references: [id], onDelete: SetNull)
+  
+  // Status workflow: DRAFT -> PENDING_APPROVAL -> APPROVED -> IN_TRANSIT -> COMPLETED / CANCELLED
+  status           String       @default("DRAFT")
+  
+  // Requester
+  requestedById    String       @db.ObjectId
+  requestedBy      User         @relation("TransferRequester", fields: [requestedById], references: [id], onDelete: NoAction)
+  requestedAt      DateTime     @default(now())
+  
+  // Approver
+  approvedById     String?      @db.ObjectId
+  approvedBy       User?        @relation("TransferApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt       DateTime?
+  rejectionReason  String?
+  
+  // Dispatch
+  dispatchedAt     DateTime?
+  dispatchNotes    String?
+  vehicleNumber    String?
+  driverName       String?
+  
+  // Receipt
+  receivedAt       DateTime?
+  receivedById     String?      @db.ObjectId
+  receivedBy       User?        @relation("TransferReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
+  receiptNotes     String?
+  
+  notes            String?
+  totalItems       Int          @default(0)
+  totalQuantity    Float        @default(0)
+  
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  
+  // Relations
+  items            StockTransferItem[]
+  
+  @@index([organizationId, status])
+  @@index([fromPosId])
+  @@index([toPosId])
+  @@index([requestedById])
+  @@index([createdAt])
+}
+
+// Stock Transfer Item - Line items in a stock transfer order
+model StockTransferItem {
+  id              String             @id @default(auto()) @map("_id") @db.ObjectId
+  transferOrderId String             @db.ObjectId
+  transferOrder   StockTransferOrder @relation(fields: [transferOrderId], references: [id], onDelete: Cascade)
+  productId       String             @db.ObjectId
+  product         Product            @relation("TransferItemProduct", fields: [productId], references: [id])
+  
+  requestedQty    Float              // Quantity requested
+  approvedQty     Float?             // Quantity approved (may differ)
+  dispatchedQty   Float?             // Quantity actually dispatched
+  receivedQty     Float?             // Quantity received (may differ due to damage, etc.)
+  unit            String             // e.g., "KG", "LITRE", "PIECE"
+  
+  // Discrepancy tracking
+  varianceQty     Float?             // Difference between dispatched and received
+  varianceReason  String?
+  
+  batchNumber     String?            // Optional batch tracking
+  expiryDate      DateTime?
+  
+  notes           String?
+  
+  @@index([transferOrderId])
+  @@index([productId])
+}
+
+// ============================================
+// MULTI-TIER PRICING MODELS (Phase 2)
+// ============================================
+
+enum CustomerTier {
+  VENDOR      // Wholesale buyers, highest discount
+  RETAILER    // Shop owners, medium discount
+  CUSTOMER    // End consumers, MRP or minimal discount
+}
+
+// Tier Pricing - Define discount percentages per tier per product/category
+model TierPricing {
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String       @db.ObjectId
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  productId        String?      @db.ObjectId  // null = applies to all products
+  product          Product?     @relation("ProductTierPricing", fields: [productId], references: [id], onDelete: Cascade)
+  categoryId       String?      @db.ObjectId  // Category-level default (lower priority than product)
+  category         ProductCategory? @relation("CategoryTierPricing", fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  // Discount percentages off MRP (e.g., 30 = 30% off)
+  vendorDiscount   Float        @default(0)   // Highest discount
+  retailerDiscount Float        @default(0)   // Medium discount
+  customerDiscount Float        @default(0)   // Lowest discount (usually 0)
+  
+  effectiveFrom    DateTime     @default(now())
+  effectiveTo      DateTime?    // null = no end date
+  isActive         Boolean      @default(true)
+  
+  notes            String?
+  createdById      String?      @db.ObjectId
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  
+  @@unique([organizationId, productId])
+  @@index([organizationId, isActive])
+  @@index([categoryId])
+}
+
+// ============================================
+// AUTOMATION & REPORTING MODELS (Phase 3)
+// ============================================
+
+// EOD Report - End of Day summary reports
+model EODReport {
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String       @db.ObjectId
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  posLocationId    String?      @db.ObjectId
+  posLocation      POSLocation? @relation("POSLocationEODReports", fields: [posLocationId], references: [id], onDelete: SetNull)
+  
+  reportDate       DateTime     @db.Date
+  reportType       String       @default("DAILY") // "DAILY", "WEEKLY", "MONTHLY"
+  
+  // Sales Summary
+  totalSales       Float        @default(0)
+  totalOrders      Int          @default(0)
+  totalTransactions Int         @default(0)
+  
+  // Stock Summary
+  stockValue       Float        @default(0)
+  varianceCount    Int          @default(0)   // Products with variance
+  lowStockCount    Int          @default(0)   // Products below minimum
+  expiringCount    Int          @default(0)   // Products expiring soon
+  
+  // Key highlights (JSON)
+  highlights       Json?        // Top selling products, etc.
+  
+  // Distribution
+  sentToEmails     String[]     // List of emails sent to
+  sentAt           DateTime?
+  
+  generatedAt      DateTime     @default(now())
+  
+  @@unique([organizationId, posLocationId, reportDate, reportType])
+  @@index([organizationId, reportDate])
+  @@index([posLocationId])
+}
+
+// Approval Queue - General approval workflow for stock movements and adjustments
+model ApprovalQueue {
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String       @db.ObjectId
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // What needs approval
+  entityType       String       // "STOCK_TRANSFER", "STOCK_ADJUSTMENT", "ORDER", "PRICE_CHANGE"
+  entityId         String       @db.ObjectId
+  action           String       // "CREATE", "UPDATE", "DELETE"
+  
+  // Request details
+  requestedById    String       @db.ObjectId
+  requestedBy      User         @relation("ApprovalRequester", fields: [requestedById], references: [id], onDelete: NoAction)
+  requestedAt      DateTime     @default(now())
+  requestData      Json?        // Snapshot of what's being requested
+  
+  // Priority: LOW, MEDIUM, HIGH, URGENT
+  priority         String       @default("MEDIUM")
+  
+  // Status: PENDING, APPROVED, REJECTED, CANCELLED, EXPIRED
+  status           String       @default("PENDING")
+  
+  // Approver
+  approvedById     String?      @db.ObjectId
+  approvedBy       User?        @relation("ApprovalApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt       DateTime?
+  approverNotes    String?
+  rejectionReason  String?
+  
+  // Expiry (auto-reject after this)
+  expiresAt        DateTime?
+  
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  
+  @@index([organizationId, status])
+  @@index([entityType, entityId])
+  @@index([requestedById])
+  @@index([status, priority])
 }
