@@ -7,6 +7,7 @@ import CategoryTabs from '@/components/pos/CategoryTabs'
 import CartPanel, { CartItem } from '@/components/pos/CartPanel'
 import PaymentModal, { PaymentDetails } from '@/components/pos/PaymentModal'
 import HeldBillsPanel, { HeldBill } from '@/components/pos/HeldBillsPanel'
+import { syncManager } from '@/lib/syncManager'
 
 interface Product {
   id: string
@@ -351,54 +352,56 @@ export default function BillingPage() {
     try {
       const totals = calculateTotals()
 
-      const res = await fetch('/api/pos/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: cart.map(item => ({
-            productId: item.id,
-            quantity: item.quantity,
-            price: item.unitPrice,
-            discount: item.discount,
-            discountType: item.discountType
-          })),
-          customerName,
-          customerPhone,
-          paymentMethod: payment.method,
+      // Prepare transaction data in the format expected by syncManager
+      const transactionData = {
+        items: cart.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+          price: item.unitPrice,
+          discount: item.discount,
+          discountType: item.discountType
+        })),
+        totals: {
+          subtotal: totals.subtotal,
+          taxAmount: totals.taxAmount,
+          total: totals.total
+        },
+        payment: {
+          method: payment.method,
           amountPaid: payment.amountPaid,
           changeGiven: payment.changeGiven,
           cashAmount: payment.cashAmount,
           cardAmount: payment.cardAmount,
           upiAmount: payment.upiAmount,
           walletAmount: payment.walletAmount,
-          billDiscount: billDiscount.type === 'flat' ? billDiscount.value : totals.subtotal * (billDiscount.value / 100),
-          billDiscountType: billDiscount.type,
-          couponCode: couponApplied ? couponCode : undefined,
-          couponDiscount,
-          taxPercent,
-          taxAmount: totals.taxAmount,
           roundOff: payment.roundOff,
-          subtotal: totals.subtotal,
-          totalAmount: totals.total,
           notes: payment.notes
-        })
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        toast.success(`Sale completed! Receipt: ${data.receiptNumber}`)
-        setShowPaymentModal(false)
-        clearCart()
-        fetchProducts() // Refresh stock
-
-        // TODO: WhatsApp bill sending will be implemented here
-        // if (customerPhone) {
-        //   await sendWhatsAppBill(data.transactionId, customerPhone)
-        // }
-      } else {
-        const error = await res.json()
-        toast.error(error.error || 'Checkout failed')
+        },
+        customer: customerName || customerPhone ? {
+          name: customerName,
+          phone: customerPhone
+        } : undefined,
+        // Additional metadata
+        billDiscount: billDiscount.type === 'flat' ? billDiscount.value : totals.subtotal * (billDiscount.value / 100),
+        billDiscountType: billDiscount.type,
+        couponCode: couponApplied ? couponCode : undefined,
+        couponDiscount,
+        taxPercent
       }
+
+      // Save to IndexedDB first (offline-first)
+      const localId = await syncManager.addTransaction(transactionData)
+
+      // Show success immediately
+      toast.success(`Transaction saved! Receipt: ${localId.substring(0, 8).toUpperCase()}`)
+      setShowPaymentModal(false)
+      clearCart()
+      
+      // Fetch products in background to update stock
+      fetchProducts()
+
+      // Sync will happen automatically in the background
+
     } catch (error) {
       console.error('Checkout error:', error)
       toast.error('Failed to process sale')

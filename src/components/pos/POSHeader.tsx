@@ -2,6 +2,7 @@
 
 import { useSession, signOut } from 'next-auth/react'
 import { Bell, User, LogOut } from 'lucide-react'
+import SyncStatusIndicator from './SyncStatusIndicator'
 
 export function POSHeader() {
   const { data: session } = useSession()
@@ -27,6 +28,9 @@ export function POSHeader() {
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-4">
+        {/* Sync Status Indicator */}
+        <SyncStatusIndicator />
+
         {/* Notifications */}
         <button
           type="button"

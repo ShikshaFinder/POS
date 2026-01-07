@@ -2,12 +2,45 @@
 
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
-import { ReactNode } from 'react'
+import { ReactNode, useEffect } from 'react'
 import { POSNav } from '@/components/pos/POSNav'
 import { POSHeader } from '@/components/pos/POSHeader'
+import { ConflictResolutionModal } from '@/components/pos/ConflictResolutionModal'
+import { PWAInstallPrompt } from '@/components/pos/PWAInstallPrompt'
+import { syncManager } from '@/lib/syncManager'
 
 export default function POSLayout({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession()
+
+  // Initialize sync manager and PWA
+  useEffect(() => {
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => {
+          console.log('Service Worker registered:', registration)
+        })
+        .catch((error) => {
+          console.error('Service Worker registration failed:', error)
+        })
+    }
+
+    // Prevent window close during active sync
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (syncManager.isSyncInProgress()) {
+        e.preventDefault()
+        e.returnValue = 'Transactions are being synced. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
 
   if (status === 'loading') {
     return (
@@ -39,6 +72,12 @@ export default function POSLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Conflict Resolution Modal */}
+      <ConflictResolutionModal />
+
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </div>
   )
 }
