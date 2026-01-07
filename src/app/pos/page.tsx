@@ -95,7 +95,7 @@ export default function POSDashboard() {
       href: '/pos/billing',
       icon: ShoppingCart,
       color: 'bg-blue-600 hover:bg-blue-700',
-      shortcut: 'F1'
+      shortcut: 'Alt+N'
     },
     {
       name: 'Sessions',
@@ -103,7 +103,7 @@ export default function POSDashboard() {
       href: '/pos/sessions',
       icon: Clock,
       color: 'bg-green-600 hover:bg-green-700',
-      shortcut: 'F2'
+      shortcut: 'Alt+S'
     },
     {
       name: 'Receipts',
@@ -111,7 +111,7 @@ export default function POSDashboard() {
       href: '/pos/receipts',
       icon: Receipt,
       color: 'bg-purple-600 hover:bg-purple-700',
-      shortcut: 'F3'
+      shortcut: 'Alt+R'
     },
     {
       name: 'Reports',
@@ -119,7 +119,7 @@ export default function POSDashboard() {
       href: '/pos/reports',
       icon: BarChart3,
       color: 'bg-amber-600 hover:bg-amber-700',
-      shortcut: 'F4'
+      shortcut: 'Alt+T'
     },
   ]
 

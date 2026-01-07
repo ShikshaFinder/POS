@@ -418,35 +418,48 @@ export default function BillingPage() {
         return
       }
 
-      switch (e.key) {
-        case 'F2':
-          e.preventDefault()
-          searchInputRef.current?.focus()
-          break
-        case 'F5':
-          e.preventDefault()
-          holdBill()
-          break
-        case 'F6':
-          e.preventDefault()
-          setShowHeldBills(true)
-          break
-        case 'F12':
-          e.preventDefault()
-          if (cart.length > 0) {
-            setShowPaymentModal(true)
-          }
-          break
-        case 'Escape':
-          setShowPaymentModal(false)
-          setShowHeldBills(false)
-          break
+      // Alt-based shortcuts
+      if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+        switch (e.key.toLowerCase()) {
+          case 'q':
+            e.preventDefault()
+            searchInputRef.current?.focus()
+            break
+          case 'h':
+            e.preventDefault()
+            holdBill()
+            break
+          case 'b':
+            e.preventDefault()
+            setShowHeldBills(true)
+            break
+          case 'p':
+            e.preventDefault()
+            if (cart.length > 0) {
+              setShowPaymentModal(true)
+            }
+            break
+          case 'c':
+            e.preventDefault()
+            if (confirm('Are you sure you want to clear the cart?')) {
+              clearCart()
+            }
+            break
+          case 'a':
+            e.preventDefault()
+            searchInputRef.current?.focus()
+            break
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowPaymentModal(false)
+        setShowHeldBills(false)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [holdBill, cart.length])
+  }, [holdBill, cart.length, clearCart])
 
   const totals = calculateTotals()
 
@@ -459,7 +472,7 @@ export default function BillingPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              F2: Search • F5: Hold • F6: Held Bills • F12: Pay
+              Alt+Q: Search • Alt+A: Add Item • Alt+D: Discount • Alt+H: Hold • Alt+B: Held Bills • Alt+P: Pay • Alt+C: Clear
             </p>
           </div>
           <div className="flex gap-2">

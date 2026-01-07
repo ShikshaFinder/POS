@@ -111,13 +111,16 @@ export default function PaymentModal({
             } else if (e.key === 'F1') {
                 e.preventDefault()
                 setMethod('CASH')
-            } else if (e.key === 'F2') {
+            } else if (e.altKey && e.key.toLowerCase() === 'c') {
+                e.preventDefault()
+                setMethod('CASH')
+            } else if (e.altKey && e.key.toLowerCase() === 'd') {
                 e.preventDefault()
                 setMethod('CARD')
-            } else if (e.key === 'F3') {
+            } else if (e.altKey && e.key.toLowerCase() === 'u') {
                 e.preventDefault()
                 setMethod('UPI')
-            } else if (e.key === 'F4') {
+            } else if (e.altKey && e.key.toLowerCase() === 'w') {
                 e.preventDefault()
                 setMethod('WALLET')
             }
@@ -130,10 +133,10 @@ export default function PaymentModal({
     if (!isOpen) return null
 
     const paymentMethods = [
-        { id: 'CASH' as PaymentMethod, label: 'Cash', icon: Banknote, shortcut: 'F1', color: 'green' },
-        { id: 'CARD' as PaymentMethod, label: 'Card', icon: CreditCard, shortcut: 'F2', color: 'blue' },
-        { id: 'UPI' as PaymentMethod, label: 'UPI', icon: Smartphone, shortcut: 'F3', color: 'purple' },
-        { id: 'WALLET' as PaymentMethod, label: 'Wallet', icon: Wallet, shortcut: 'F4', color: 'orange' },
+        { id: 'CASH' as PaymentMethod, label: 'Cash', icon: Banknote, shortcut: 'Alt+C', color: 'green' },
+        { id: 'CARD' as PaymentMethod, label: 'Card', icon: CreditCard, shortcut: 'Alt+D', color: 'blue' },
+        { id: 'UPI' as PaymentMethod, label: 'UPI', icon: Smartphone, shortcut: 'Alt+U', color: 'purple' },
+        { id: 'WALLET' as PaymentMethod, label: 'Wallet', icon: Wallet, shortcut: 'Alt+W', color: 'orange' },
         { id: 'SPLIT' as PaymentMethod, label: 'Split', icon: ArrowLeftRight, shortcut: '', color: 'gray' }
     ]
 
