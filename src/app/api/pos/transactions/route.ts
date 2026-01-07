@@ -124,8 +124,7 @@ export async function POST(req: NextRequest) {
       quantity: number
       unitPrice: number
       discountAmount: number
-      taxAmount: number
-      subtotal: number
+      taxRate: number
       total: number
     }[] = []
 
@@ -168,8 +167,7 @@ export async function POST(req: NextRequest) {
         quantity: item.quantity,
         unitPrice: product.unitPrice,
         discountAmount: itemDiscount,
-        taxAmount: itemTax,
-        subtotal: itemSubtotal,
+        taxRate: taxPercent,
         total: itemTotal,
       })
 
