@@ -7,6 +7,7 @@ import { POSNav } from '@/components/pos/POSNav'
 import { POSHeader } from '@/components/pos/POSHeader'
 import { ConflictResolutionModal } from '@/components/pos/ConflictResolutionModal'
 import { PWAInstallPrompt } from '@/components/pos/PWAInstallPrompt'
+import { KeyboardShortcutsDialog } from '@/components/pos/KeyboardShortcutsDialog'
 import { syncManager } from '@/lib/syncManager'
 
 export default function POSLayout({ children }: { children: ReactNode }) {
@@ -63,12 +64,12 @@ export default function POSLayout({ children }: { children: ReactNode }) {
       <POSNav />
       
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden lg:ml-0">
         {/* Header */}
         <POSHeader />
         
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6">
+        {/* Page Content - Add padding for mobile bottom nav */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-20 lg:pb-6">
           {children}
         </main>
       </div>
@@ -78,6 +79,9 @@ export default function POSLayout({ children }: { children: ReactNode }) {
 
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
+
+      {/* Keyboard Shortcuts Dialog */}
+      <KeyboardShortcutsDialog />
     </div>
   )
 }

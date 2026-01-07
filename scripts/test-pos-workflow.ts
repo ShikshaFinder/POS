@@ -4,7 +4,6 @@
  * Tests the complete flow:
  * 1. CRM Login → 2. Check POS → 3. POS Login → 4. Get Products → 
  * 5. Create Checkout → 6. WhatsApp → 7. Stock Check → 8. Production Planning
- * 
  * Run: npx ts-node scripts/test-pos-workflow.ts
  */
 
@@ -124,7 +123,7 @@ async function step2_checkPOSLocations(cookies: string): Promise<{ success: bool
                 return { success: true, locations };
             }
         }
-        
+
         log('Check POS Locations', false, data, 'No locations found or invalid response', api);
         return { success: false };
     } catch (error: any) {
