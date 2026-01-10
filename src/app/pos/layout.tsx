@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useState, useCallback } from 'react'
 import { POSNav } from '@/components/pos/POSNav'
 import { POSHeader } from '@/components/pos/POSHeader'
 import { MobileNav } from '@/components/pos/MobileNav'
@@ -14,6 +14,8 @@ import { syncManager } from '@/lib/syncManager'
 export default function POSLayout({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [])
 
   // Initialize sync manager and PWA
   useEffect(() => {
@@ -57,7 +59,7 @@ export default function POSLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar Navigation */}
-      <POSNav isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      <POSNav isOpen={mobileMenuOpen} onClose={closeMobileMenu} />
 
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
