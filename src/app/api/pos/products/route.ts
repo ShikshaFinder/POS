@@ -82,3 +82,122 @@ export async function GET(req: NextRequest) {
     )
   }
 }
+
+// POST /api/pos/products - Create a new product
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const organizationId = (session.user as any).currentOrganizationId
+    if (!organizationId) {
+      return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
+    }
+
+    const body = await req.json()
+    const { name, sku, unitPrice, currentStock, reorderLevel, unit, category } = body
+
+    if (!name) {
+      return NextResponse.json({ error: 'Product name is required' }, { status: 400 })
+    }
+
+    // Check if SKU already exists (if provided)
+    if (sku) {
+      const existingProduct = await prisma.product.findUnique({
+        where: { sku }
+      })
+      if (existingProduct) {
+        return NextResponse.json({ error: 'A product with this SKU already exists' }, { status: 400 })
+      }
+    }
+
+    const product = await prisma.product.create({
+      data: {
+        organizationId,
+        name,
+        sku: sku || null,
+        unitPrice: unitPrice ? parseFloat(unitPrice) : null,
+        currentStock: currentStock ? parseFloat(currentStock) : 0,
+        reorderLevel: reorderLevel ? parseFloat(reorderLevel) : 0,
+        unit: unit || 'PIECE',
+        category: category || 'General'
+      }
+    })
+
+    return NextResponse.json({ product }, { status: 201 })
+  } catch (error) {
+    console.error('Error creating product:', error)
+    return NextResponse.json(
+      { error: 'Failed to create product' },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT /api/pos/products - Update an existing product
+export async function PUT(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const organizationId = (session.user as any).currentOrganizationId
+    if (!organizationId) {
+      return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
+    }
+
+    const body = await req.json()
+    const { id, name, sku, unitPrice, currentStock, reorderLevel, unit, category } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 })
+    }
+
+    if (!name) {
+      return NextResponse.json({ error: 'Product name is required' }, { status: 400 })
+    }
+
+    // Verify product exists and belongs to the organization
+    const existingProduct = await prisma.product.findFirst({
+      where: { id, organizationId }
+    })
+
+    if (!existingProduct) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    }
+
+    // Check if SKU already exists for another product (if changed)
+    if (sku && sku !== existingProduct.sku) {
+      const skuExists = await prisma.product.findUnique({
+        where: { sku }
+      })
+      if (skuExists) {
+        return NextResponse.json({ error: 'A product with this SKU already exists' }, { status: 400 })
+      }
+    }
+
+    const product = await prisma.product.update({
+      where: { id },
+      data: {
+        name,
+        sku: sku || null,
+        unitPrice: unitPrice ? parseFloat(unitPrice) : null,
+        currentStock: currentStock ? parseFloat(currentStock) : 0,
+        reorderLevel: reorderLevel ? parseFloat(reorderLevel) : 0,
+        unit: unit || 'PIECE',
+        category: category || 'General'
+      }
+    })
+
+    return NextResponse.json({ product })
+  } catch (error) {
+    console.error('Error updating product:', error)
+    return NextResponse.json(
+      { error: 'Failed to update product' },
+      { status: 500 }
+    )
+  }
+}
