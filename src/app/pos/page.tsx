@@ -151,21 +151,24 @@ export default function POSDashboard() {
       </div>
 
       {/* Main CTA - Start Billing */}
+      {/* Main CTA - Start Billing */}
       <Link
         href="/pos/billing"
-        className="block bg-linear-to-r from-blue-600 to-blue-700 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all hover:scale-[1.01]"
+        className="group block bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 transition-all active:scale-[0.98]"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center">
-              <ShoppingCart className="h-8 w-8" />
+            <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm group-hover:bg-white/30 transition-colors">
+              <ShoppingCart className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold">Start New Sale</h2>
-              <p className="text-blue-100">Click here or press F1 to begin billing</p>
+              <h2 className="text-xl sm:text-2xl font-bold">Start New Sale</h2>
+              <p className="text-blue-100 text-sm sm:text-base">Tap here to begin billing</p>
             </div>
           </div>
-          <ArrowRight className="h-8 w-8" />
+          <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center group-hover:translate-x-1 transition-transform">
+            <ArrowRight className="h-5 w-5" />
+          </div>
         </div>
       </Link>
 
@@ -320,12 +323,12 @@ export default function POSDashboard() {
           ) : (
             <div className="space-y-3">
               {stats.recentTransactions.slice(0, 5).map((tx, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors active:bg-gray-200">
                   <div>
-                    <p className="font-mono text-sm text-blue-600">{tx.receiptNumber}</p>
+                    <p className="font-mono text-sm font-semibold text-blue-600 mb-0.5">{tx.receiptNumber}</p>
                     <p className="text-xs text-gray-500">{tx.time} • {tx.paymentMethod}</p>
                   </div>
-                  <span className="font-semibold">₹{tx.amount.toFixed(2)}</span>
+                  <span className="font-bold text-gray-900">₹{tx.amount.toFixed(2)}</span>
                 </div>
               ))}
             </div>

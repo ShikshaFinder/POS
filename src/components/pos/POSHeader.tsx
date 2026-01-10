@@ -8,9 +8,10 @@ export function POSHeader() {
   const { data: session } = useSession()
 
   return (
-    <header className="flex h-14 sm:h-16 items-center justify-between border-b border-gray-200 bg-white px-3 sm:px-6 flex-shrink-0 safe-top">
-      {/* Current Time & Date */}
+    <header className="sticky top-0 z-20 flex h-14 sm:h-16 items-center justify-between border-b border-gray-200/80 bg-white/80 backdrop-blur-md px-3 sm:px-6 flex-shrink-0 safe-top transition-all">
+      {/* Left Side: Brand (Mobile) or Time (Desktop) */}
       <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+        {/* Desktop: Show Date & Time */}
         <div className="hidden md:block">
           <p className="text-sm font-medium text-gray-900">
             {new Date().toLocaleDateString('en-IN', {
@@ -24,26 +25,21 @@ export function POSHeader() {
             {new Date().toLocaleTimeString('en-IN')}
           </p>
         </div>
-        
-        {/* Mobile: Show only date */}
-        <div className="md:hidden">
-          <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
-            {new Date().toLocaleDateString('en-IN', {
-              month: 'short',
-              day: 'numeric'
-            })}
-          </p>
-          <p className="text-[10px] sm:text-xs text-gray-500">
-            {new Date().toLocaleTimeString('en-IN', { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            })}
-          </p>
+
+        {/* Mobile: Show Brand Logo & Name */}
+        <div className="md:hidden flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
+            F
+          </div>
+          <div>
+            <h1 className="text-sm font-bold text-gray-900 leading-tight">Flavi POS</h1>
+            <p className="text-[10px] text-gray-500 leading-tight">Store Manager</p>
+          </div>
         </div>
       </div>
 
       {/* Right Side Actions */}
-      <div className="flex items-center gap-1.5 sm:gap-4">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         {/* Sync Status Indicator */}
         <SyncStatusIndicator />
 
@@ -72,7 +68,7 @@ export function POSHeader() {
               </p>
             </div>
           </div>
-          
+
           <button
             onClick={() => signOut({ callbackUrl: '/signin' })}
             className="rounded-full p-1.5 sm:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors tap-target"

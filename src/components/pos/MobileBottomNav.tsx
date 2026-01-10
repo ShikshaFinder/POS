@@ -25,7 +25,7 @@ export function MobileBottomNav({
     useEffect(() => {
         const handleScroll = () => {
             const currentScrollY = window.scrollY
-            
+
             if (currentScrollY < 50) {
                 setIsVisible(true)
             } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
@@ -35,7 +35,7 @@ export function MobileBottomNav({
                 // Scrolling up
                 setIsVisible(true)
             }
-            
+
             setLastScrollY(currentScrollY)
         }
 
@@ -45,12 +45,7 @@ export function MobileBottomNav({
 
     return (
         <nav
-            className={`
-                fixed bottom-0 left-0 right-0 z-50 lg:hidden
-                bg-white border-t border-gray-200 shadow-2xl
-                transition-transform duration-300 ease-in-out safe-bottom
-                ${isVisible ? 'translate-y-0' : 'translate-y-full'}
-            `}
+            className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-gray-200 shadow-2xl safe-bottom"
             role="navigation"
             aria-label="Mobile bottom navigation"
         >
@@ -82,9 +77,9 @@ export function MobileBottomNav({
                     aria-label={`View cart with ${cartItemCount} items`}
                 >
                     <div className="relative">
-                        <ShoppingCart 
-                            className={`h-6 w-6 ${cartItemCount > 0 ? 'text-blue-600' : 'text-gray-600'}`} 
-                            aria-hidden="true" 
+                        <ShoppingCart
+                            className={`h-6 w-6 ${cartItemCount > 0 ? 'text-blue-600' : 'text-gray-600'}`}
+                            aria-hidden="true"
                         />
                         {cartItemCount > 0 && (
                             <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">

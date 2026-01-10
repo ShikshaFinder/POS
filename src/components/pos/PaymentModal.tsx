@@ -141,8 +141,8 @@ export default function PaymentModal({
     ]
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 safe-bottom fade-in">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <div className="fixed inset-0 bg-white sm:bg-black/50 flex items-end sm:items-center justify-center z-50 sm:p-4 active:p-0 safe-bottom fade-in h-[100dvh] w-full">
+            <div className="bg-white sm:rounded-xl shadow-none sm:shadow-2xl w-full sm:max-w-lg h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-200 sticky top-0 bg-white z-10">
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Payment</h2>

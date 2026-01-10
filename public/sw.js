@@ -1,125 +1,93 @@
 /**
- * Service Worker for PWA
- * Handles offline caching and background sync
+ * Copyright 2018 Google Inc. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-const CACHE_NAME = 'pos-v1'
-const RUNTIME_CACHE = 'pos-runtime-v1'
+// If the loader is already loaded, just stop.
+if (!self.define) {
+  let registry = {};
 
-// Assets to cache on install
-const PRECACHE_ASSETS = [
-  '/',
-  '/pos',
-  '/pos/billing',
-  '/offline.html',
-]
+  // Used for `eval` and `importScripts` where we can't get script URL by other means.
+  // In both cases, it's safe to use a global var because those functions are synchronous.
+  let nextDefineUri;
 
-// Install event - cache essential assets
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Precaching assets')
-      return cache.addAll(PRECACHE_ASSETS)
-    })
-  )
-  self.skipWaiting()
-})
-
-// Activate event - clean up old caches
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME && name !== RUNTIME_CACHE)
-          .map((name) => caches.delete(name))
-      )
-    })
-  )
-  self.clients.claim()
-})
-
-// Fetch event - network first, then cache
-self.addEventListener('fetch', (event) => {
-  const { request } = event
-  const url = new URL(request.url)
-
-  // Skip cross-origin requests
-  if (url.origin !== location.origin) {
-    return
-  }
-
-  // API requests - network first, no cache for mutations
-  if (url.pathname.startsWith('/api/')) {
-    if (request.method !== 'GET') {
-      // Don't cache POST/PUT/DELETE
-      return
-    }
-
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const clonedResponse = response.clone()
-          caches.open(RUNTIME_CACHE).then((cache) => {
-            cache.put(request, clonedResponse)
-          })
-          return response
+  const singleRequire = (uri, parentUri) => {
+    uri = new URL(uri + ".js", parentUri).href;
+    return registry[uri] || (
+      
+        new Promise(resolve => {
+          if ("document" in self) {
+            const script = document.createElement("script");
+            script.src = uri;
+            script.onload = resolve;
+            document.head.appendChild(script);
+          } else {
+            nextDefineUri = uri;
+            importScripts(uri);
+            resolve();
+          }
         })
-        .catch(() => {
-          return caches.match(request)
-        })
-    )
-    return
-  }
-
-  // Static assets - cache first
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse
-      }
-
-      return fetch(request).then((response) => {
-        // Don't cache non-successful responses
-        if (!response || response.status !== 200 || response.type === 'error') {
-          return response
+      
+      .then(() => {
+        let promise = registry[uri];
+        if (!promise) {
+          throw new Error(`Module ${uri} didn’t register its module`);
         }
-
-        const clonedResponse = response.clone()
-        caches.open(RUNTIME_CACHE).then((cache) => {
-          cache.put(request, clonedResponse)
-        })
-
-        return response
+        return promise;
       })
-    }).catch(() => {
-      // Return offline page for navigation requests
-      if (request.mode === 'navigate') {
-        return caches.match('/offline.html')
-      }
-    })
-  )
-})
+    );
+  };
 
-// Background Sync
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-transactions') {
-    event.waitUntil(syncTransactions())
-  }
-})
-
-async function syncTransactions() {
-  // The actual sync is handled by the SyncManager in the main app
-  // This just notifies all clients to trigger sync
-  const clients = await self.clients.matchAll()
-  clients.forEach((client) => {
-    client.postMessage({ type: 'BACKGROUND_SYNC_TRIGGERED' })
-  })
+  self.define = (depsNames, factory) => {
+    const uri = nextDefineUri || ("document" in self ? document.currentScript.src : "") || location.href;
+    if (registry[uri]) {
+      // Module is already loading or loaded.
+      return;
+    }
+    let exports = {};
+    const require = depUri => singleRequire(depUri, uri);
+    const specialDeps = {
+      module: { uri },
+      exports,
+      require
+    };
+    registry[uri] = Promise.all(depsNames.map(
+      depName => specialDeps[depName] || require(depName)
+    )).then(deps => {
+      factory(...deps);
+      return exports;
+    });
+  };
 }
+define(['./workbox-7144475a'], (function (workbox) { 'use strict';
 
-// Handle messages from clients
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting()
-  }
-})
+  importScripts();
+  self.skipWaiting();
+  workbox.clientsClaim();
+  workbox.registerRoute("/", new workbox.NetworkFirst({
+    "cacheName": "start-url",
+    plugins: [{
+      cacheWillUpdate: async ({
+        response: e
+      }) => e && "opaqueredirect" === e.type ? new Response(e.body, {
+        status: 200,
+        statusText: "OK",
+        headers: e.headers
+      }) : e
+    }]
+  }), 'GET');
+  workbox.registerRoute(/.*/i, new workbox.NetworkOnly({
+    "cacheName": "dev",
+    plugins: []
+  }), 'GET');
+  self.__WB_DISABLE_DEV_LOGS = true;
+
+}));

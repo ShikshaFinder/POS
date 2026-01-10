@@ -1,6 +1,6 @@
 {
-  "name": "Flexi POS",
-  "short_name": "POS",
+  "name": "Flavi POS",
+  "short_name": "Flavi POS",
   "description": "Complete Point of Sale System with offline support",
   "start_url": "/pos",
   "display": "standalone",
@@ -57,21 +57,34 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "shortcuts": [
     {
       "name": "New Sale",
       "short_name": "Sale",
       "description": "Start a new transaction",
       "url": "/pos/billing",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Receipts",
       "short_name": "Receipts",
       "description": "View transaction history",
       "url": "/pos/receipts",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ],
   "screenshots": [],

@@ -80,7 +80,7 @@ export default function CartPanel({
         const checkMobile = () => {
             setIsMobile(window.innerWidth < 1024)
         }
-        
+
         checkMobile()
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
@@ -100,7 +100,7 @@ export default function CartPanel({
         const currentY = e.touches[0].clientY
         const deltaX = touchStartX.current - currentX
         const deltaY = Math.abs(touchStartY.current - currentY)
-        
+
         // Only swipe horizontally if vertical movement is minimal
         if (deltaY < 30 && deltaX > 0) {
             setSwipeDistance(Math.min(deltaX, 100))
@@ -109,12 +109,12 @@ export default function CartPanel({
 
     const handleTouchEnd = () => {
         if (!isMobile || !swipeItemId) return
-        
+
         // If swiped more than 60px, delete item
         if (swipeDistance > 60) {
             onRemoveItem(swipeItemId)
         }
-        
+
         setSwipeItemId(null)
         setSwipeDistance(0)
     }
@@ -129,7 +129,7 @@ export default function CartPanel({
         if (!isMobile || !drawerRef.current) return
         const currentY = e.touches[0].clientY
         const deltaY = currentY - drawerStartY.current
-        
+
         // Only allow downward swipe
         if (deltaY > 0) {
             drawerRef.current.style.transform = `translateY(${deltaY}px)`
@@ -140,12 +140,12 @@ export default function CartPanel({
         if (!isMobile || !drawerRef.current || !onClose) return
         const currentY = e.changedTouches[0].clientY
         const deltaY = currentY - drawerStartY.current
-        
+
         // If swiped down more than 100px, close drawer
         if (deltaY > 100) {
             onClose()
         }
-        
+
         // Reset position
         drawerRef.current.style.transform = ''
     }
@@ -216,7 +216,7 @@ export default function CartPanel({
                                     <Trash2 className="h-6 w-6 text-white" />
                                 </div>
                             )}
-                            
+
                             {/* Cart Item */}
                             <div
                                 className="bg-gray-50 rounded-lg p-3 border border-gray-200 transition-transform touch-feedback"
@@ -276,49 +276,49 @@ export default function CartPanel({
                                     </div>
                                 </div>
 
-                            {/* Discount Button */}
-                            {showDiscountInput === item.id ? (
-                                <div className="flex gap-2 mt-2">
-                                    <input
-                                        type="number"
-                                        placeholder="Amount"
-                                        defaultValue={item.discountValue}
-                                        className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm min-h-[44px]"
-                                        onBlur={(e) => {
-                                            const val = parseFloat(e.target.value) || 0
-                                            onUpdateItemDiscount(item.id, item.discountType, val)
-                                            setShowDiscountInput(null)
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                const val = parseFloat(e.currentTarget.value) || 0
+                                {/* Discount Button */}
+                                {showDiscountInput === item.id ? (
+                                    <div className="flex gap-2 mt-2">
+                                        <input
+                                            type="number"
+                                            placeholder="Amount"
+                                            defaultValue={item.discountValue}
+                                            className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm min-h-[44px]"
+                                            onBlur={(e) => {
+                                                const val = parseFloat(e.target.value) || 0
                                                 onUpdateItemDiscount(item.id, item.discountType, val)
                                                 setShowDiscountInput(null)
-                                            }
-                                        }}
-                                        autoFocus
-                                        aria-label="Enter discount value"
-                                    />
-                                    <select
-                                        value={item.discountType}
-                                        onChange={(e) => onUpdateItemDiscount(item.id, e.target.value as 'flat' | 'percent', item.discountValue)}
-                                        className="px-2 py-1.5 border border-gray-300 rounded text-sm min-h-[44px]"
-                                        aria-label="Discount type"
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const val = parseFloat(e.currentTarget.value) || 0
+                                                    onUpdateItemDiscount(item.id, item.discountType, val)
+                                                    setShowDiscountInput(null)
+                                                }
+                                            }}
+                                            autoFocus
+                                            aria-label="Enter discount value"
+                                        />
+                                        <select
+                                            value={item.discountType}
+                                            onChange={(e) => onUpdateItemDiscount(item.id, e.target.value as 'flat' | 'percent', item.discountValue)}
+                                            className="px-2 py-1.5 border border-gray-300 rounded text-sm min-h-[44px]"
+                                            aria-label="Discount type"
+                                        >
+                                            <option value="flat">₹</option>
+                                            <option value="percent">%</option>
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowDiscountInput(item.id)}
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 min-h-[44px]"
+                                        aria-label="Add discount to item"
                                     >
-                                        <option value="flat">₹</option>
-                                        <option value="percent">%</option>
-                                    </select>
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={() => setShowDiscountInput(item.id)}
-                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 min-h-[44px]"
-                                    aria-label="Add discount to item"
-                                >
-                                    <Tag className="h-3 w-3" aria-hidden="true" />
-                                    {item.discount > 0 ? 'Update Discount' : 'Add Discount'}
-                                </button>
-                            )}
+                                        <Tag className="h-3 w-3" aria-hidden="true" />
+                                        {item.discount > 0 ? 'Update Discount' : 'Add Discount'}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))
@@ -474,7 +474,7 @@ export default function CartPanel({
                 <div
                     ref={drawerRef}
                     className={`
-                        fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl
+                        fixed inset-x-0 bottom-0 z-50 bg-white/95 backdrop-blur-md rounded-t-2xl shadow-2xl
                         transition-transform duration-300 ease-out
                         flex flex-col max-h-[85vh] safe-bottom
                         ${isOpen ? 'translate-y-0' : 'translate-y-full'}

@@ -2,9 +2,10 @@
 
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
-import { ReactNode, useEffect } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { POSNav } from '@/components/pos/POSNav'
 import { POSHeader } from '@/components/pos/POSHeader'
+import { MobileNav } from '@/components/pos/MobileNav'
 import { ConflictResolutionModal } from '@/components/pos/ConflictResolutionModal'
 import { PWAInstallPrompt } from '@/components/pos/PWAInstallPrompt'
 import { KeyboardShortcutsDialog } from '@/components/pos/KeyboardShortcutsDialog'
@@ -12,20 +13,15 @@ import { syncManager } from '@/lib/syncManager'
 
 export default function POSLayout({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Initialize sync manager and PWA
   useEffect(() => {
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          console.log('Service Worker registered:', registration)
-        })
-        .catch((error) => {
-          console.error('Service Worker registration failed:', error)
-        })
-    }
+    // Register service worker is handled by next-pwa now.
+    // We can keep specific logic here if needed, but for now we'll let next-pwa handle registration.
+
+    // Legacy registration - keeping it safe or removing if redundant.
+    // Let's rely on next-pwa but keep the event listeners.
 
     // Prevent window close during active sync
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -61,18 +57,24 @@ export default function POSLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar Navigation */}
-      <POSNav />
-      
+      <POSNav isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <POSHeader />
-        
+
         {/* Page Content - Add padding for mobile bottom nav and proper spacing */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 pb-20 lg:pb-6 custom-scrollbar safe-bottom">
           {children}
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileNav
+        onMenuClick={() => setMobileMenuOpen(true)}
+        isMenuOpen={mobileMenuOpen}
+      />
 
       {/* Conflict Resolution Modal */}
       <ConflictResolutionModal />
