@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { useSession } from 'next-auth/react'
 import {
   ShoppingCart, Package, DollarSign, Users,
   Clock, Receipt, BarChart3, TrendingUp,
@@ -13,6 +14,7 @@ import {
 import { cn } from '@/lib/utils'
 
 export default function POSHomePage() {
+  const { data: session } = useSession()
   const [currentTime, setCurrentTime] = useState(new Date())
 
   useEffect(() => {
@@ -139,7 +141,7 @@ export default function POSHomePage() {
             </p>
             <div className="flex items-center justify-center gap-4 mt-6">
               <Link
-                href="/signin"
+                href={session ? "/pos" : "/signin"}
                 className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold text-lg shadow-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
               >
                 <Store className="h-5 w-5" />
@@ -222,12 +224,12 @@ export default function POSHomePage() {
               Access the dashboard to start managing your business operations
             </p>
             <div className="flex items-center justify-center gap-4">
-              <a
-                href="/signin"
+              <Link
+                href={session ? "/pos" : "/signin"}
                 className="px-6 py-3 bg-white text-blue-600 rounded-xl font-semibold text-lg shadow-lg hover:bg-gray-50 transition-colors cursor-pointer inline-block"
               >
                 → Go to Dashboard
-              </a>
+              </Link>
             </div>
           </div>
         </div>
