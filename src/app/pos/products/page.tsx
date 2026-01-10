@@ -55,9 +55,61 @@ export default function ProductsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Add product creation API call here
-    alert('Product management API needs to be implemented')
+    setLoading(true)
+
+    try {
+      const payload = {
+        name: formData.name,
+        sku: formData.sku || undefined,
+        unitPrice: formData.unitPrice,
+        currentStock: formData.currentStock,
+        reorderLevel: formData.reorderLevel,
+        unit: formData.unit,
+        category: formData.category,
+      }
+
+      let res: Response
+      if (editingProduct) {
+        // Update existing product
+        res = await fetch(`/api/pos/products?id=${editingProduct.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      } else {
+        // Create new product
+        res = await fetch('/api/pos/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      }
+
+      if (res.ok) {
+        setShowDialog(false)
+        fetchProducts() // Refresh the product list
+        setFormData({
+          name: '',
+          sku: '',
+          unitPrice: '',
+          currentStock: '',
+          reorderLevel: '',
+          unit: 'PIECE',
+          category: 'General',
+        })
+        setEditingProduct(null)
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Failed to save product')
+      }
+    } catch (error) {
+      console.error('Failed to save product:', error)
+      alert('Failed to save product')
+    } finally {
+      setLoading(false)
+    }
   }
+
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product)
@@ -82,7 +134,7 @@ export default function ProductsPage() {
             Manage your product catalog
           </p>
         </div>
-        <Button 
+        <Button
           className="w-full sm:w-auto"
           onClick={() => {
             setEditingProduct(null)
@@ -156,11 +208,10 @@ export default function ProductsPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-xs sm:text-sm text-gray-600">Stock:</span>
-                  <span className={`font-semibold text-sm sm:text-base ${
-                    (product.currentStock || 0) <= (product.reorderLevel || 0)
+                  <span className={`font-semibold text-sm sm:text-base ${(product.currentStock || 0) <= (product.reorderLevel || 0)
                       ? 'text-red-600'
                       : 'text-gray-900'
-                  }`}>
+                    }`}>
                     {product.currentStock || 0} {product.unit}
                   </span>
                 </div>
