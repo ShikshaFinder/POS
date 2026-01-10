@@ -136,9 +136,29 @@
     @apply min-h-[44px] min-w-[44px];
   }
 
+  .tap-target-lg {
+    @apply min-h-[48px] min-w-[48px];
+  }
+
   /* Focus visible for accessibility */
   .focus-visible-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+
+  /* Mobile-optimized touch feedback */
+  .touch-feedback {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    @apply active:scale-95 transition-transform duration-100;
+  }
+
+  /* Prevent overscroll bounce on mobile */
+  .no-overscroll {
+    overscroll-behavior: none;
+  }
+
+  /* Mobile-friendly card shadows */
+  .mobile-card {
+    @apply shadow-sm hover:shadow-md active:shadow-sm transition-shadow;
   }
 
   /* Truncate text with ellipsis */
@@ -220,6 +240,97 @@
 
   .safe-right {
     padding-right: env(safe-area-inset-right);
+  }
+
+  /* Mobile viewport height fix */
+  .h-screen-mobile {
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  .no-zoom-on-focus {
+    font-size: 16px !important;
+  }
+
+  /* Slide drawer animations */
+  .slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+  }
+
+  .slide-out-right {
+    animation: slideOutRight 0.3s ease-in;
+  }
+
+  .slide-in-bottom {
+    animation: slideInBottom 0.3s ease-out;
+  }
+
+  .slide-out-bottom {
+    animation: slideOutBottom 0.3s ease-in;
+  }
+
+  /* Fade animations */
+  .fade-in {
+    animation: fadeIn 0.2s ease-in;
+  }
+
+  .fade-out {
+    animation: fadeOut 0.2s ease-out;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes slideInBottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOutBottom {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 

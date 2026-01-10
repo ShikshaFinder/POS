@@ -1,7 +1,7 @@
 'use client'
 
 import { Plus, Minus, Trash2, ShoppingCart, Tag, Percent, X } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export interface CartItem {
     id: string
@@ -68,6 +68,12 @@ export default function CartPanel({
 }: CartPanelProps) {
     const [showDiscountInput, setShowDiscountInput] = useState<string | null>(null)
     const [isMobile, setIsMobile] = useState(false)
+    const [swipeItemId, setSwipeItemId] = useState<string | null>(null)
+    const [swipeDistance, setSwipeDistance] = useState(0)
+    const touchStartX = useRef(0)
+    const touchStartY = useRef(0)
+    const drawerRef = useRef<HTMLDivElement>(null)
+    const drawerStartY = useRef(0)
 
     // Detect mobile screen size
     useEffect(() => {
@@ -79,6 +85,70 @@ export default function CartPanel({
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
+
+    // Swipe to delete cart item
+    const handleTouchStart = (e: React.TouchEvent, itemId: string) => {
+        if (!isMobile) return
+        touchStartX.current = e.touches[0].clientX
+        touchStartY.current = e.touches[0].clientY
+        setSwipeItemId(itemId)
+    }
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!isMobile || !swipeItemId) return
+        const currentX = e.touches[0].clientX
+        const currentY = e.touches[0].clientY
+        const deltaX = touchStartX.current - currentX
+        const deltaY = Math.abs(touchStartY.current - currentY)
+        
+        // Only swipe horizontally if vertical movement is minimal
+        if (deltaY < 30 && deltaX > 0) {
+            setSwipeDistance(Math.min(deltaX, 100))
+        }
+    }
+
+    const handleTouchEnd = () => {
+        if (!isMobile || !swipeItemId) return
+        
+        // If swiped more than 60px, delete item
+        if (swipeDistance > 60) {
+            onRemoveItem(swipeItemId)
+        }
+        
+        setSwipeItemId(null)
+        setSwipeDistance(0)
+    }
+
+    // Swipe to close drawer on mobile
+    const handleDrawerTouchStart = (e: React.TouchEvent) => {
+        if (!isMobile || !drawerRef.current) return
+        drawerStartY.current = e.touches[0].clientY
+    }
+
+    const handleDrawerTouchMove = (e: React.TouchEvent) => {
+        if (!isMobile || !drawerRef.current) return
+        const currentY = e.touches[0].clientY
+        const deltaY = currentY - drawerStartY.current
+        
+        // Only allow downward swipe
+        if (deltaY > 0) {
+            drawerRef.current.style.transform = `translateY(${deltaY}px)`
+        }
+    }
+
+    const handleDrawerTouchEnd = (e: React.TouchEvent) => {
+        if (!isMobile || !drawerRef.current || !onClose) return
+        const currentY = e.changedTouches[0].clientY
+        const deltaY = currentY - drawerStartY.current
+        
+        // If swiped down more than 100px, close drawer
+        if (deltaY > 100) {
+            onClose()
+        }
+        
+        // Reset position
+        drawerRef.current.style.transform = ''
+    }
 
     // Calculations
     const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0)
@@ -125,7 +195,7 @@ export default function CartPanel({
             </div>
 
             {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                 {items.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-32 text-gray-400" role="status">
                         <ShoppingCart className="h-12 w-12 mb-2" aria-hidden="true" />
@@ -135,59 +205,76 @@ export default function CartPanel({
                     items.map((item) => (
                         <div
                             key={item.id}
-                            className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+                            className="relative overflow-hidden"
+                            onTouchStart={(e) => handleTouchStart(e, item.id)}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
                         >
-                            {/* Item Name & Price */}
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="flex-1 min-w-0 pr-2">
-                                    <h3 className="font-medium text-gray-900 text-sm truncate">{item.name}</h3>
-                                    {item.sku && (
-                                        <p className="text-xs text-gray-500">SKU: {item.sku}</p>
-                                    )}
+                            {/* Delete background (visible on swipe) */}
+                            {isMobile && swipeItemId === item.id && (
+                                <div className="absolute inset-0 bg-red-500 rounded-lg flex items-center justify-end pr-4">
+                                    <Trash2 className="h-6 w-6 text-white" />
                                 </div>
-                                <button
-                                    onClick={() => onRemoveItem(item.id)}
-                                    className="p-1.5 hover:bg-red-50 rounded text-red-600 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                                    aria-label={`Remove ${item.name} from cart`}
-                                >
-                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                            </div>
+                            )}
+                            
+                            {/* Cart Item */}
+                            <div
+                                className="bg-gray-50 rounded-lg p-3 border border-gray-200 transition-transform touch-feedback"
+                                style={{
+                                    transform: swipeItemId === item.id ? `translateX(-${swipeDistance}px)` : 'translateX(0)',
+                                }}
+                            >
+                                {/* Item Name & Price */}
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex-1 min-w-0 pr-2">
+                                        <h3 className="font-medium text-gray-900 text-sm truncate">{item.name}</h3>
+                                        {item.sku && (
+                                            <p className="text-xs text-gray-500">SKU: {item.sku}</p>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => onRemoveItem(item.id)}
+                                        className="p-1.5 hover:bg-red-50 rounded text-red-600 tap-target flex items-center justify-center"
+                                        aria-label={`Remove ${item.name} from cart`}
+                                    >
+                                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                    </button>
+                                </div>
 
-                            {/* Quantity Controls */}
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2" role="group" aria-label="Quantity controls">
-                                    <button
-                                        onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                                        className="p-2 hover:bg-white rounded border border-gray-300 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                                        aria-label="Decrease quantity"
-                                        disabled={item.quantity <= 1}
-                                    >
-                                        <Minus className="h-4 w-4" aria-hidden="true" />
-                                    </button>
-                                    <span className="w-12 text-center font-medium" aria-live="polite">
-                                        {item.quantity}
-                                    </span>
-                                    <button
-                                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                                        className="p-2 hover:bg-white rounded border border-gray-300 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                                        aria-label="Increase quantity"
-                                    >
-                                        <Plus className="h-4 w-4" aria-hidden="true" />
-                                    </button>
-                                    <span className="text-sm text-gray-600">× ₹{item.unitPrice.toFixed(2)}</span>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-sm font-semibold text-gray-900">
-                                        ₹{item.total.toFixed(2)}
-                                    </p>
-                                    {item.discount > 0 && (
-                                        <p className="text-xs text-green-600">
-                                            Saved ₹{item.discount.toFixed(2)}
+                                {/* Quantity Controls */}
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2 sm:gap-3" role="group" aria-label="Quantity controls">
+                                        <button
+                                            onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                                            className="p-2 hover:bg-white active:bg-gray-100 rounded border border-gray-300 tap-target flex items-center justify-center touch-feedback"
+                                            aria-label="Decrease quantity"
+                                            disabled={item.quantity <= 1}
+                                        >
+                                            <Minus className="h-4 w-4" aria-hidden="true" />
+                                        </button>
+                                        <span className="w-10 sm:w-12 text-center font-medium text-sm sm:text-base" aria-live="polite">
+                                            {item.quantity}
+                                        </span>
+                                        <button
+                                            onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                                            className="p-2 hover:bg-white active:bg-gray-100 rounded border border-gray-300 tap-target flex items-center justify-center touch-feedback"
+                                            aria-label="Increase quantity"
+                                        >
+                                            <Plus className="h-4 w-4" aria-hidden="true" />
+                                        </button>
+                                        <span className="text-xs sm:text-sm text-gray-600">× ₹{item.unitPrice.toFixed(2)}</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm sm:text-base font-semibold text-gray-900">
+                                            ₹{item.total.toFixed(2)}
                                         </p>
-                                    )}
+                                        {item.discount > 0 && (
+                                            <p className="text-xs text-green-600">
+                                                -₹{item.discount.toFixed(2)}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
 
                             {/* Discount Button */}
                             {showDiscountInput === item.id ? (
@@ -376,7 +463,7 @@ export default function CartPanel({
                 {/* Overlay */}
                 {isOpen && (
                     <div
-                        className="fixed inset-0 bg-black/50 z-40"
+                        className="fixed inset-0 bg-black/50 z-40 fade-in"
                         onClick={onClose}
                         aria-hidden="true"
                     />
@@ -384,16 +471,24 @@ export default function CartPanel({
 
                 {/* Mobile Drawer */}
                 <div
+                    ref={drawerRef}
                     className={`
                         fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl
-                        transition-transform duration-300 ease-in-out
-                        flex flex-col max-h-[85vh]
+                        transition-transform duration-300 ease-out
+                        flex flex-col max-h-[85vh] safe-bottom
                         ${isOpen ? 'translate-y-0' : 'translate-y-full'}
                     `}
                     role="dialog"
                     aria-modal="true"
                     aria-label="Shopping cart"
+                    onTouchStart={handleDrawerTouchStart}
+                    onTouchMove={handleDrawerTouchMove}
+                    onTouchEnd={handleDrawerTouchEnd}
                 >
+                    {/* Drag Handle */}
+                    <div className="pt-2 pb-0 flex justify-center">
+                        <div className="w-12 h-1.5 bg-gray-300 rounded-full" aria-hidden="true" />
+                    </div>
                     {cartContent}
                 </div>
             </>
@@ -402,7 +497,7 @@ export default function CartPanel({
 
     // Desktop: Fixed side panel
     return (
-        <div className="w-96 bg-white rounded-lg border border-gray-200 flex flex-col h-full">
+        <div className="w-96 bg-white rounded-lg border border-gray-200 flex flex-col h-full shadow-sm">
             {cartContent}
         </div>
     )

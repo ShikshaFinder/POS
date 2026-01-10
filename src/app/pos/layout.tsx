@@ -64,12 +64,12 @@ export default function POSLayout({ children }: { children: ReactNode }) {
       <POSNav />
       
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col overflow-hidden lg:ml-0">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <POSHeader />
         
-        {/* Page Content - Add padding for mobile bottom nav */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-20 lg:pb-6">
+        {/* Page Content - Add padding for mobile bottom nav and proper spacing */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 pb-20 lg:pb-6 custom-scrollbar safe-bottom">
           {children}
         </main>
       </div>

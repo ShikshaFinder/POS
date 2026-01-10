@@ -55,16 +55,16 @@ export default function ProductGrid({
     return (
         <div className="flex flex-col h-full">
             {/* Search Bar with View Toggle */}
-            <div className="relative mb-4 flex gap-2">
+            <div className="relative mb-3 sm:mb-4 flex gap-2">
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" aria-hidden="true" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" aria-hidden="true" />
                     <input
                         ref={searchInputRef}
                         type="text"
-                        placeholder="Search by name, SKU, or barcode..."
+                        placeholder="Search products..."
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px]"
+                        className="w-full pl-10 pr-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm tap-target no-zoom-on-focus"
                         autoComplete="off"
                         aria-label="Search products"
                     />
@@ -76,7 +76,7 @@ export default function ProductGrid({
                 <div className="hidden sm:flex items-center gap-1 bg-gray-100 p-1 rounded-lg" role="group" aria-label="View mode">
                     <button
                         onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
+                        className={`p-2 rounded transition-all touch-feedback ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
                         aria-label="Grid view"
                         aria-pressed={viewMode === 'grid'}
                     >
@@ -84,7 +84,7 @@ export default function ProductGrid({
                     </button>
                     <button
                         onClick={() => setViewMode('list')}
-                        className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
+                        className={`p-2 rounded transition-all touch-feedback ${viewMode === 'list' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
                         aria-label="List view"
                         aria-pressed={viewMode === 'list'}
                     >
@@ -94,17 +94,17 @@ export default function ProductGrid({
             </div>
 
             {/* Products Grid/List */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {loading ? (
                     <div className={viewMode === 'grid' 
-                        ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
+                        ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3"
                         : "space-y-2"
                     }>
                         {[...Array(10)].map((_, i) => (
                             <div 
                                 key={i} 
                                 className={viewMode === 'grid' 
-                                    ? "bg-gray-100 rounded-lg h-48 animate-pulse"
+                                    ? "bg-gray-100 rounded-lg h-44 sm:h-48 animate-pulse"
                                     : "bg-gray-100 rounded-lg h-20 animate-pulse"
                                 } 
                                 aria-hidden="true"
@@ -118,7 +118,7 @@ export default function ProductGrid({
                     </div>
                 ) : viewMode === 'grid' ? (
                     <div 
-                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3"
+                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 pb-2"
                         role="list"
                         aria-label="Products"
                     >
@@ -132,10 +132,10 @@ export default function ProductGrid({
                                     key={product.id}
                                     onClick={() => !isDisabled && onProductClick(product)}
                                     className={`
-                                        relative bg-white border rounded-lg overflow-hidden transition-all
+                                        relative bg-white border rounded-lg overflow-hidden transition-all mobile-card touch-feedback
                                         ${isDisabled
                                             ? 'opacity-60 cursor-not-allowed border-gray-200'
-                                            : 'cursor-pointer hover:shadow-lg hover:border-blue-400 border-gray-200 active:scale-95'
+                                            : 'cursor-pointer hover:border-blue-400 border-gray-200'
                                         }
                                     `}
                                     role="listitem"
@@ -150,7 +150,7 @@ export default function ProductGrid({
                                 >
                                     {/* Discount Badge */}
                                     {discount > 0 && (
-                                        <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full z-10 shadow-lg">
+                                        <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 bg-red-500 text-white text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full z-10 shadow-lg">
                                             {discount}% OFF
                                         </div>
                                     )}
@@ -164,37 +164,38 @@ export default function ProductGrid({
                                                 fill
                                                 className="object-cover"
                                                 sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                                                loading="lazy"
                                             />
                                         ) : (
                                             <div className="flex items-center justify-center h-full">
-                                                <Package className="h-12 w-12 text-gray-300" aria-hidden="true" />
+                                                <Package className="h-8 sm:h-12 w-8 sm:w-12 text-gray-300" aria-hidden="true" />
                                             </div>
                                         )}
                                     </div>
 
                                     {/* Product Info */}
                                     <div className="p-2 sm:p-3 space-y-1">
-                                        <h3 className="font-medium text-xs sm:text-sm text-gray-900 line-clamp-2 min-h-[2.5rem]">
+                                        <h3 className="font-medium text-xs sm:text-sm text-gray-900 line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">
                                             {product.name}
                                         </h3>
 
                                         {/* Price */}
-                                        <div className="flex items-baseline gap-1 sm:gap-2">
+                                        <div className="flex items-baseline gap-1 flex-wrap">
                                             <span className="text-sm sm:text-lg font-bold text-gray-900">
                                                 ₹{product.unitPrice?.toFixed(2) || 'N/A'}
                                             </span>
                                             {product.markedPrice && product.markedPrice > (product.unitPrice || 0) && (
-                                                <span className="text-xs text-gray-400 line-through">
+                                                <span className="text-[10px] sm:text-xs text-gray-400 line-through">
                                                     ₹{product.markedPrice.toFixed(2)}
                                                 </span>
                                             )}
                                         </div>
 
                                         {/* Stock Status */}
-                                        <div className={`text-xs px-2 py-1 rounded border ${stockStatus.color} text-center`}>
+                                        <div className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded border ${stockStatus.color} text-center`}>
                                             <span className="font-medium">{stockStatus.label}</span>
                                             {stockStatus.status !== 'out' && (
-                                                <span className="ml-1">({product.currentStock} {product.unit})</span>
+                                                <span className="ml-1 hidden xs:inline">({product.currentStock})</span>
                                             )}
                                         </div>
                                     </div>

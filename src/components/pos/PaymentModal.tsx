@@ -141,24 +141,25 @@ export default function PaymentModal({
     ]
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 safe-bottom fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto custom-scrollbar">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                    <h2 className="text-xl font-semibold text-gray-900">Payment</h2>
+                <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-200 sticky top-0 bg-white z-10">
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Payment</h2>
                     <button
                         onClick={onClose}
-                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors tap-target"
+                        aria-label="Close payment modal"
                     >
                         <X className="h-5 w-5" />
                     </button>
                 </div>
 
                 {/* Total Display */}
-                <div className="p-4 bg-gray-50 border-b border-gray-200">
+                <div className="p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-b border-gray-200">
                     <div className="text-center">
-                        <p className="text-sm text-gray-600">Total Amount</p>
-                        <p className="text-4xl font-bold text-gray-900 mt-1">
+                        <p className="text-xs sm:text-sm text-gray-600 font-medium">Total Amount</p>
+                        <p className="text-3xl sm:text-4xl font-bold text-gray-900 mt-1">
                             ₹{roundedTotal.toFixed(2)}
                         </p>
                         {roundOffAmount !== 0 && (
@@ -170,31 +171,33 @@ export default function PaymentModal({
                 </div>
 
                 {/* Payment Method Selection */}
-                <div className="p-4">
-                    <div className="grid grid-cols-5 gap-2 mb-4">
+                <div className="p-4 sm:p-5">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4 sm:mb-5">
                         {paymentMethods.map((pm) => (
                             <button
                                 key={pm.id}
                                 onClick={() => setMethod(pm.id)}
                                 className={cn(
-                                    "flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all",
+                                    "flex flex-col items-center gap-1 p-2 sm:p-3 rounded-lg border-2 transition-all touch-feedback",
                                     method === pm.id
                                         ? `border-${pm.color}-500 bg-${pm.color}-50`
-                                        : "border-gray-200 hover:border-gray-300"
+                                        : "border-gray-200 hover:border-gray-300 active:border-gray-400"
                                 )}
+                                aria-pressed={method === pm.id}
+                                aria-label={`Pay with ${pm.label}${pm.shortcut ? `, ${pm.shortcut}` : ''}`}
                             >
                                 <pm.icon className={cn(
-                                    "h-5 w-5",
+                                    "h-5 w-5 sm:h-6 sm:w-6",
                                     method === pm.id ? `text-${pm.color}-600` : "text-gray-500"
                                 )} />
                                 <span className={cn(
-                                    "text-xs font-medium",
+                                    "text-[10px] sm:text-xs font-medium",
                                     method === pm.id ? `text-${pm.color}-700` : "text-gray-600"
                                 )}>
                                     {pm.label}
                                 </span>
                                 {pm.shortcut && (
-                                    <span className="text-[10px] text-gray-400">{pm.shortcut}</span>
+                                    <span className="text-[9px] text-gray-400 hidden sm:inline">{pm.shortcut}</span>
                                 )}
                             </button>
                         ))}
@@ -206,32 +209,36 @@ export default function PaymentModal({
                             <div>
                                 <label className="text-sm font-medium text-gray-700">Cash Received</label>
                                 <div className="relative mt-1">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg">₹</span>
                                     <input
                                         type="number"
+                                        inputMode="decimal"
                                         value={cashReceived}
                                         onChange={(e) => setCashReceived(e.target.value)}
-                                        className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg text-xl font-semibold focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg text-xl font-semibold focus:ring-2 focus:ring-green-500 focus:border-transparent no-zoom-on-focus tap-target"
                                         placeholder="0.00"
                                         autoFocus
+                                        aria-label="Enter cash received amount"
                                     />
                                 </div>
                             </div>
 
                             {/* Quick Denominations */}
-                            <div className="flex flex-wrap gap-2">
+                            <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
                                 {quickDenominations.map((denom) => (
                                     <button
                                         key={denom}
                                         onClick={() => handleQuickCash(denom)}
-                                        className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+                                        className="px-3 py-2 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-lg text-xs sm:text-sm font-medium transition-colors touch-feedback"
+                                        aria-label={`Add ${denom} rupees`}
                                     >
                                         +₹{denom}
                                     </button>
                                 ))}
                                 <button
                                     onClick={() => setCashReceived(String(roundedTotal))}
-                                    className="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm font-medium transition-colors"
+                                    className="px-3 py-2 bg-green-100 hover:bg-green-200 active:bg-green-300 text-green-700 rounded-lg text-xs sm:text-sm font-medium transition-colors touch-feedback"
+                                    aria-label="Set exact amount"
                                 >
                                     Exact
                                 </button>
@@ -240,23 +247,26 @@ export default function PaymentModal({
                             {/* Change Display */}
                             {cashReceivedNum > 0 && (
                                 <div className={cn(
-                                    "p-4 rounded-lg flex items-center justify-between",
+                                    "p-3 sm:p-4 rounded-lg flex items-center justify-between",
                                     changeToGive > 0 ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"
-                                )}>
+                                )}
+                                    role="status"
+                                    aria-live="polite"
+                                >
                                     <div className="flex items-center gap-2">
                                         <Calculator className={cn(
-                                            "h-5 w-5",
+                                            "h-5 w-5 flex-shrink-0",
                                             changeToGive > 0 ? "text-green-600" : "text-red-600"
                                         )} />
                                         <span className={cn(
-                                            "font-medium",
+                                            "text-sm sm:text-base font-medium",
                                             changeToGive > 0 ? "text-green-700" : "text-red-700"
                                         )}>
-                                            {changeToGive > 0 ? 'Change to Return' : 'Amount Short'}
+                                            {changeToGive > 0 ? 'Change' : 'Short'}
                                         </span>
                                     </div>
                                     <span className={cn(
-                                        "text-2xl font-bold",
+                                        "text-xl sm:text-2xl font-bold",
                                         changeToGive > 0 ? "text-green-700" : "text-red-700"
                                     )}>
                                         ₹{changeToGive > 0 ? changeToGive.toFixed(2) : Math.abs(cashReceivedNum - roundedTotal).toFixed(2)}
@@ -275,29 +285,34 @@ export default function PaymentModal({
                                 { key: 'upi', label: 'UPI', icon: Smartphone },
                                 { key: 'wallet', label: 'Wallet', icon: Wallet }
                             ].map((item) => (
-                                <div key={item.key} className="flex items-center gap-3">
-                                    <item.icon className="h-5 w-5 text-gray-500" />
-                                    <span className="w-16 text-sm font-medium text-gray-700">{item.label}</span>
+                                <div key={item.key} className="flex items-center gap-2 sm:gap-3">
+                                    <item.icon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 flex-shrink-0" />
+                                    <span className="w-12 sm:w-16 text-xs sm:text-sm font-medium text-gray-700">{item.label}</span>
                                     <div className="relative flex-1">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
+                                        <span className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs sm:text-sm">₹</span>
                                         <input
                                             type="number"
+                                            inputMode="decimal"
                                             value={splitAmounts[item.key as keyof typeof splitAmounts] || ''}
                                             onChange={(e) => setSplitAmounts({
                                                 ...splitAmounts,
                                                 [item.key]: parseFloat(e.target.value) || 0
                                             })}
-                                            className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full pl-6 sm:pl-8 pr-2 sm:pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm no-zoom-on-focus tap-target"
                                             placeholder="0.00"
+                                            aria-label={`${item.label} amount`}
                                         />
                                     </div>
                                 </div>
                             ))}
 
                             <div className={cn(
-                                "p-3 rounded-lg text-center",
-                                splitRemaining <= 0.01 ? "bg-green-50" : "bg-amber-50"
-                            )}>
+                                "p-3 rounded-lg text-center text-sm sm:text-base",
+                                splitRemaining <= 0.01 ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"
+                            )}
+                                role="status"
+                                aria-live="polite"
+                            >
                                 <span className={cn(
                                     "font-medium",
                                     splitRemaining <= 0.01 ? "text-green-700" : "text-amber-700"
@@ -310,8 +325,13 @@ export default function PaymentModal({
 
                     {/* Card/UPI/Wallet - Just confirmation */}
                     {(method === 'CARD' || method === 'UPI' || method === 'WALLET') && (
-                        <div className="text-center py-6 text-gray-500">
-                            <p>Click confirm to complete {method.toLowerCase()} payment</p>
+                        <div className="text-center py-8 text-gray-500">
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-3">
+                                {method === 'CARD' && <CreditCard className="h-8 w-8" />}
+                                {method === 'UPI' && <Smartphone className="h-8 w-8" />}
+                                {method === 'WALLET' && <Wallet className="h-8 w-8" />}
+                            </div>
+                            <p className="text-sm sm:text-base">Click confirm to complete {method.toLowerCase()} payment</p>
                         </div>
                     )}
 
@@ -321,9 +341,12 @@ export default function PaymentModal({
                         <button
                             onClick={() => setRoundOff(!roundOff)}
                             className={cn(
-                                "relative w-11 h-6 rounded-full transition-colors",
+                                "relative w-11 h-6 rounded-full transition-colors tap-target",
                                 roundOff ? "bg-blue-600" : "bg-gray-300"
                             )}
+                            role="switch"
+                            aria-checked={roundOff}
+                            aria-label="Toggle round off"
                         >
                             <span className={cn(
                                 "absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform",
@@ -339,25 +362,33 @@ export default function PaymentModal({
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             placeholder="Add notes (optional)"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent no-zoom-on-focus tap-target"
+                            aria-label="Payment notes"
                         />
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-gray-200 flex gap-3">
+                <div className="p-4 sm:p-5 border-t border-gray-200 flex flex-col sm:flex-row gap-2 sm:gap-3 sticky bottom-0 bg-white">
                     <button
                         onClick={onClose}
-                        className="flex-1 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="flex-1 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors tap-target-lg touch-feedback"
+                        aria-label="Cancel payment"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleConfirm}
                         disabled={!canConfirm() || loading}
-                        className="flex-[2] py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                        className="flex-1 sm:flex-[2] py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 active:bg-green-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors tap-target-lg touch-feedback"
+                        aria-label="Confirm payment"
                     >
-                        {loading ? 'Processing...' : 'Confirm Payment (Enter)'}
+                        {loading ? 'Processing...' : (
+                            <>
+                                <span className="hidden sm:inline">Confirm Payment (Enter)</span>
+                                <span className="sm:hidden">Confirm Payment</span>
+                            </>
+                        )}
                     </button>
                 </div>
             </div>

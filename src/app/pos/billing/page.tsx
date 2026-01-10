@@ -8,6 +8,7 @@ import CategoryTabs from '@/components/pos/CategoryTabs'
 import CartPanel, { CartItem } from '@/components/pos/CartPanel'
 import PaymentModal, { PaymentDetails } from '@/components/pos/PaymentModal'
 import HeldBillsPanel, { HeldBill } from '@/components/pos/HeldBillsPanel'
+import { MobileBottomNav } from '@/components/pos/MobileBottomNav'
 import { syncManager } from '@/lib/syncManager'
 
 interface Product {
@@ -471,120 +472,141 @@ export default function BillingPage() {
   const totals = calculateTotals()
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-4">
-      {/* Left Side - Products */}
-      <div className="flex-1 flex flex-col space-y-4 min-w-0">
-        {/* Header with Customer Info */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-4">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Billing</h1>
-            <p className="text-xs lg:text-sm text-gray-500 mt-0.5 hidden md:block">
-              Alt+Q: Search • Alt+A: Add Item • Alt+D: Discount • Alt+H: Hold • Alt+B: Held Bills • Alt+P: Pay • Alt+C: Clear
+    <>
+      <div className="h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-4">
+        {/* Left Side - Products */}
+        <div className="flex-1 flex flex-col space-y-3 sm:space-y-4 min-w-0">
+          {/* Header with Customer Info */}
+          <div className="flex flex-col gap-2 sm:gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Billing</h1>
+              <div className="flex lg:hidden gap-1.5">
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm w-24 no-zoom-on-focus tap-target"
+                  aria-label="Customer name"
+                />
+                <input
+                  type="tel"
+                  placeholder="Phone"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm w-28 no-zoom-on-focus tap-target"
+                  aria-label="Customer phone"
+                />
+              </div>
+            </div>
+            
+            {/* Desktop Customer Info */}
+            <div className="hidden lg:flex gap-2">
+              <input
+                type="text"
+                placeholder="Customer Name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-40 tap-target"
+                aria-label="Customer name"
+              />
+              <input
+                type="tel"
+                placeholder="Phone"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-32 tap-target"
+                aria-label="Customer phone"
+              />
+            </div>
+            
+            {/* Keyboard shortcuts hint - desktop only */}
+            <p className="text-xs text-gray-500 hidden lg:block">
+              Alt+Q: Search • Alt+H: Hold • Alt+B: Held Bills • Alt+P: Pay • Alt+C: Clear
             </p>
           </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Customer Name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full lg:w-40 min-h-[44px]"
-              aria-label="Customer name"
-            />
-            <input
-              type="tel"
-              placeholder="Phone"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full lg:w-32 min-h-[44px]"
-              aria-label="Customer phone"
+
+          {/* Category Tabs */}
+          <CategoryTabs
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+          />
+
+          {/* Product Grid */}
+          <div className="flex-1 min-h-0">
+            <ProductGrid
+              products={products}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onProductClick={addToCart}
+              loading={productsLoading}
+              searchInputRef={searchInputRef}
             />
           </div>
         </div>
 
-        {/* Category Tabs */}
-        <CategoryTabs
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-        />
+        {/* Right Side - Cart (Desktop Only) */}
+        <div className="hidden lg:block">
+          <CartPanel
+            items={cart}
+            onUpdateQuantity={updateQuantity}
+            onRemoveItem={removeItem}
+            onUpdateItemDiscount={updateItemDiscount}
+            onClearCart={clearCart}
+            billDiscount={billDiscount}
+            onBillDiscountChange={(type, value) => setBillDiscount({ type, value })}
+            taxPercent={taxPercent}
+            couponCode={couponCode}
+            onCouponChange={setCouponCode}
+            couponApplied={couponApplied}
+            couponDiscount={couponDiscount}
+            onApplyCoupon={applyCoupon}
+            onRemoveCoupon={removeCoupon}
+            onCheckout={() => setShowPaymentModal(true)}
+            onHoldBill={holdBill}
+            checkoutLoading={checkoutLoading}
+          />
+        </div>
 
-        {/* Product Grid */}
-        <div className="flex-1 min-h-0">
-          <ProductGrid
-            products={products}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onProductClick={addToCart}
-            loading={productsLoading}
-            searchInputRef={searchInputRef}
+        {/* Mobile Cart Drawer */}
+        <div className="lg:hidden">
+          <CartPanel
+            items={cart}
+            onUpdateQuantity={updateQuantity}
+            onRemoveItem={removeItem}
+            onUpdateItemDiscount={updateItemDiscount}
+            onClearCart={clearCart}
+            billDiscount={billDiscount}
+            onBillDiscountChange={(type, value) => setBillDiscount({ type, value })}
+            taxPercent={taxPercent}
+            couponCode={couponCode}
+            onCouponChange={setCouponCode}
+            couponApplied={couponApplied}
+            couponDiscount={couponDiscount}
+            onApplyCoupon={applyCoupon}
+            onRemoveCoupon={removeCoupon}
+            onCheckout={() => setShowPaymentModal(true)}
+            onHoldBill={holdBill}
+            checkoutLoading={checkoutLoading}
+            isOpen={showMobileCart}
+            onClose={() => setShowMobileCart(false)}
           />
         </div>
       </div>
 
-      {/* Right Side - Cart (Desktop Only) */}
-      <div className="hidden lg:block">
-        <CartPanel
-          items={cart}
-          onUpdateQuantity={updateQuantity}
-          onRemoveItem={removeItem}
-          onUpdateItemDiscount={updateItemDiscount}
-          onClearCart={clearCart}
-          billDiscount={billDiscount}
-          onBillDiscountChange={(type, value) => setBillDiscount({ type, value })}
-          taxPercent={taxPercent}
-          couponCode={couponCode}
-          onCouponChange={setCouponCode}
-          couponApplied={couponApplied}
-          couponDiscount={couponDiscount}
-          onApplyCoupon={applyCoupon}
-          onRemoveCoupon={removeCoupon}
-          onCheckout={() => setShowPaymentModal(true)}
-          onHoldBill={holdBill}
-          checkoutLoading={checkoutLoading}
-        />
-      </div>
-
-      {/* Mobile Cart */}
-      <div className="lg:hidden">
-        <CartPanel
-          items={cart}
-          onUpdateQuantity={updateQuantity}
-          onRemoveItem={removeItem}
-          onUpdateItemDiscount={updateItemDiscount}
-          onClearCart={clearCart}
-          billDiscount={billDiscount}
-          onBillDiscountChange={(type, value) => setBillDiscount({ type, value })}
-          taxPercent={taxPercent}
-          couponCode={couponCode}
-          onCouponChange={setCouponCode}
-          couponApplied={couponApplied}
-          couponDiscount={couponDiscount}
-          onApplyCoupon={applyCoupon}
-          onRemoveCoupon={removeCoupon}
-          onCheckout={() => setShowPaymentModal(true)}
-          onHoldBill={holdBill}
-          checkoutLoading={checkoutLoading}
-          isOpen={showMobileCart}
-          onClose={() => setShowMobileCart(false)}
-        />
-      </div>
-
-      {/* Mobile Cart Button */}
-      {cart.length > 0 && (
-        <button
-          onClick={() => setShowMobileCart(true)}
-          className="lg:hidden fixed bottom-20 right-4 z-30 bg-blue-600 text-white p-4 rounded-full shadow-2xl hover:bg-blue-700 transition-all active:scale-95 min-h-[56px] min-w-[56px] flex items-center justify-center"
-          aria-label={`View cart with ${cart.length} items`}
-        >
-          <div className="relative">
-            <ShoppingCart className="h-6 w-6" aria-hidden="true" />
-            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-              {cart.length}
-            </span>
-          </div>
-        </button>
-      )}
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav
+        cartItemCount={cart.length}
+        onCartClick={() => setShowMobileCart(true)}
+        onSearchClick={() => searchInputRef.current?.focus()}
+        onHeldBillsClick={() => setShowHeldBills(true)}
+        onMenuClick={() => {
+          // This will trigger the sidebar from POSNav
+          const menuButton = document.querySelector('[aria-label="Toggle navigation menu"]') as HTMLButtonElement
+          menuButton?.click()
+        }}
+      />
 
       {/* Payment Modal */}
       <PaymentModal
@@ -603,6 +625,6 @@ export default function BillingPage() {
         isOpen={showHeldBills}
         onClose={() => setShowHeldBills(false)}
       />
-    </div>
+    </>
   )
 }
