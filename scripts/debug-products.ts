@@ -28,7 +28,7 @@ async function main() {
 
     // --- NEW LOGIC ---
     const defaultOrg = user.defaultOrganization;
-    const catalogOrgMembership = user.memberships.find(m => m.organization.catalogEnabled);
+    const catalogOrgMembership = user.memberships.find((m: any) => m.organization.catalogEnabled);
 
     let currentOrgId = user.defaultOrganizationId;
 
