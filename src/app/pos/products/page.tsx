@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Search, Package } from 'lucide-react'
+import { Plus, Edit, Search, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -74,35 +74,38 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Products</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Products</h1>
           <p className="text-sm text-gray-500 mt-1">
             Manage your product catalog
           </p>
         </div>
-        <Button onClick={() => {
-          setEditingProduct(null)
-          setFormData({
-            name: '',
-            sku: '',
-            unitPrice: '',
-            currentStock: '',
-            reorderLevel: '',
-            unit: 'PIECE',
-            category: 'General',
-          })
-          setShowDialog(true)
-        }}>
+        <Button 
+          className="w-full sm:w-auto"
+          onClick={() => {
+            setEditingProduct(null)
+            setFormData({
+              name: '',
+              sku: '',
+              unitPrice: '',
+              currentStock: '',
+              reorderLevel: '',
+              unit: 'PIECE',
+              category: 'General',
+            })
+            setShowDialog(true)
+          }}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Product
         </Button>
       </div>
 
       {/* Search */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
+      <div>
+        <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
           <Input
             type="text"
@@ -123,17 +126,17 @@ export default function ProductsPage() {
           <p>No products found</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {products.map((product) => (
-            <Card key={product.id} className="p-4">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg mb-1">{product.name}</h3>
+            <Card key={product.id} className="p-3 sm:p-4">
+              <div className="flex justify-between items-start mb-2 sm:mb-3">
+                <div className="flex-1 min-w-0 pr-2">
+                  <h3 className="font-semibold text-base sm:text-lg mb-1 truncate">{product.name}</h3>
                   {product.sku && (
-                    <p className="text-xs text-gray-500">SKU: {product.sku}</p>
+                    <p className="text-xs text-gray-500 truncate">SKU: {product.sku}</p>
                   )}
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 flex-shrink-0">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -144,16 +147,16 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5 sm:space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Price:</span>
-                  <span className="font-bold text-green-600">
+                  <span className="text-xs sm:text-sm text-gray-600">Price:</span>
+                  <span className="font-bold text-green-600 text-sm sm:text-base">
                     ₹{product.unitPrice?.toFixed(2) || '0.00'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Stock:</span>
-                  <span className={`font-semibold ${
+                  <span className="text-xs sm:text-sm text-gray-600">Stock:</span>
+                  <span className={`font-semibold text-sm sm:text-base ${
                     (product.currentStock || 0) <= (product.reorderLevel || 0)
                       ? 'text-red-600'
                       : 'text-gray-900'
@@ -162,8 +165,8 @@ export default function ProductsPage() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Category:</span>
-                  <span className="text-sm">{product.category}</span>
+                  <span className="text-xs sm:text-sm text-gray-600">Category:</span>
+                  <span className="text-xs sm:text-sm truncate ml-2">{product.category}</span>
                 </div>
                 {(product.currentStock || 0) <= (product.reorderLevel || 0) && (
                   <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-600">
@@ -178,7 +181,7 @@ export default function ProductsPage() {
 
       {/* Add/Edit Product Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingProduct ? 'Edit Product' : 'Add New Product'}
@@ -194,7 +197,7 @@ export default function ProductsPage() {
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">SKU</label>
                 <Input
@@ -212,7 +215,7 @@ export default function ProductsPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Unit Price *</label>
                 <Input
@@ -227,7 +230,7 @@ export default function ProductsPage() {
               <div>
                 <label className="text-sm font-medium mb-1 block">Unit</label>
                 <select
-                  className="w-full h-10 px-3 border rounded-md"
+                  className="w-full h-10 px-3 border rounded-md text-sm"
                   value={formData.unit}
                   onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                 >
@@ -239,7 +242,7 @@ export default function ProductsPage() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Current Stock</label>
                 <Input
@@ -261,11 +264,11 @@ export default function ProductsPage() {
                 />
               </div>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setShowDialog(false)} className="w-full sm:w-auto">
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" className="w-full sm:w-auto">
                 {editingProduct ? 'Update' : 'Create'} Product
               </Button>
             </DialogFooter>
