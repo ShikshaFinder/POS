@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Providers } from "@/components/providers"
 import "./globals.css"
 
@@ -6,7 +6,6 @@ export const metadata: Metadata = {
   title: "Flavi POS | Point of Sale System",
   description: "Efficient point of sale system for dairy and food retail operations",
   manifest: "/manifest.json",
-  themeColor: "#3b82f6",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -15,6 +14,10 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false
   }
+}
+
+export const viewport: Viewport = {
+  themeColor: "#3b82f6"
 }
 
 export default function RootLayout({
