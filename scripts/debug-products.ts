@@ -3,53 +3,52 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 async function main() {
-    console.log('--- Debugging POS Products ---')
+    console.log('--- Verifying New Auth Logic ---')
 
-    // 1. List all users and their default orgs
-    const users = await prisma.user.findMany({
+    // Check the User 'janih' (guessing partial email match)
+    const user = await prisma.user.findFirst({
+        where: { email: { contains: 'jani' } },
         include: {
             defaultOrganization: true,
             memberships: {
-                include: { organization: true }
+                include: {
+                    organization: true
+                }
             }
-        },
-        take: 5
+        }
     })
 
-    console.log(`Found ${users.length} users`)
+    if (!user) {
+        console.log('User not found')
+        return
+    }
 
-    for (const user of users) {
-        console.log(`\nUser: ${user.email}`)
+    console.log(`User: ${user.email}`)
+    console.log(`Default Org: ${user.defaultOrganization?.name} (Catalog Enabled: ${user.defaultOrganization?.catalogEnabled})`)
 
-        // Logic from auth.ts
-        const currentOrgId = user.defaultOrganizationId || user.memberships[0]?.organizationId
+    // --- NEW LOGIC ---
+    const defaultOrg = user.defaultOrganization;
+    const catalogOrgMembership = user.memberships.find(m => m.organization.catalogEnabled);
 
-        if (!currentOrgId) {
-            console.log('  -> No Organization ID found (No default, no memberships)')
-            continue
-        }
+    let currentOrgId = user.defaultOrganizationId;
 
-        const org = user.defaultOrganization || user.memberships.find(m => m.organizationId === currentOrgId)?.organization
-        console.log(`  -> Effective Org ID: ${currentOrgId} (${org?.name})`)
+    if (defaultOrg?.catalogEnabled) {
+        console.log('Decision: Default Org has catalog enabled. Keeping it.')
+        currentOrgId = user.defaultOrganizationId;
+    } else if (catalogOrgMembership) {
+        console.log(`Decision: Default Org catalog disabled. Switching to Catalog Org: ${catalogOrgMembership.organization.name}`)
+        currentOrgId = catalogOrgMembership.organizationId;
+    } else {
+        console.log('Decision: No catalog org found. Fallback.')
+        currentOrgId = user.defaultOrganizationId || user.memberships[0]?.organizationId;
+    }
+    // ----------------
 
-        // Query Products
-        const productCount = await prisma.product.count({
-            where: { organizationId: currentOrgId }
-        })
+    console.log(`Selected Org ID: ${currentOrgId}`)
 
-        console.log(`  -> Total Products in DB for this Org: ${productCount}`)
-
-        // Check Published vs Unpublished
-        const publishedCount = await prisma.product.count({
-            where: { organizationId: currentOrgId, isPublished: true }
-        })
-        console.log(`  -> Published Products: ${publishedCount}`)
-
-        // Check Stock > 0 (Though API doesn't filter this yet)
-        const inStockCount = await prisma.product.count({
-            where: { organizationId: currentOrgId, currentStock: { gt: 0 } }
-        })
-        console.log(`  -> In-Stock Products: ${inStockCount}`)
+    if (currentOrgId) {
+        const productCount = await prisma.product.count({ where: { organizationId: currentOrgId } })
+        console.log(`Products in Selected Org: ${productCount}`)
     }
 }
 

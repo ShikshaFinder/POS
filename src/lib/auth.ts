@@ -23,9 +23,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         const email = credentials.email.toLowerCase();
-        
+
         // Find user and include organization membership
-        const user = await prisma.user.findUnique({ 
+        const user = await prisma.user.findUnique({
           where: { email },
           include: {
             memberships: {
@@ -68,8 +68,24 @@ export const authOptions: NextAuthOptions = {
         });
 
         // Determine current organization
-        const currentOrgId = user.defaultOrganizationId || 
-                            user.memberships[0]?.organizationId;
+        // Priority:
+        // 1. Default Org (if it has catalog enabled)
+        // 2. Any organization with catalog enabled
+        // 3. Default Org (fallback)
+        // 4. First available membership
+
+        const defaultOrg = user.defaultOrganization;
+        const catalogOrgMembership = user.memberships.find(m => m.organization.catalogEnabled);
+
+        let currentOrgId = user.defaultOrganizationId;
+
+        if (defaultOrg?.catalogEnabled) {
+          currentOrgId = user.defaultOrganizationId;
+        } else if (catalogOrgMembership) {
+          currentOrgId = catalogOrgMembership.organizationId;
+        } else {
+          currentOrgId = user.defaultOrganizationId || user.memberships[0]?.organizationId;
+        }
 
         // Get the membership for the current organization
         const currentMembership = user.memberships.find(
