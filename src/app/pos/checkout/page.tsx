@@ -32,6 +32,7 @@ export default function CheckoutPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
+  const [deliveryDate, setDeliveryDate] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD' | 'UPI' | 'WALLET'>('CASH')
   const [amountPaid, setAmountPaid] = useState('')
   const [loading, setLoading] = useState(false)
@@ -150,6 +151,7 @@ export default function CheckoutPage() {
           paymentMethod,
           amountPaid: paid,
           taxPercent: 5,
+          deliveryDate: deliveryDate || null,
         }),
       })
 
@@ -160,6 +162,7 @@ export default function CheckoutPage() {
         // Clear cart
         setCart([])
         setAmountPaid('')
+        setDeliveryDate('')
         setCustomer(null)
         setCustomerSearch('')
       } else {
@@ -393,6 +396,17 @@ export default function CheckoutPage() {
                 Change: ₹{calculateChange().toFixed(2)}
               </p>
             )}
+          </div>
+
+          {/* Delivery Date */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">Delivery Date (Optional)</label>
+            <Input
+              type="date"
+              value={deliveryDate}
+              onChange={(e) => setDeliveryDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+            />
           </div>
 
           {/* Checkout Button */}

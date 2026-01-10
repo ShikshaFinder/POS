@@ -15,7 +15,10 @@ declare global {
 const prisma =
   globalThis.prisma ??
   new PrismaClient({
-    // MongoDB connection is handled via DATABASE_URL environment variable
+    // Reduce query logging in production for better performance
+    log: process.env.NODE_ENV === 'development'
+      ? ['query', 'error', 'warn']
+      : ['error', 'warn'],
   });
 
 // Cache the instance globally in dev mode

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
     const organizationId = (session.user as any).currentOrganizationId
     const body = await req.json()
-    const { items, customerName, customerPhone, totalAmount } = body
+    const { items, customerName, customerPhone, totalAmount, deliveryDate } = body
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 })
@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
           orderRef,
           connectionId: connection.id,
           stage: 'COMPLETED',
+          deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
           items: {
             create: items.map((item: any) => ({
               organizationId,
