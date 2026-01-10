@@ -46,7 +46,7 @@ export default function CustomersPage() {
       const res = await fetch(`/api/pos/customers?search=${searchQuery}`)
       if (res.ok) {
         const data = await res.json()
-        setCustomers(data.customers)
+        setCustomers(data.customers || [])
       }
     } catch (error) {
       console.error('Failed to fetch customers:', error)
