@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Clock, DollarSign, TrendingUp, TrendingDown, AlertCircle, Loader2, Banknote, CreditCard, Smartphone, Wallet } from 'lucide-react'
+import { X, Clock, TrendingUp, TrendingDown, AlertCircle, Loader2, Banknote, CreditCard, Smartphone } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -13,8 +13,7 @@ interface Session {
     totalSales: number
     totalCash: number
     totalCard: number
-    totalUPI: number
-    totalWallet: number
+    totalUpi: number
     transactionCount: number
 }
 
@@ -141,14 +140,7 @@ export default function ShiftCloseModal({
                             <Smartphone className="h-5 w-5 text-purple-600" />
                             <div>
                                 <p className="text-xs text-purple-600">UPI</p>
-                                <p className="font-semibold text-purple-700">₹{session.totalUPI.toFixed(2)}</p>
-                            </div>
-                        </div>
-                        <div className="bg-orange-50 rounded-lg p-3 flex items-center gap-3">
-                            <Wallet className="h-5 w-5 text-orange-600" />
-                            <div>
-                                <p className="text-xs text-orange-600">Wallet</p>
-                                <p className="font-semibold text-orange-700">₹{session.totalWallet.toFixed(2)}</p>
+                                <p className="font-semibold text-purple-700">₹{(session.totalUpi || 0).toFixed(2)}</p>
                             </div>
                         </div>
                     </div>

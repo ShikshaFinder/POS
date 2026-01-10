@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Search, Package } from 'lucide-react'
+import { Plus, Edit, Search, Package, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 
 interface Product {
   id: string
@@ -21,6 +22,7 @@ interface Product {
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showDialog, setShowDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -55,8 +57,44 @@ export default function ProductsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Add product creation API call here
-    alert('Product management API needs to be implemented')
+    setSubmitting(true)
+
+    try {
+      const method = editingProduct ? 'PUT' : 'POST'
+      const body = editingProduct
+        ? { ...formData, id: editingProduct.id }
+        : formData
+
+      const res = await fetch('/api/pos/products', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+
+      if (res.ok) {
+        toast.success(editingProduct ? 'Product updated successfully' : 'Product created successfully')
+        setShowDialog(false)
+        setEditingProduct(null)
+        setFormData({
+          name: '',
+          sku: '',
+          unitPrice: '',
+          currentStock: '',
+          reorderLevel: '',
+          unit: 'PIECE',
+          category: 'General',
+        })
+        fetchProducts()
+      } else {
+        const error = await res.json()
+        toast.error(error.error || 'Failed to save product')
+      }
+    } catch (error) {
+      console.error('Failed to save product:', error)
+      toast.error('Failed to save product')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleEdit = (product: Product) => {
@@ -262,10 +300,11 @@ export default function ProductsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
+              <Button type="button" variant="outline" onClick={() => setShowDialog(false)} disabled={submitting}>
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={submitting}>
+                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {editingProduct ? 'Update' : 'Create'} Product
               </Button>
             </DialogFooter>
