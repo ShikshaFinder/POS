@@ -319,6 +319,7 @@ export default function CartPanel({
                                     {item.discount > 0 ? 'Update Discount' : 'Add Discount'}
                                 </button>
                             )}
+                            </div>
                         </div>
                     ))
                 )}
