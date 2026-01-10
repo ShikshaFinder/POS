@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X } from 'lucide-react'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -14,6 +15,7 @@ interface Product {
   currentStock: number
   unit: string
   category: string
+  imageUrl: string | null
 }
 
 interface CartItem extends Product {
@@ -221,18 +223,35 @@ export default function CheckoutPage() {
           {products.map((product) => (
             <Card
               key={product.id}
-              className="p-4 cursor-pointer hover:shadow-lg transition-shadow"
+              className="group cursor-pointer hover:shadow-lg transition-all overflow-hidden"
               onClick={() => addToCart(product)}
             >
-              <h3 className="font-semibold text-lg mb-1">{product.name}</h3>
-              <p className="text-sm text-gray-500 mb-2">{product.category}</p>
-              <div className="flex justify-between items-center">
-                <span className="text-xl font-bold text-green-600">
-                  ₹{product.unitPrice?.toFixed(2)}
-                </span>
-                <span className="text-sm text-gray-500">
-                  Stock: {product.currentStock} {product.unit}
-                </span>
+              <div className="relative h-32 w-full bg-gray-100">
+                {product.imageUrl ? (
+                  <Image
+                    src={product.imageUrl}
+                    alt={product.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400">
+                    <span className="text-4xl font-light">📦</span>
+                  </div>
+                )}
+              </div>
+              <div className="p-4">
+                <h3 className="font-semibold text-lg mb-1 truncate">{product.name}</h3>
+                <p className="text-sm text-gray-500 mb-2">{product.category}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-xl font-bold text-green-600">
+                    ₹{product.unitPrice?.toFixed(2)}
+                  </span>
+                  <span className={`text-sm ${product.currentStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
+                    {product.currentStock > 0 ? `Stock: ${product.currentStock}` : 'Out of Stock'} {product.unit}
+                  </span>
+                </div>
               </div>
             </Card>
           ))}
