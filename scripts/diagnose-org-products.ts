@@ -36,7 +36,7 @@ async function main() {
         console.log(`Effective POS Org ID: ${effectiveOrgId}`)
 
         // Check match
-        const match = catalogOrgs.find(o => o.id === effectiveOrgId)
+        const match = catalogOrgs.find((o: { id: string; name: string; slug: string | null }) => o.id === effectiveOrgId)
         if (match) {
             console.log(`MATCH! User is logged into Catalog Org: ${match.name}`)
         } else {
