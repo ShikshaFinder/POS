@@ -22,9 +22,6 @@ const nextConfig: NextConfig = {
   // Compression
   compress: true,
   
-  // Production optimizations
-  swcMinify: true,
-  
   // Experimental features for performance
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],

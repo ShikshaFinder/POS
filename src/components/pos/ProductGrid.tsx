@@ -24,7 +24,7 @@ interface ProductGridProps {
     onSearchChange: (query: string) => void
     onProductClick: (product: Product) => void
     loading?: boolean
-    searchInputRef?: React.RefObject<HTMLInputElement>
+    searchInputRef?: React.RefObject<HTMLInputElement | null>
 }
 
 export default function ProductGrid({
@@ -277,73 +277,6 @@ export default function ProductGrid({
                                         </div>
                                     </div>
                                 </article>
-                            )
-                        })}
-                    </div>
-                )}
-            </div>
-        </div>
-    )
-}
-                                    {/* Discount Badge */}
-                                    {discount > 0 && (
-                                        <div className="absolute top-2 left-2 z-10 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
-                                            {discount}% OFF
-                                        </div>
-                                    )}
-
-                                    {/* Stock Warning Badge */}
-                                    {stockStatus.status === 'low' && (
-                                        <div className="absolute top-2 right-2 z-10">
-                                            <AlertTriangle className="h-4 w-4 text-amber-500" />
-                                        </div>
-                                    )}
-
-                                    {/* Product Image */}
-                                    <div className="relative h-24 bg-gray-50">
-                                        {product.imageUrl ? (
-                                            <Image
-                                                src={product.imageUrl}
-                                                alt={product.name}
-                                                fill
-                                                className="object-cover"
-                                                sizes="(max-width: 768px) 50vw, 20vw"
-                                            />
-                                        ) : (
-                                            <div className="flex items-center justify-center h-full">
-                                                <Package className="h-8 w-8 text-gray-300" />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Product Info */}
-                                    <div className="p-3">
-                                        <h3 className="text-sm font-medium text-gray-900 line-clamp-2 leading-tight">
-                                            {product.name}
-                                        </h3>
-
-                                        {product.sku && (
-                                            <p className="text-xs text-gray-400 mt-0.5">{product.sku}</p>
-                                        )}
-
-                                        <div className="mt-2 flex items-baseline gap-2">
-                                            <span className="text-base font-semibold text-gray-900">
-                                                ₹{(product.unitPrice ?? 0).toFixed(2)}
-                                            </span>
-                                            {product.markedPrice && product.markedPrice > (product.unitPrice ?? 0) && (
-                                                <span className="text-xs text-gray-400 line-through">
-                                                    ₹{product.markedPrice.toFixed(2)}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <div className="mt-2 flex items-center justify-between">
-                                            <span className={`text-xs px-1.5 py-0.5 rounded border ${stockStatus.color}`}>
-                                                {product.currentStock ?? 0} {product.unit}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
                             )
                         })}
                     </div>
