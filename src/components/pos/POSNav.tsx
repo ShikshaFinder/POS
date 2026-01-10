@@ -130,7 +130,7 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
                  I'll insert the logo image here instead of just text if I can, but standard text is fine for now. 
                  Wait, I should update the logo to use the image as requested "Logo Usage & Optimization".
              */}
-            <img src="/icons/icon-72x72.png" alt="Flavi POS" className="w-8 h-8 rounded-lg" />
+            <img src="/flavi-logo.png" alt="Flavi POS" className="w-8 h-8 rounded-lg object-contain" />
             <h1 className="text-xl sm:text-2xl font-bold text-blue-600 tracking-tight">Flavi POS</h1>
           </div>
           {isMobile && (

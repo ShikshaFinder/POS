@@ -28,9 +28,7 @@ export function POSHeader() {
 
         {/* Mobile: Show Brand Logo & Name */}
         <div className="md:hidden flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
-            F
-          </div>
+          <img src="/flavi-logo.png" alt="Flavi POS" className="h-8 w-8 rounded-lg object-contain" />
           <div>
             <h1 className="text-sm font-bold text-gray-900 leading-tight">Flavi POS</h1>
             <p className="text-[10px] text-gray-500 leading-tight">Store Manager</p>

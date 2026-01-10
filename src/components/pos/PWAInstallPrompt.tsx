@@ -71,7 +71,7 @@ export function PWAInstallPrompt() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-            <img src="/icons/icon-192x192.png" alt="App Icon" className="w-8 h-8 rounded-md" />
+            <img src="/flavi-logo.png" alt="App Icon" className="w-8 h-8 rounded-md object-contain" />
           </div>
 
           <div className="flex-1 min-w-0">
