@@ -156,6 +156,16 @@
     overscroll-behavior: none;
   }
 
+  /* Hide scrollbar but keep functionality */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   /* Mobile-friendly card shadows */
   .mobile-card {
     @apply shadow-sm hover:shadow-md active:shadow-sm transition-shadow;
