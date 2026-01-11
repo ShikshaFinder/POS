@@ -75,6 +75,9 @@ export default function CouponsTab() {
       if (res.ok) {
         const data = await res.json()
         setCoupons(data.coupons || [])
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to load coupons')
       }
     } catch (error) {
       console.error('Failed to fetch coupons:', error)

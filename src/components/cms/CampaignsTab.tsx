@@ -67,6 +67,9 @@ export default function CampaignsTab() {
       if (res.ok) {
         const data = await res.json()
         setCampaigns(data.campaigns || [])
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to load campaigns')
       }
     } catch (error) {
       console.error('Failed to fetch campaigns:', error)

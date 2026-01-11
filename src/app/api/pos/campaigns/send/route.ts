@@ -4,7 +4,9 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Constants for email sending configuration
+const EMAIL_BATCH_SIZE = 10
+const MAX_EMAILS_PER_SEND = 100
 
 // POST /api/pos/campaigns/send - Send email campaign
 export async function POST(req: NextRequest) {
@@ -139,9 +141,8 @@ export async function POST(req: NextRequest) {
 
     // Process in background (in production, use a queue service like BullMQ or Inngest)
     // For now, we'll do it synchronously with a limit
-    const batchSize = 10
-    for (let i = 0; i < Math.min(customers.length, 100); i += batchSize) {
-      const batch = customers.slice(i, i + batchSize)
+    for (let i = 0; i < Math.min(customers.length, MAX_EMAILS_PER_SEND); i += EMAIL_BATCH_SIZE) {
+      const batch = customers.slice(i, i + EMAIL_BATCH_SIZE)
       
       await Promise.all(
         batch.map(async (customer) => {

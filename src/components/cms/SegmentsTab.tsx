@@ -54,6 +54,9 @@ export default function SegmentsTab() {
       if (res.ok) {
         const data = await res.json()
         setSegments(data.segments || [])
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to load segments')
       }
     } catch (error) {
       console.error('Failed to fetch segments:', error)

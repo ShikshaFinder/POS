@@ -134,9 +134,10 @@ export async function POST(req: NextRequest) {
     // Check product targeting (if specified)
     if (productIds && productIds.length > 0) {
       if (coupon.targetProducts.length > 0) {
-        // Check if any of the products in the order match the target products
+        // Use Set for O(1) lookup performance
+        const targetProductsSet = new Set(coupon.targetProducts)
         const hasTargetProduct = productIds.some((id: string) => 
-          coupon.targetProducts.includes(id)
+          targetProductsSet.has(id)
         )
         if (!hasTargetProduct) {
           return NextResponse.json(
@@ -150,10 +151,11 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Check excluded products
+      // Check excluded products with Set for performance
       if (coupon.excludeProducts.length > 0) {
+        const excludeProductsSet = new Set(coupon.excludeProducts)
         const hasExcludedProduct = productIds.some((id: string) => 
-          coupon.excludeProducts.includes(id)
+          excludeProductsSet.has(id)
         )
         if (hasExcludedProduct) {
           return NextResponse.json(
