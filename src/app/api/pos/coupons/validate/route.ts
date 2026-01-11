@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check total usage limit
-    if (coupon.totalUsageLimit && coupon.usageCount >= coupon.totalUsageLimit) {
+    if (coupon.totalUsageLimit && coupon.currentUsageCount >= coupon.totalUsageLimit) {
       return NextResponse.json(
         {
           valid: false,
