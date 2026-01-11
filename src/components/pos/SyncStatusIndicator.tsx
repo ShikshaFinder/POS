@@ -83,6 +83,18 @@ export default function SyncStatusIndicator() {
       await syncManager.syncNow()
     }
   }
+  
+  const handleClearFailed = async () => {
+    if (syncState.failedCount > 0) {
+      const confirmed = confirm(
+        `Are you sure you want to delete ${syncState.failedCount} failed transaction(s)? This cannot be undone.`
+      )
+      if (confirmed) {
+        await syncManager.clearFailed()
+        await syncManager.getState()
+      }
+    }
+  }
 
   return (
     <div className="relative">
@@ -123,13 +135,25 @@ export default function SyncStatusIndicator() {
             )}
 
             {(syncState.pendingCount > 0 || syncState.failedCount > 0) && (
-              <button
-                onClick={handleRetry}
-                disabled={syncState.status === 'syncing'}
-                className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {syncState.status === 'syncing' ? 'Syncing...' : 'Sync Now'}
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={handleRetry}
+                  disabled={syncState.status === 'syncing'}
+                  className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {syncState.status === 'syncing' ? 'Syncing...' : syncState.failedCount > 0 ? 'Retry Failed' : 'Sync Now'}
+                </button>
+                
+                {syncState.failedCount > 0 && (
+                  <button
+                    onClick={handleClearFailed}
+                    disabled={syncState.status === 'syncing'}
+                    className="w-full px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Clear Failed Transactions
+                  </button>
+                )}
+              </div>
             )}
 
             {syncState.error && (

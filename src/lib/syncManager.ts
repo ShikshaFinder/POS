@@ -296,6 +296,17 @@ class SyncManager {
     await this.updateState()
     this.syncNow()
   }
+  
+  async clearFailed(): Promise<void> {
+    const failed = await indexedDBManager.getAllTransactions('failed')
+    
+    for (const transaction of failed) {
+      await indexedDBManager.deleteTransaction(transaction.id)
+    }
+
+    await this.updateState()
+    console.log(`Cleared ${failed.length} failed transaction(s)`)
+  }
 
   async clearSynced(): Promise<void> {
     await indexedDBManager.clearSyncedTransactions()
