@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Send, Edit, Trash2, Eye } from 'lucide-react'
+import { Plus, Send, Edit, Trash2, Eye, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
