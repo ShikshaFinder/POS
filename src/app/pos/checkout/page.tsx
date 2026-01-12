@@ -280,49 +280,53 @@ const paymentMethods = [
 
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 pb-20 lg:pb-4">
           {products.map((product) => (
-            <Card
+            <div
               key={product.id}
-              className="group cursor-pointer hover:shadow-lg transition-all overflow-hidden"
               onClick={() => addToCart(product)}
+              className="cursor-pointer"
             >
-              <div className="relative h-24 sm:h-32 w-full bg-gradient-to-br from-gray-50 to-gray-100">
-                {product.imageUrl ? (
-                  <Image
-                    src={product.imageUrl}
-                    alt={product.name}
-                    fill
-                    unoptimized
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement
-                      target.style.display = 'none'
-                      const parent = target.parentElement
-                      if (parent) {
-                        parent.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-400"><span class="text-4xl sm:text-5xl">${getCategoryIcon(product.category)}</span><span class="text-xs mt-1 text-gray-400">No image</span></div>`
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                    <span className="text-4xl sm:text-5xl">{getCategoryIcon(product.category)}</span>
-                    <span className="text-xs mt-1">No image</span>
-                  </div>
-                )}
-              </div>
-              <div className="p-2 sm:p-4">
-                <h3 className="font-semibold text-sm sm:text-lg mb-1 truncate">{product.name}</h3>
-                <p className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2 truncate">{product.category}</p>
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                  <span className="text-base sm:text-xl font-bold text-green-600">
-                    ₹{product.unitPrice?.toFixed(2)}
-                  </span>
-                  <span className={`text-xs sm:text-sm ${product.currentStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
-                    {product.currentStock > 0 ? `Stock: ${product.currentStock}` : 'Out of Stock'} {product.unit}
-                  </span>
+              <Card
+                className="group hover:shadow-lg transition-all overflow-hidden h-full"
+              >
+                <div className="relative h-24 sm:h-32 w-full bg-gradient-to-br from-gray-50 to-gray-100">
+                  {product.imageUrl ? (
+                    <Image
+                      src={product.imageUrl}
+                      alt={product.name}
+                      fill
+                      unoptimized
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        const parent = target.parentElement
+                        if (parent) {
+                          parent.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-400"><span class="text-4xl sm:text-5xl">${getCategoryIcon(product.category)}</span><span class="text-xs mt-1 text-gray-400">No image</span></div>`
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                      <span className="text-4xl sm:text-5xl">{getCategoryIcon(product.category)}</span>
+                      <span className="text-xs mt-1">No image</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </Card>
+                <div className="p-2 sm:p-4">
+                  <h3 className="font-semibold text-sm sm:text-lg mb-1 truncate">{product.name}</h3>
+                  <p className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2 truncate">{product.category}</p>
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                    <span className="text-base sm:text-xl font-bold text-green-600">
+                      ₹{product.unitPrice?.toFixed(2)}
+                    </span>
+                    <span className={`text-xs sm:text-sm ${product.currentStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
+                      {product.currentStock > 0 ? `Stock: ${product.currentStock}` : 'Out of Stock'} {product.unit}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </div>
           ))}
         </div>
       </div>
@@ -344,8 +348,8 @@ const paymentMethods = [
         fixed inset-0 z-50 bg-gray-50 flex flex-col
         lg:static lg:w-96 lg:border-l lg:z-auto lg:flex-shrink-0
         transform transition-transform duration-300 ease-in-out
-        ${showMobileCart ? 'translate-x-0' : 'translate-x-full'}
-        lg:translate-x-0
+        ${showMobileCart ? 'translate-x-0 pointer-events-auto visible' : 'translate-x-full pointer-events-none invisible'}
+        lg:visible lg:pointer-events-auto
       `}>
         <div className="p-4 sm:p-6 border-b bg-white">
           <div className="flex items-center gap-2">
