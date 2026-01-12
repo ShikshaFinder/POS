@@ -23,7 +23,7 @@ async function checkProductImages() {
 
     console.log(`\nTotal products checked: ${productsWithImages.length}\n`)
 
-    productsWithImages.forEach((product: any, index) => {
+    productsWithImages.forEach((product: any, index: number) => {
       console.log(`${index + 1}. Product: ${product.name}`)
       console.log(`   Organization: ${product.organization.name} (${product.organization.id})`)
       console.log(`   SKU: ${product.sku || 'N/A'}`)
