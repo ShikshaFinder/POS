@@ -40,6 +40,20 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
   const [lastReceipt, setLastReceipt] = useState<any>(null)
+  
+  // Category-based fallback icons
+  const getCategoryIcon = (category: string) => {
+    const cat = category?.toUpperCase() || ''
+    if (cat.includes('MILK')) return '🥛'
+    if (cat.includes('PANEER') || cat.includes('CHEESE')) return '🧀'
+    if (cat.includes('CURD') || cat.includes('YOGURT') || cat.includes('DAHI')) return '🥣'
+    if (cat.includes('GHEE') || cat.includes('BUTTER')) return '🧈'
+    if (cat.includes('CREAM')) return '🍶'
+    if (cat.includes('POWDER')) return '📦'
+    if (cat.includes('ICE') || cat.includes('CREAM')) return '🍦'
+    if (cat.includes('BUTTERMILK') || cat.includes('CHAAS')) return '🥤'
+    return '🥛' // Default dairy icon
+  }
 
   useEffect(() => {
     fetchProducts()
@@ -226,18 +240,28 @@ export default function CheckoutPage() {
               className="group cursor-pointer hover:shadow-lg transition-all overflow-hidden"
               onClick={() => addToCart(product)}
             >
-              <div className="relative h-32 w-full bg-gray-100">
+              <div className="relative h-32 w-full bg-gradient-to-br from-gray-50 to-gray-100">
                 {product.imageUrl ? (
                   <Image
                     src={product.imageUrl}
                     alt={product.name}
                     fill
+                    unoptimized
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      const parent = target.parentElement
+                      if (parent) {
+                        parent.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-400"><span class="text-5xl">${getCategoryIcon(product.category)}</span><span class="text-xs mt-1 text-gray-400">No image</span></div>`
+                      }
+                    }}
                   />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400">
-                    <span className="text-4xl font-light">📦</span>
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                    <span className="text-5xl">{getCategoryIcon(product.category)}</span>
+                    <span className="text-xs mt-1">No image</span>
                   </div>
                 )}
               </div>

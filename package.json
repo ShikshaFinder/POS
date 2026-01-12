@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && node scripts/fix-prisma-default.js && next build",
+    "build": "prisma generate && node scripts/fix-prisma-default.js && next build --webpack",
     "start": "next start",
     "postinstall": "prisma generate && node scripts/fix-prisma-default.js"
   },

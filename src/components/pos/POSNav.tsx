@@ -171,6 +171,7 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
           {/* Install App Button */}
           {!isInstalled && (
             <button
+              id="pwa-install-btn"
               onClick={handleInstallClick}
               className="flex w-full items-center gap-3 px-3 sm:px-4 py-3 text-sm sm:text-base font-medium rounded-lg text-blue-600 hover:bg-blue-50 transition-all tap-target touch-feedback mt-2"
             >

@@ -43,6 +43,7 @@ export default function RootLayout({
         <Providers>
           {children}
         </Providers>
+        <script src="/pwa-install.js" defer></script>
       </body>
     </html>
   )

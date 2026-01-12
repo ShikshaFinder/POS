@@ -40,22 +40,27 @@ export function PWAInstallPrompt() {
   }, [])
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return
-
-    // Show the install prompt
-    await deferredPrompt.prompt()
-
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice
-
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt')
-    } else {
-      console.log('User dismissed the install prompt')
+    // If we have the native prompt, trigger it
+    if (deferredPrompt) {
+      await deferredPrompt.prompt()
+      const { outcome } = await deferredPrompt.userChoice
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null)
+        setShowPrompt(false)
+      }
+      return
     }
 
-    // Clear the deferredPrompt
-    setDeferredPrompt(null)
+    // Otherwise, trigger the beautiful modal system from pwa-install.js
+    // We just need to simulate a click on an element with the correct ID
+    // or call the internal logic if exposed. Since it's an IIFE, we use the DOM.
+    const mockBtn = document.createElement('button')
+    mockBtn.id = 'pwa-install-btn'
+    mockBtn.style.display = 'none'
+    document.body.appendChild(mockBtn)
+    mockBtn.click()
+    mockBtn.remove()
+
     setShowPrompt(false)
   }
 
@@ -84,6 +89,7 @@ export function PWAInstallPrompt() {
 
             <div className="flex gap-2">
               <button
+                id="pwa-install-btn-react"
                 onClick={handleInstallClick}
                 className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors"
               >

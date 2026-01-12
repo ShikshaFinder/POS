@@ -237,6 +237,9 @@ export default function ProductsPage() {
             <DialogTitle>
               {editingProduct ? 'Edit Product' : 'Add New Product'}
             </DialogTitle>
+            <p className="text-sm text-gray-500 mt-2">
+              Note: To add product images, please use the main CRM dashboard. Images will automatically appear in the POS system.
+            </p>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
