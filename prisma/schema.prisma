@@ -99,6 +99,11 @@ model User {
   // Approval Relations (Phase 3)
   approvalsRequested      ApprovalQueue[]        @relation("ApprovalRequester")
   approvalsApproved       ApprovalQueue[]        @relation("ApprovalApprover")
+
+  // CMS & Customer Engagement Relations
+  emailCampaignsCreated   EmailCampaign[]        @relation("CampaignCreator")
+  couponCodesCreated      CouponCode[]           @relation("CouponCreator")
+  customerSegmentsCreated CustomerSegment[]      @relation("SegmentCreator")
   
   // Daily Stock Records
   stockRecordsCreated     DailyStockRecord[]     @relation("StockRecorder")
@@ -207,6 +212,11 @@ model Organization {
   // Automation & Reporting (Phase 3)
   eodReports         EODReport[]
   approvalQueue      ApprovalQueue[]
+
+  // CMS & Customer Engagement Relations
+  emailCampaigns     EmailCampaign[]
+  couponCodes        CouponCode[]
+  customerSegments   CustomerSegment[]
   
   // Daily Stock Records
   dailyStockRecords  DailyStockRecord[]
@@ -1958,6 +1968,11 @@ model POSLocation {
   // Automation & Reporting (Phase 3)
   eodReports       EODReport[]            @relation("POSLocationEODReports")
 
+  // CMS & Customer Engagement Relations
+  emailCampaigns   EmailCampaign[]      @relation("POSLocationCampaigns")
+  couponCodes      CouponCode[]         @relation("POSLocationCoupons")
+  customerSegments CustomerSegment[]    @relation("POSLocationSegments")
+
   @@unique([organizationId, code])
   @@index([organizationId, status])
   @@index([ownerId])
@@ -2218,7 +2233,8 @@ model POSTransaction {
   updatedAt       DateTime      @updatedAt
 
   // Relations
-  items           POSTransactionItem[]
+  items              POSTransactionItem[]
+  couponRedemptions  CouponRedemption[]   @relation("TransactionCouponRedemptions")
 
   @@index([organizationId, status])
   @@index([posLocationId])
@@ -2264,17 +2280,33 @@ model POSCustomer {
   lastVisitDate  DateTime?
   loyaltyPoints  Int      @default(0)
 
+  // CMS Marketing Fields
+  marketingConsent     Boolean   @default(false) // Has customer opted in for marketing emails?
+  emailVerified        Boolean   @default(false) // Has email been verified?
+  preferredContactTime String?   // "MORNING", "AFTERNOON", "EVENING"
+  tags                 String[]  // Customer segments/tags: ["VIP", "FREQUENT_BUYER", "DISCOUNT_SEEKER"]
+  birthday             DateTime? // For birthday promotions
+  anniversary          DateTime? // For anniversary promotions
+  lastEmailSent        DateTime? // Last marketing email sent date
+  emailFrequency       String    @default("WEEKLY") // "DAILY", "WEEKLY", "MONTHLY", "NEVER"
+  unsubscribedAt       DateTime? // When customer unsubscribed from emails
+
   notes          String?
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relations
-  transactions   POSTransaction[] @relation("POSCustomerTransactions")
+  transactions      POSTransaction[]      @relation("POSCustomerTransactions")
+  emailCampaigns    EmailCampaignRecipient[] @relation("CustomerEmailCampaigns")
+  couponRedemptions CouponRedemption[]    @relation("CustomerCouponRedemptions")
+  segmentMembers    CustomerSegmentMember[] @relation("CustomerSegments")
 
   @@index([organizationId])
   @@index([posLocationId])
   @@index([phone])
+  @@index([email])
+  @@index([marketingConsent])
 }
 
 // POS Session - Cashier session management
@@ -2575,6 +2607,55 @@ model ApprovalQueue {
   @@index([status, priority])
 }
 
+// ============================================
+// CMS & CUSTOMER ENGAGEMENT MODELS
+// ============================================
+
+// Email Campaign - Marketing campaigns for customer engagement
+model EmailCampaign {
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String       @db.ObjectId
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  posLocationId    String?      @db.ObjectId
+  posLocation      POSLocation? @relation("POSLocationCampaigns", fields: [posLocationId], references: [id], onDelete: SetNull)
+  
+  // Campaign Info
+  name             String       // "Summer Sale 2026", "Birthday Greetings"
+  subject          String       // Email subject line
+  previewText      String?      // Preview text shown in email clients
+  emailBody        String       // HTML email body (can use template variables)
+  
+  // Campaign Type
+  campaignType     String       // "PROMOTIONAL", "TRANSACTIONAL", "BIRTHDAY", "ANNIVERSARY", "FOLLOW_UP", "NEWSLETTER"
+  
+  // Targeting
+  targetSegment    String?      // Target customer segment ID or criteria
+  targetTags       String[]     // Target specific customer tags
+  minTotalSpent    Float?       // Minimum total spent to receive
+  maxTotalSpent    Float?       // Maximum total spent
+  minVisitCount    Int?         // Minimum visit count
+  
+  // Scheduling
+  status           String       @default("DRAFT") // "DRAFT", "SCHEDULED", "SENDING", "SENT", "PAUSED", "CANCELLED"
+  scheduledAt      DateTime?    // When to send (null = send immediately)
+  sentAt           DateTime?    // When campaign was actually sent
+  
+  // Coupon Integration
+  couponCodeId     String?      @db.ObjectId
+  couponCode       CouponCode?  @relation("CampaignCoupon", fields: [couponCodeId], references: [id], onDelete: SetNull)
+  
+  // Analytics
+  recipientCount   Int          @default(0)
+  sentCount        Int          @default(0)
+  deliveredCount   Int          @default(0)
+  openedCount      Int          @default(0)
+  clickedCount     Int          @default(0)
+  unsubscribeCount Int          @default(0)
+  errorCount       Int          @default(0)
+  
+  // Creator
+  createdById      String       @db.ObjectId
+  createdBy        User         @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: NoAction)
 // Daily Stock Record - Track daily opening and closing stock for products
 model DailyStockRecord {
   id               String       @id @default(auto()) @map("_id") @db.ObjectId
@@ -2621,6 +2702,179 @@ model DailyStockRecord {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   
+  // Relations
+  recipients       EmailCampaignRecipient[]
+  
+  @@index([organizationId])
+  @@index([posLocationId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+// Email Campaign Recipient - Track individual email delivery and engagement
+model EmailCampaignRecipient {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  campaignId     String        @db.ObjectId
+  campaign       EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customerId     String        @db.ObjectId
+  customer       POSCustomer   @relation("CustomerEmailCampaigns", fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Delivery Status
+  status         String        @default("PENDING") // "PENDING", "SENT", "DELIVERED", "FAILED", "BOUNCED"
+  errorMessage   String?
+  
+  // Engagement Tracking
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  openedAt       DateTime?     // First open
+  clickedAt      DateTime?     // First click
+  unsubscribedAt DateTime?
+  
+  // Open and click counts (for multiple interactions)
+  openCount      Int           @default(0)
+  clickCount     Int           @default(0)
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  @@unique([campaignId, customerId])
+  @@index([campaignId])
+  @@index([customerId])
+  @@index([status])
+}
+
+// Coupon Code - Discount codes for customer engagement
+model CouponCode {
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String       @db.ObjectId
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  posLocationId    String?      @db.ObjectId
+  posLocation      POSLocation? @relation("POSLocationCoupons", fields: [posLocationId], references: [id], onDelete: SetNull)
+  
+  // Code Info
+  code             String       // "SUMMER2026", "WELCOME10"
+  name             String       // Internal name: "Summer Sale Coupon"
+  description      String?      // Customer-facing description
+  
+  // Discount Details
+  discountType     String       // "PERCENTAGE", "FIXED_AMOUNT", "FREE_SHIPPING", "BUY_X_GET_Y"
+  discountValue    Float        // Percentage (e.g., 10 for 10%) or fixed amount
+  maxDiscount      Float?       // Maximum discount amount (for percentage discounts)
+  
+  // Usage Restrictions
+  minPurchase      Float?       @default(0) // Minimum purchase amount required
+  maxUsagePerCustomer Int?      @default(1) // How many times each customer can use
+  totalUsageLimit  Int?         // Total usage limit across all customers (null = unlimited)
+  currentUsageCount Int         @default(0) // Current usage count
+  
+  // Validity
+  validFrom        DateTime     @default(now())
+  validUntil       DateTime?    // null = no expiry
+  isActive         Boolean      @default(true)
+  
+  // Targeting
+  targetProducts   String[]     @db.ObjectId // Specific product IDs (empty = all products)
+  targetCategories String[]     // Specific categories
+  targetCustomerTags String[]   // Specific customer tags
+  excludeProducts  String[]     @db.ObjectId // Excluded product IDs
+  
+  // Analytics
+  usageCount       Int          @default(0)
+  totalRevenue     Float        @default(0) // Total revenue from this coupon
+  totalDiscount    Float        @default(0) // Total discount given
+  
+  // Creator
+  createdById      String       @db.ObjectId
+  createdBy        User         @relation("CouponCreator", fields: [createdById], references: [id], onDelete: NoAction)
+  
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  
+  // Relations
+  redemptions      CouponRedemption[] @relation("CouponRedemptions")
+  campaigns        EmailCampaign[]    @relation("CampaignCoupon")
+  
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([posLocationId])
+  @@index([isActive])
+  @@index([validFrom, validUntil])
+}
+
+// Coupon Redemption - Track coupon usage
+model CouponRedemption {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  couponId       String         @db.ObjectId
+  coupon         CouponCode     @relation("CouponRedemptions", fields: [couponId], references: [id], onDelete: Cascade)
+  customerId     String         @db.ObjectId
+  customer       POSCustomer    @relation("CustomerCouponRedemptions", fields: [customerId], references: [id], onDelete: Cascade)
+  transactionId  String?        @db.ObjectId
+  transaction    POSTransaction? @relation("TransactionCouponRedemptions", fields: [transactionId], references: [id], onDelete: SetNull)
+  
+  // Redemption Details
+  discountAmount Float          // Actual discount amount applied
+  orderAmount    Float          // Order amount before discount
+  finalAmount    Float          // Order amount after discount
+  
+  redeemedAt     DateTime       @default(now())
+  
+  @@index([couponId])
+  @@index([customerId])
+  @@index([transactionId])
+  @@index([redeemedAt])
+}
+
+// Customer Segment - Group customers for targeted campaigns
+model CustomerSegment {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  posLocationId  String?      @db.ObjectId
+  posLocation    POSLocation? @relation("POSLocationSegments", fields: [posLocationId], references: [id], onDelete: SetNull)
+  
+  // Segment Info
+  name           String       // "VIP Customers", "Inactive Customers", "High Spenders"
+  description    String?
+  color          String?      // Hex color for UI display
+  
+  // Segment Criteria (JSON for complex rules)
+  criteria       Json?        // {"minSpent": 10000, "minVisits": 5, "tags": ["VIP"]}
+  
+  // Dynamic or Static
+  isDynamic      Boolean      @default(true) // Auto-update based on criteria vs manually managed
+  
+  // Analytics
+  memberCount    Int          @default(0)
+  
+  // Creator
+  createdById    String       @db.ObjectId
+  createdBy      User         @relation("SegmentCreator", fields: [createdById], references: [id], onDelete: NoAction)
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  // Relations
+  members        CustomerSegmentMember[]
+  
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([posLocationId])
+}
+
+// Customer Segment Member - Many-to-many relation for segment membership
+model CustomerSegmentMember {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  segmentId  String          @db.ObjectId
+  segment    CustomerSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  customerId String          @db.ObjectId
+  customer   POSCustomer     @relation("CustomerSegments", fields: [customerId], references: [id], onDelete: Cascade)
+  
+  addedAt    DateTime        @default(now())
+  
+  @@unique([segmentId, customerId])
+  @@index([segmentId])
+  @@index([customerId])
   @@unique([organizationId, productId, locationId, date, session])
   @@index([organizationId, date])
   @@index([productId, date])
