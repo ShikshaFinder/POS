@@ -304,7 +304,7 @@ export default function CheckoutPage() {
         fixed inset-0 z-50 bg-gray-50 flex flex-col
         lg:relative lg:w-96 lg:border-l lg:z-auto
         transform transition-transform duration-300 ease-in-out
-        ${showMobileCart ? 'translate-x-0 pointer-events-auto' : 'translate-x-full pointer-events-none lg:pointer-events-auto'}
+        ${showMobileCart ? 'translate-x-0 pointer-events-auto visible' : 'translate-x-full pointer-events-none invisible lg:visible lg:pointer-events-auto'}
       `}>
         <div className="p-4 sm:p-6 border-b bg-white">
           <div className="flex items-center gap-2">
