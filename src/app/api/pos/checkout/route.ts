@@ -13,7 +13,35 @@ export async function POST(req: NextRequest) {
 
     const organizationId = (session.user as any).currentOrganizationId
     const body = await req.json()
-    const { items, customerName, customerPhone, totalAmount, deliveryDate } = body
+    
+    // Support both old format (direct fields) and new format (nested objects from billing page)
+    const items = body.items
+    const customerName = body.customer?.name || body.customerName
+    const customerPhone = body.customer?.phone || body.customerPhone
+    const deliveryDate = body.deliveryDate
+    
+    // Extract totals - support both formats
+    const totalAmount = body.totals?.total || body.totalAmount
+    const subtotalAmount = body.totals?.subtotal
+    const taxAmount = body.totals?.taxAmount
+    
+    // Extract payment details
+    const paymentMethod = body.payment?.method || body.paymentMethod || 'CASH'
+    const amountPaid = body.payment?.amountPaid || body.amountPaid || totalAmount
+    const changeGiven = body.payment?.changeGiven || 0
+    const cashAmount = body.payment?.cashAmount
+    const cardAmount = body.payment?.cardAmount
+    const upiAmount = body.payment?.upiAmount
+    const walletAmount = body.payment?.walletAmount
+    const roundOff = body.payment?.roundOff || 0
+    const notes = body.payment?.notes || body.notes
+    
+    // Extract discount info
+    const billDiscount = body.billDiscount || 0
+    const billDiscountType = body.billDiscountType || 'flat'
+    const couponCode = body.couponCode
+    const couponDiscount = body.couponDiscount || 0
+    const taxPercent = body.taxPercent || 0
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 })
@@ -21,7 +49,9 @@ export async function POST(req: NextRequest) {
 
     // Start a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Check stock availability for all items
+      // Check stock availability for all items and get product details
+      const processedItems: any[] = []
+      
       for (const item of items) {
         const product = await tx.product.findUnique({
           where: { id: item.productId }
@@ -34,6 +64,16 @@ export async function POST(req: NextRequest) {
         if ((product.currentStock ?? 0) < item.quantity) {
           throw new Error(`Insufficient stock for ${product.name}`)
         }
+        
+        // Use provided price or fallback to product's unit price
+        const itemPrice = item.price || item.unitPrice || product.unitPrice || 0
+        
+        processedItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          price: itemPrice,
+          product: product
+        })
       }
 
       // Create invoice/order
@@ -83,7 +123,7 @@ export async function POST(req: NextRequest) {
           stage: 'COMPLETED',
           deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
           items: {
-            create: items.map((item: any) => ({
+            create: processedItems.map((item: any) => ({
               organizationId,
               productId: item.productId,
               qty: item.quantity,
@@ -106,28 +146,37 @@ export async function POST(req: NextRequest) {
           organizationId,
           invoiceNumber,
           salesOrderId: salesOrder.id,
-          totalAmount,
-          paidAmount: totalAmount,
-          status: 'PAID',
+          totalAmount: totalAmount,
+          paidAmount: amountPaid,
+          status: amountPaid >= totalAmount ? 'PAID' : 'PARTIALLY_PAID',
           approvalStatus: 'APPROVED',
           customerName: customerName || 'Walk-in Customer'
         }
       })
 
-      // Create payment record
+      // Create payment record(s) based on payment method
+      const paymentData: any = {
+        organizationId,
+        invoiceId: invoice.id,
+        amount: amountPaid,
+        method: paymentMethod,
+        paidAt: new Date(),
+        status: 'COMPLETED'
+      }
+      
+      // Add split payment details if available
+      if (cashAmount) paymentData.cashAmount = cashAmount
+      if (cardAmount) paymentData.cardAmount = cardAmount
+      if (upiAmount) paymentData.upiAmount = upiAmount
+      if (walletAmount) paymentData.walletAmount = walletAmount
+      if (notes) paymentData.notes = notes
+      
       await tx.payment.create({
-        data: {
-          organizationId,
-          invoiceId: invoice.id,
-          amount: totalAmount,
-          method: 'CASH',
-          paidAt: new Date(),
-          status: 'COMPLETED'
-        }
+        data: paymentData
       })
 
       // Update stock levels
-      for (const item of items) {
+      for (const item of processedItems) {
         await tx.product.update({
           where: { id: item.productId },
           data: {
@@ -224,8 +273,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      transaction: {
+        id: result.invoice.id,
+        receiptNumber: result.invoice.invoiceNumber,
+        salesOrderId: result.salesOrder.id,
+        invoiceId: result.invoice.id
+      },
       orderId: result.salesOrder.id,
       invoiceNumber: result.invoice.invoiceNumber,
+      receiptNumber: result.invoice.invoiceNumber, // For syncManager compatibility
       whatsAppSent: !!customerPhone, // Indicates if WhatsApp notification was triggered
     })
   } catch (error: any) {
