@@ -30,7 +30,7 @@ async function checkProductImages() {
       console.log(`   Category: ${product.category}`)
       console.log(`   Images: ${product.images.length}`)
       if (product.images.length > 0) {
-        product.images.forEach((img: any, imgIndex: any) => {
+        product.images.forEach((img: any, imgIndex: number) => {
           console.log(`      ${imgIndex + 1}. ${img.url}`)
           console.log(`         Primary: ${img.isPrimary}, Order: ${img.order}`)
         })
@@ -41,8 +41,8 @@ async function checkProductImages() {
     })
 
     // Count products with and without images
-    const productsWithImageCount = productsWithImages.filter(p => p.images.length > 0).length
-    const productsWithoutImageCount = productsWithImages.filter(p => p.images.length === 0).length
+    const productsWithImageCount = productsWithImages.filter((p: any) => p.images.length > 0).length
+    const productsWithoutImageCount = productsWithImages.filter((p: any) => p.images.length === 0).length
 
     console.log('\n=== Summary ===')
     console.log(`Products with images: ${productsWithImageCount}`)
