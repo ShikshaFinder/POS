@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,6 +40,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
   const [lastReceipt, setLastReceipt] = useState<any>(null)
+  const [showMobileCart, setShowMobileCart] = useState(false)
   
   // Category-based fallback icons
   const getCategoryIcon = (category: string) => {
@@ -216,11 +217,11 @@ export default function CheckoutPage() {
   ]
 
   return (
-    <div className="h-full flex">
+    <div className="h-full flex flex-col lg:flex-row relative">
       {/* Left side - Products */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-4">Checkout</h1>
+      <div className={`flex-1 p-4 sm:p-6 overflow-y-auto ${showMobileCart ? 'hidden lg:block' : ''}`}>
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Checkout</h1>
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
@@ -233,14 +234,14 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 pb-20 lg:pb-4">
           {products.map((product) => (
             <Card
               key={product.id}
               className="group cursor-pointer hover:shadow-lg transition-all overflow-hidden"
               onClick={() => addToCart(product)}
             >
-              <div className="relative h-32 w-full bg-gradient-to-br from-gray-50 to-gray-100">
+              <div className="relative h-24 sm:h-32 w-full bg-gradient-to-br from-gray-50 to-gray-100">
                 {product.imageUrl ? (
                   <Image
                     src={product.imageUrl}
@@ -248,31 +249,31 @@ export default function CheckoutPage() {
                     fill
                     unoptimized
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement
                       target.style.display = 'none'
                       const parent = target.parentElement
                       if (parent) {
-                        parent.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-400"><span class="text-5xl">${getCategoryIcon(product.category)}</span><span class="text-xs mt-1 text-gray-400">No image</span></div>`
+                        parent.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-400"><span class="text-4xl sm:text-5xl">${getCategoryIcon(product.category)}</span><span class="text-xs mt-1 text-gray-400">No image</span></div>`
                       }
                     }}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                    <span className="text-5xl">{getCategoryIcon(product.category)}</span>
+                    <span className="text-4xl sm:text-5xl">{getCategoryIcon(product.category)}</span>
                     <span className="text-xs mt-1">No image</span>
                   </div>
                 )}
               </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-lg mb-1 truncate">{product.name}</h3>
-                <p className="text-sm text-gray-500 mb-2">{product.category}</p>
-                <div className="flex justify-between items-center">
-                  <span className="text-xl font-bold text-green-600">
+              <div className="p-2 sm:p-4">
+                <h3 className="font-semibold text-sm sm:text-lg mb-1 truncate">{product.name}</h3>
+                <p className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2 truncate">{product.category}</p>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                  <span className="text-base sm:text-xl font-bold text-green-600">
                     ₹{product.unitPrice?.toFixed(2)}
                   </span>
-                  <span className={`text-sm ${product.currentStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
+                  <span className={`text-xs sm:text-sm ${product.currentStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
                     {product.currentStock > 0 ? `Stock: ${product.currentStock}` : 'Out of Stock'} {product.unit}
                   </span>
                 </div>
@@ -282,24 +283,51 @@ export default function CheckoutPage() {
         </div>
       </div>
 
+      {/* Mobile Cart Toggle Button - Fixed at bottom */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-lg z-40">
+        <Button
+          className="w-full flex items-center justify-center gap-2"
+          size="lg"
+          onClick={() => setShowMobileCart(true)}
+        >
+          <ShoppingCart className="h-5 w-5" />
+          View Cart ({cart.length}) - ₹{calculateTotal().toFixed(2)}
+        </Button>
+      </div>
+
       {/* Right side - Cart */}
-      <div className="w-96 border-l bg-gray-50 flex flex-col">
-        <div className="p-6 border-b bg-white">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5" />
-            Cart ({cart.length})
-          </h2>
+      <div className={`
+        fixed inset-0 z-50 bg-gray-50 flex flex-col
+        lg:relative lg:w-96 lg:border-l lg:z-auto
+        transform transition-transform duration-300 ease-in-out
+        ${showMobileCart ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+      `}>
+        <div className="p-4 sm:p-6 border-b bg-white">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden -ml-2"
+              onClick={() => setShowMobileCart(false)}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              Cart ({cart.length})
+            </h2>
+          </div>
         </div>
 
         {/* Customer Section */}
-        <div className="p-4 border-b bg-white">
+        <div className="p-3 sm:p-4 border-b bg-white">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 type="text"
                 placeholder="Customer phone/name..."
-                className="pl-10"
+                className="pl-10 text-sm sm:text-base"
                 value={customerSearch}
                 onChange={(e) => setCustomerSearch(e.target.value)}
                 onKeyPress={(e) => {
@@ -331,53 +359,56 @@ export default function CheckoutPage() {
         </div>
 
         {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4">
           {cart.length === 0 ? (
             <div className="text-center text-gray-400 mt-8">
               Cart is empty
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {cart.map((item) => (
-                <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm">
+                <div key={item.id} className="bg-white p-2 sm:p-3 rounded-lg shadow-sm">
                   <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
-                      <h4 className="font-semibold">{item.name}</h4>
-                      <p className="text-sm text-gray-500">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-sm sm:text-base truncate">{item.name}</h4>
+                      <p className="text-xs sm:text-sm text-gray-500">
                         ₹{item.unitPrice} × {item.quantity}
                       </p>
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="shrink-0 h-8 w-8 p-0"
                       onClick={() => removeFromCart(item.id)}
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </div>
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2">
                       <Button
                         size="sm"
                         variant="outline"
+                        className="h-8 w-8 p-0"
                         onClick={() => updateQuantity(item.id, -1)}
                         disabled={item.quantity <= 1}
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="w-8 text-center font-semibold">
+                      <span className="w-8 text-center font-semibold text-sm sm:text-base">
                         {item.quantity}
                       </span>
                       <Button
                         size="sm"
                         variant="outline"
+                        className="h-8 w-8 p-0"
                         onClick={() => updateQuantity(item.id, 1)}
                         disabled={item.quantity >= item.currentStock}
                       >
                         <Plus className="h-3 w-3" />
                       </Button>
                     </div>
-                    <span className="font-bold">
+                    <span className="font-bold text-sm sm:text-base">
                       ₹{(item.unitPrice * item.quantity).toFixed(2)}
                     </span>
                   </div>
@@ -388,18 +419,18 @@ export default function CheckoutPage() {
         </div>
 
         {/* Payment Section */}
-        <div className="border-t bg-white p-4 space-y-4">
+        <div className="border-t bg-white p-3 sm:p-4 space-y-3 sm:space-y-4">
           {/* Totals */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
+          <div className="space-y-1 sm:space-y-2">
+            <div className="flex justify-between text-xs sm:text-sm">
               <span className="text-gray-600">Subtotal:</span>
               <span>₹{calculateSubtotal().toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-xs sm:text-sm">
               <span className="text-gray-600">Tax (5%):</span>
               <span>₹{calculateTax(calculateSubtotal()).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-lg font-bold border-t pt-2">
+            <div className="flex justify-between text-base sm:text-lg font-bold border-t pt-2">
               <span>Total:</span>
               <span className="text-green-600">₹{calculateTotal().toFixed(2)}</span>
             </div>
@@ -407,49 +438,54 @@ export default function CheckoutPage() {
 
           {/* Payment Method */}
           <div>
-            <label className="text-sm font-medium mb-2 block">Payment Method</label>
-            <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs sm:text-sm font-medium mb-2 block">Payment Method</label>
+            <div className="grid grid-cols-4 sm:grid-cols-2 gap-1 sm:gap-2">
               {paymentMethods.map((method) => (
                 <Button
                   key={method.value}
                   variant={paymentMethod === method.value ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPaymentMethod(method.value as any)}
-                  className="flex items-center gap-2"
+                  className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 h-auto py-2 px-1 sm:px-3 text-xs sm:text-sm"
                 >
                   <method.icon className="h-4 w-4" />
-                  {method.label}
+                  <span className="hidden sm:inline">{method.label}</span>
+                  <span className="sm:hidden text-[10px]">{method.label}</span>
                 </Button>
               ))}
             </div>
           </div>
 
-          {/* Amount Paid */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">Amount Paid</label>
-            <Input
-              type="number"
-              placeholder="0.00"
-              value={amountPaid}
-              onChange={(e) => setAmountPaid(e.target.value)}
-              className="text-lg"
-            />
-            {amountPaid && (
-              <p className="text-sm mt-1 text-gray-600">
-                Change: ₹{calculateChange().toFixed(2)}
-              </p>
-            )}
-          </div>
+          {/* Amount Paid & Delivery Date - Side by side on mobile */}
+          <div className="grid grid-cols-2 sm:grid-cols-1 gap-2 sm:gap-4">
+            {/* Amount Paid */}
+            <div>
+              <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">Amount Paid</label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={amountPaid}
+                onChange={(e) => setAmountPaid(e.target.value)}
+                className="text-sm sm:text-lg"
+              />
+              {amountPaid && (
+                <p className="text-xs sm:text-sm mt-1 text-gray-600">
+                  Change: ₹{calculateChange().toFixed(2)}
+                </p>
+              )}
+            </div>
 
-          {/* Delivery Date */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">Delivery Date (Optional)</label>
-            <Input
-              type="date"
-              value={deliveryDate}
-              onChange={(e) => setDeliveryDate(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
-            />
+            {/* Delivery Date */}
+            <div>
+              <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">Delivery Date</label>
+              <Input
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="text-sm"
+              />
+            </div>
           </div>
 
           {/* Checkout Button */}
@@ -466,15 +502,15 @@ export default function CheckoutPage() {
 
       {/* Receipt Modal */}
       {showReceipt && lastReceipt && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full">
-            <div className="text-center mb-6">
-              <div className="text-green-500 text-6xl mb-4">✓</div>
-              <h2 className="text-2xl font-bold mb-2">Sale Completed!</h2>
-              <p className="text-gray-600">Receipt #{lastReceipt.receiptNumber}</p>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-8 max-w-md w-full mx-4">
+            <div className="text-center mb-4 sm:mb-6">
+              <div className="text-green-500 text-4xl sm:text-6xl mb-2 sm:mb-4">✓</div>
+              <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Sale Completed!</h2>
+              <p className="text-sm sm:text-base text-gray-600">Receipt #{lastReceipt.receiptNumber}</p>
             </div>
 
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2 mb-4 sm:mb-6 text-sm sm:text-base">
               <div className="flex justify-between">
                 <span>Total:</span>
                 <span className="font-bold">₹{lastReceipt.totalAmount.toFixed(2)}</span>
@@ -489,7 +525,7 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
                 className="flex-1"
@@ -499,7 +535,10 @@ export default function CheckoutPage() {
               </Button>
               <Button
                 className="flex-1"
-                onClick={() => setShowReceipt(false)}
+                onClick={() => {
+                  setShowReceipt(false)
+                  setShowMobileCart(false)
+                }}
               >
                 New Sale
               </Button>
