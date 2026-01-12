@@ -162,6 +162,7 @@ export default function ProductGrid({
                                                 src={product.imageUrl}
                                                 alt={product.name}
                                                 fill
+                                                unoptimized
                                                 className="object-cover"
                                                 sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
                                                 loading="lazy"
@@ -238,6 +239,7 @@ export default function ProductGrid({
                                                 src={product.imageUrl}
                                                 alt={product.name}
                                                 fill
+                                                unoptimized
                                                 className="object-cover"
                                                 sizes="80px"
                                             />

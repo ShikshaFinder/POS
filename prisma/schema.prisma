@@ -1946,6 +1946,9 @@ model POSLocation {
   useCustomPricing      Boolean @default(false)
   globalDiscountPercent Float?  @default(0) // Global discount for this POS
 
+  // Stock Management Settings
+  varianceAlertThreshold Float? @default(5) // Percentage threshold for variance alerts
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2656,6 +2659,18 @@ model EmailCampaign {
   // Creator
   createdById      String       @db.ObjectId
   createdBy        User         @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: NoAction)
+  
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  
+  // Relations
+  recipients       EmailCampaignRecipient[]
+  
+  @@index([organizationId, status])
+  @@index([scheduledAt])
+  @@index([campaignType])
+}
+
 // Daily Stock Record - Track daily opening and closing stock for products
 model DailyStockRecord {
   id               String       @id @default(auto()) @map("_id") @db.ObjectId
@@ -2702,13 +2717,10 @@ model DailyStockRecord {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   
-  // Relations
-  recipients       EmailCampaignRecipient[]
-  
-  @@index([organizationId])
-  @@index([posLocationId])
-  @@index([status])
-  @@index([scheduledAt])
+  @@unique([organizationId, productId, locationId, date, session])
+  @@index([organizationId, date])
+  @@index([productId, date])
+  @@index([locationId, date])
 }
 
 // Email Campaign Recipient - Track individual email delivery and engagement
@@ -2875,8 +2887,4 @@ model CustomerSegmentMember {
   @@unique([segmentId, customerId])
   @@index([segmentId])
   @@index([customerId])
-  @@unique([organizationId, productId, locationId, date, session])
-  @@index([organizationId, date])
-  @@index([productId, date])
-  @@index([locationId, date])
 }
