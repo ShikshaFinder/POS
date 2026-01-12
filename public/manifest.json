@@ -3,6 +3,8 @@
   "short_name": "Flavi POS",
   "description": "Complete Point of Sale System with offline support",
   "start_url": "/pos",
+  "scope": "/pos/",
+  "id": "/pos/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
