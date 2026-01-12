@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft, Mail, Loader2, Check } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +26,7 @@ interface Customer {
   id: string
   name: string
   phone: string | null
+  email: string | null
 }
 
 export default function CheckoutPage() {
@@ -41,6 +42,9 @@ export default function CheckoutPage() {
   const [showReceipt, setShowReceipt] = useState(false)
   const [lastReceipt, setLastReceipt] = useState<any>(null)
   const [showMobileCart, setShowMobileCart] = useState(false)
+  const [emailForReceipt, setEmailForReceipt] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
   
   // Category-based fallback icons
   const getCategoryIcon = (category: string) => {
@@ -172,19 +176,23 @@ export default function CheckoutPage() {
         }),
       })
 
-      if (res.ok) {
+if (res.ok) {
         const data = await res.json()
         setLastReceipt(data.transaction)
         setShowReceipt(true)
+        // Pre-fill email if customer has one
+        if (customer?.email) {
+          setEmailForReceipt(customer.email)
+        } else {
+          setEmailForReceipt('')
+        }
+        setEmailSent(false)
         // Clear cart
         setCart([])
         setAmountPaid('')
         setDeliveryDate('')
         setCustomer(null)
         setCustomerSearch('')
-      } else {
-        const error = await res.json()
-        alert(error.error || 'Failed to complete checkout')
       }
     } catch (error) {
       console.error('Checkout failed:', error)
@@ -209,12 +217,48 @@ export default function CheckoutPage() {
     }
   }
 
-  const paymentMethods = [
+const paymentMethods = [
     { value: 'CASH', label: 'Cash', icon: DollarSign },
     { value: 'CARD', label: 'Card', icon: CreditCard },
     { value: 'UPI', label: 'UPI', icon: Smartphone },
     { value: 'WALLET', label: 'Wallet', icon: Wallet },
   ]
+
+  const sendReceiptToEmail = async () => {
+    if (!emailForReceipt || !lastReceipt) return
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(emailForReceipt)) {
+      alert('Please enter a valid email address')
+      return
+    }
+
+    setSendingEmail(true)
+    try {
+      const res = await fetch('/api/pos/receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiptId: lastReceipt.id,
+          email: emailForReceipt,
+        }),
+      })
+
+      if (res.ok) {
+        setEmailSent(true)
+        setTimeout(() => setEmailSent(false), 3000)
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Failed to send email')
+      }
+    } catch (error) {
+      console.error('Failed to send email:', error)
+      alert('Failed to send email')
+    } finally {
+      setSendingEmail(false)
+    }
+  }
 
   return (
     <div className="h-full flex flex-col lg:flex-row relative">
@@ -298,9 +342,10 @@ export default function CheckoutPage() {
       {/* Right side - Cart */}
       <div className={`
         fixed inset-0 z-50 bg-gray-50 flex flex-col
-        lg:relative lg:w-96 lg:border-l lg:z-auto
+        lg:static lg:w-96 lg:border-l lg:z-auto lg:flex-shrink-0
         transform transition-transform duration-300 ease-in-out
-        ${showMobileCart ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+        ${showMobileCart ? 'translate-x-0' : 'translate-x-full'}
+        lg:translate-x-0
       `}>
         <div className="p-4 sm:p-6 border-b bg-white">
           <div className="flex items-center gap-2">
@@ -525,6 +570,44 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            {/* Email Receipt Section */}
+            <div className="mb-4 sm:mb-6 p-3 bg-gray-50 rounded-lg">
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                Send Receipt via Email
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="email"
+                    placeholder="Enter email address"
+                    value={emailForReceipt}
+                    onChange={(e) => setEmailForReceipt(e.target.value)}
+                    className="pl-10 text-sm"
+                    disabled={sendingEmail}
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={sendReceiptToEmail}
+                  disabled={sendingEmail || !emailForReceipt || emailSent}
+                  className="shrink-0"
+                >
+                  {sendingEmail ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : emailSent ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    'Send'
+                  )}
+                </Button>
+              </div>
+              {emailSent && (
+                <p className="text-xs text-green-600 mt-1">Receipt sent successfully!</p>
+              )}
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
@@ -538,6 +621,8 @@ export default function CheckoutPage() {
                 onClick={() => {
                   setShowReceipt(false)
                   setShowMobileCart(false)
+                  setEmailForReceipt('')
+                  setEmailSent(false)
                 }}
               >
                 New Sale

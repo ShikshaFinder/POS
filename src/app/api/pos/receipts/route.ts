@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { sendReceiptEmail } from '@/lib/email'
 
 // GET /api/pos/receipts - List receipts with pagination
 export async function GET(req: NextRequest) {
@@ -168,9 +169,30 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // TODO: Implement actual email sending using Resend
-    // For now, we'll just simulate success
-    console.log(`Email receipt ${receipt.receiptNumber} to ${email}`)
+    // Calculate subtotal from items
+    const subtotal = receipt.items.reduce((sum, item) => sum + item.total + (item.discountAmount || 0), 0)
+
+    // Send the receipt email
+    await sendReceiptEmail(email, {
+      receiptNumber: receipt.receiptNumber,
+      transactionDate: receipt.transactionDate,
+      customerName: receipt.customerName || undefined,
+      items: receipt.items.map(item => ({
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discountAmount: item.discountAmount || 0,
+        total: item.total,
+      })),
+      subtotal,
+      discountAmount: receipt.discountAmount || 0,
+      taxAmount: receipt.taxAmount || 0,
+      totalAmount: receipt.totalAmount,
+      paymentMethod: receipt.paymentMethod,
+      amountPaid: receipt.amountPaid,
+      changeGiven: receipt.changeGiven || 0,
+      organizationName: receipt.organization.name,
+    })
 
     return NextResponse.json({
       success: true,
