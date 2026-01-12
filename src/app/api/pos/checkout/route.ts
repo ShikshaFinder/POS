@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const organizationId = (session.user as any).currentOrganizationId
     const body = await req.json()
     
-    // Support both old format (direct fields) and new format (nested objects from billing page)
+    // Support both old format (direct ) and new format (nested objects from billing page)
     const items = body.items
     const customerName = body.customer?.name || body.customerName
     const customerPhone = body.customer?.phone || body.customerPhone
@@ -134,8 +134,6 @@ export async function POST(req: NextRequest) {
           }
         }
       })
-
-      // Create invoice
       const invoice = await tx.invoice.create({
         data: {
           organizationId,
