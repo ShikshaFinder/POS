@@ -47,48 +47,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 })
     }
 
-    // Pre-fetch all products at once (outside transaction for speed)
-    const productIds = items.map((item: any) => item.productId)
-    const products = await prisma.product.findMany({
-      where: { 
-        id: { in: productIds },
-        organizationId 
-      }
-    })
-    
-    // Validate stock and prepare items
-    const processedItems: any[] = []
-    const productMap = new Map(products.map(p => [p.id, p]))
-    
+    // Validate all products and stock outside the transaction (simple, reliable)
+    const processedItems: any[] = [];
     for (const item of items) {
-      const product = productMap.get(item.productId)
-      
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId }
+      });
       if (!product) {
-        return NextResponse.json(
-          { error: `Product ${item.productId} not found` },
-          { status: 404 }
-        )
+        return NextResponse.json({ error: `Product ${item.productId} not found` }, { status: 404 });
       }
-
       if ((product.currentStock ?? 0) < item.quantity) {
-        return NextResponse.json(
-          { error: `Insufficient stock for ${product.name}` },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: `Insufficient stock for ${product.name}` }, { status: 400 });
       }
-      
-      // Use provided price or fallback to product's unit price
-      const itemPrice = item.price || item.unitPrice || product.unitPrice || 0
-      
+      const itemPrice = item.price || item.unitPrice || product.unitPrice || 0;
       processedItems.push({
         productId: item.productId,
         quantity: item.quantity,
         price: itemPrice,
         product: product
-      })
+      });
     }
 
-    // Start a transaction with extended timeout
+    // Start a simple transaction for DB writes only
     const result = await prisma.$transaction(async (tx) => {
 
       // Create invoice/order
@@ -190,53 +170,38 @@ export async function POST(req: NextRequest) {
         data: paymentData
       })
 
-      // Batch update stock levels - more efficient than individual updates
-      await Promise.all(
-        processedItems.map(item =>
-          tx.product.update({
-            where: { id: item.productId },
-            data: {
-              currentStock: {
-                decrement: item.quantity
-              }
+      // Update stock and create inventory transaction for each item (simple, sequential)
+      for (const item of processedItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            currentStock: {
+              decrement: item.quantity
             }
-          })
-        )
-      )
-
-      // Batch fetch inventory stocks for all products
-      const inventoryStocks = await tx.inventoryStock.findMany({
-        where: {
-          organizationId,
-          productId: { in: processedItems.map(item => item.productId) }
+          }
+        });
+        // Create inventory transaction if stock exists
+        const stock = await tx.inventoryStock.findFirst({
+          where: {
+            organizationId,
+            productId: item.productId
+          }
+        });
+        if (stock) {
+          await tx.inventoryTransaction.create({
+            data: {
+              organizationId,
+              stockId: stock.id,
+              type: 'OUT',
+              qty: item.quantity,
+              referenceType: 'SalesOrder',
+              referenceId: salesOrder.id
+            }
+          });
         }
-      })
-      
-      const stockMap = new Map(inventoryStocks.map(s => [s.productId, s]))
-
-      // Batch create inventory transactions
-      const inventoryTransactions = processedItems
-        .filter(item => stockMap.has(item.productId))
-        .map(item => ({
-          organizationId,
-          stockId: stockMap.get(item.productId)!.id,
-          type: 'OUT' as const,
-          qty: item.quantity,
-          referenceType: 'SalesOrder',
-          referenceId: salesOrder.id
-        }))
-      
-      if (inventoryTransactions.length > 0) {
-        await tx.inventoryTransaction.createMany({
-          data: inventoryTransactions
-        })
       }
-
-      return { salesOrder, invoice }
-    }, {
-      maxWait: 10000, // Maximum time to wait for a transaction slot (10s)
-      timeout: 15000, // Maximum time for the transaction to complete (15s)
-    })
+      return { salesOrder, invoice };
+    });
 
     // 🔔 Send WhatsApp notification with PDF invoice (async - non-blocking)
     if (customerPhone) {
