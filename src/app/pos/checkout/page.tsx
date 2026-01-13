@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft, Mail, Loader2, Check, ChevronRight, Phone, MessageCircle } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft, Mail, Loader2, Check, ChevronRight, Phone, MessageCircle, ChevronDown, UserPlus } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,6 +65,13 @@ export default function CheckoutPage() {
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false)
   const [whatsappSent, setWhatsappSent] = useState(false)
   const [whatsappError, setWhatsappError] = useState('')
+  const [saveCustomer, setSaveCustomer] = useState(false)
+  
+  // Customer dropdown states for WhatsApp
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([])
+  const [selectedWhatsappCustomer, setSelectedWhatsappCustomer] = useState<Customer | null>(null)
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('')
 
   // Sync selectedCategory with URL param when it changes
   useEffect(() => {
@@ -93,10 +100,24 @@ export default function CheckoutPage() {
     return '🥛' // Default dairy icon
   }
 
-  // Fetch categories on mount
+  // Fetch categories and customers on mount
   useEffect(() => {
     fetchCategories()
+    fetchAllCustomers()
   }, [])
+  
+  // Fetch all customers for dropdown
+  const fetchAllCustomers = async () => {
+    try {
+      const res = await fetch('/api/pos/customers')
+      if (res.ok) {
+        const data = await res.json()
+        setAllCustomers(data.customers || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch customers:', error)
+    }
+  }
 
   // Fetch products when search or category changes
   useEffect(() => {
@@ -352,6 +373,27 @@ Thank you for your purchase! 🙏
 
 We appreciate your visit!`
 
+      // Save customer if checkbox is checked and it's a new customer
+      if (saveCustomer && whatsappName && !selectedWhatsappCustomer) {
+        try {
+          const customerRes = await fetch('/api/pos/customers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: whatsappName,
+              phone: cleanPhone,
+            }),
+          })
+          if (customerRes.ok) {
+            // Refresh customer list
+            fetchAllCustomers()
+          }
+        } catch (err) {
+          console.error('Failed to save customer:', err)
+          // Don't block WhatsApp sending if customer save fails
+        }
+      }
+
       const res = await fetch('/api/pos/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -378,6 +420,22 @@ We appreciate your visit!`
       setSendingWhatsApp(false)
     }
   }
+  
+  // Handle customer selection from dropdown
+  const handleSelectCustomer = (customer: Customer) => {
+    setSelectedWhatsappCustomer(customer)
+    setWhatsappName(customer.name)
+    setWhatsappPhone(customer.phone || '')
+    setShowCustomerDropdown(false)
+    setCustomerSearchQuery('')
+    setSaveCustomer(false) // No need to save existing customer
+  }
+  
+  // Filter customers based on search
+  const filteredCustomers = allCustomers.filter(c => 
+    c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+    (c.phone && c.phone.includes(customerSearchQuery))
+  )
 
   return (
     <div className="min-h-screen lg:h-screen flex flex-col lg:flex-row relative">
@@ -805,18 +863,91 @@ We appreciate your visit!`
                 </label>
               </div>
               <div className="space-y-2">
-                {/* Customer Name (Optional) */}
+                {/* Customer Dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomerDropdown(!showCustomerDropdown)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-sm border rounded-md bg-white hover:bg-gray-50"
+                  >
+                    <span className="flex items-center gap-2 text-gray-600">
+                      <User className="h-4 w-4" />
+                      {selectedWhatsappCustomer ? selectedWhatsappCustomer.name : 'Select existing customer...'}
+                    </span>
+                    <ChevronDown className={cn("h-4 w-4 transition-transform", showCustomerDropdown && "rotate-180")} />
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {showCustomerDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {/* Search Input */}
+                      <div className="p-2 border-b sticky top-0 bg-white">
+                        <Input
+                          type="text"
+                          placeholder="Search customers..."
+                          value={customerSearchQuery}
+                          onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                          className="text-sm h-8"
+                          autoFocus
+                        />
+                      </div>
+                      
+                      {/* Customer List */}
+                      {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => handleSelectCustomer(c)}
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-green-50 flex items-center justify-between"
+                          >
+                            <span className="font-medium">{c.name}</span>
+                            <span className="text-gray-500 text-xs">{c.phone}</span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-gray-500">
+                          {customerSearchQuery ? 'No customers found' : 'No customers yet'}
+                        </div>
+                      )}
+                      
+                      {/* New Customer Option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedWhatsappCustomer(null)
+                          setWhatsappName('')
+                          setWhatsappPhone('')
+                          setShowCustomerDropdown(false)
+                          setSaveCustomer(true)
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 border-t text-blue-600"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        Add new customer
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Customer Name */}
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     type="text"
-                    placeholder="Customer name (optional)"
+                    placeholder="Customer name"
                     value={whatsappName}
-                    onChange={(e) => setWhatsappName(e.target.value)}
+                    onChange={(e) => {
+                      setWhatsappName(e.target.value)
+                      if (selectedWhatsappCustomer) {
+                        setSelectedWhatsappCustomer(null)
+                      }
+                    }}
                     className="pl-10 text-sm"
                     disabled={sendingWhatsApp}
                   />
                 </div>
+                
                 {/* Phone Number */}
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -828,6 +959,9 @@ We appreciate your visit!`
                       onChange={(e) => {
                         setWhatsappPhone(e.target.value)
                         setWhatsappError('')
+                        if (selectedWhatsappCustomer) {
+                          setSelectedWhatsappCustomer(null)
+                        }
                       }}
                       className="pl-10 text-sm"
                       disabled={sendingWhatsApp}
@@ -853,6 +987,19 @@ We appreciate your visit!`
                     )}
                   </Button>
                 </div>
+                
+                {/* Save Customer Checkbox - only show for new customers */}
+                {!selectedWhatsappCustomer && whatsappName && whatsappPhone && (
+                  <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={saveCustomer}
+                      onChange={(e) => setSaveCustomer(e.target.checked)}
+                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    Save customer for future orders
+                  </label>
+                )}
               </div>
               {whatsappSent && (
                 <p className="text-xs text-green-600 mt-1">WhatsApp message sent successfully!</p>
@@ -922,6 +1069,10 @@ We appreciate your visit!`
                   setWhatsappPhone('')
                   setWhatsappSent(false)
                   setWhatsappError('')
+                  setSelectedWhatsappCustomer(null)
+                  setSaveCustomer(false)
+                  setShowCustomerDropdown(false)
+                  setCustomerSearchQuery('')
                 }}
               >
                 New Sale
