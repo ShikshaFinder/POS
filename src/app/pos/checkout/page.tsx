@@ -560,7 +560,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* Cart Items */}
-        <div className="flex-1 min-h-[200px] lg:min-h-[40vh] overflow-y-auto p-3 sm:p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
           {cart.length === 0 ? (
             <div className="text-center text-gray-400 mt-8">
               Cart is empty
@@ -619,10 +619,10 @@ export default function CheckoutPage() {
           )}
         </div>
 
-        {/* Payment Section */}
-        <div className="border-t bg-white p-3 sm:p-4 space-y-3 sm:space-y-4">
+        {/* Payment Section - Fixed at bottom */}
+        <div className="flex-shrink-0 border-t bg-white p-3 sm:p-4 pb-6 space-y-2 sm:space-y-3 max-h-[55vh] overflow-y-auto">
           {/* Totals */}
-          <div className="space-y-1 sm:space-y-2">
+          <div className="space-y-1">
             <div className="flex justify-between text-xs sm:text-sm">
               <span className="text-gray-600">Subtotal:</span>
               <span>₹{calculateSubtotal().toFixed(2)}</span>
@@ -631,7 +631,7 @@ export default function CheckoutPage() {
               <span className="text-gray-600">Tax (5%):</span>
               <span>₹{calculateTax(calculateSubtotal()).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-base sm:text-lg font-bold border-t pt-2">
+            <div className="flex justify-between text-sm sm:text-base font-bold border-t pt-1">
               <span>Total:</span>
               <span className="text-green-600">₹{calculateTotal().toFixed(2)}</span>
             </div>
@@ -639,38 +639,37 @@ export default function CheckoutPage() {
 
           {/* Payment Method */}
           <div>
-            <label className="text-xs sm:text-sm font-medium mb-2 block">Payment Method</label>
-            <div className="grid grid-cols-4 sm:grid-cols-2 gap-1 sm:gap-2">
+            <label className="text-xs font-medium mb-1 block">Payment Method</label>
+            <div className="grid grid-cols-4 gap-1">
               {paymentMethods.map((method) => (
                 <Button
                   key={method.value}
                   variant={paymentMethod === method.value ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPaymentMethod(method.value as any)}
-                  className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 h-auto py-2 px-1 sm:px-3 text-xs sm:text-sm"
+                  className="flex flex-col items-center gap-0.5 h-auto py-1.5 px-1 text-xs"
                 >
                   <method.icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{method.label}</span>
-                  <span className="sm:hidden text-[10px]">{method.label}</span>
+                  <span className="text-[10px]">{method.label}</span>
                 </Button>
               ))}
             </div>
           </div>
 
           {/* Amount Paid & Delivery Date - Side by side on mobile */}
-          <div className="grid grid-cols-2 sm:grid-cols-1 gap-2 sm:gap-4">
+          <div className="grid grid-cols-2 gap-2">
             {/* Amount Paid */}
             <div>
-              <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">Amount Paid</label>
+              <label className="text-xs font-medium mb-1 block">Amount Paid</label>
               <Input
                 type="number"
                 placeholder="0.00"
                 value={amountPaid}
                 onChange={(e) => setAmountPaid(e.target.value)}
-                className="text-sm sm:text-lg"
+                className="text-sm h-9"
               />
               {amountPaid && (
-                <p className="text-xs sm:text-sm mt-1 text-gray-600">
+                <p className="text-xs mt-0.5 text-gray-600">
                   Change: ₹{calculateChange().toFixed(2)}
                 </p>
               )}
@@ -678,20 +677,20 @@ export default function CheckoutPage() {
 
             {/* Delivery Date */}
             <div>
-              <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">Delivery Date</label>
+              <label className="text-xs font-medium mb-1 block">Delivery Date</label>
               <Input
                 type="date"
                 value={deliveryDate}
                 onChange={(e) => setDeliveryDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                className="text-sm"
+                className="text-sm h-9"
               />
             </div>
           </div>
 
           {/* Checkout Button */}
           <Button
-            className="w-full"
+            className="w-full mt-2"
             size="lg"
             onClick={handleCheckout}
             disabled={loading || cart.length === 0}
