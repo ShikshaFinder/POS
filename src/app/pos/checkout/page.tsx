@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft, Mail, Loader2, Check } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft, Mail, Loader2, Check, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 interface Product {
   id: string
@@ -30,6 +31,12 @@ interface Customer {
   email: string | null
 }
 
+interface Category {
+  id: string
+  name: string
+  productCount: number
+}
+
 export default function CheckoutPage() {
   const searchParams = useSearchParams()
   const categoryFilter = searchParams.get('category')
@@ -49,6 +56,8 @@ export default function CheckoutPage() {
   const [emailForReceipt, setEmailForReceipt] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   // Category-based fallback icons
   const getCategoryIcon = (category: string) => {
@@ -64,15 +73,33 @@ export default function CheckoutPage() {
     return '🥛' // Default dairy icon
   }
 
+  // Fetch categories on mount
+  useEffect(() => {
+    fetchCategories()
+  }, [])
+
+  // Fetch products when search or category changes
   useEffect(() => {
     fetchProducts()
-  }, [searchQuery, categoryFilter])
+  }, [searchQuery, selectedCategory])
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/pos/categories')
+      if (res.ok) {
+        const data = await res.json()
+        setCategories(data.categories || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+    }
+  }
 
   const fetchProducts = async () => {
     try {
       let url = `/api/pos/products?search=${searchQuery}`
-      if (categoryFilter) {
-        url += `&category=${encodeURIComponent(categoryFilter)}`
+      if (selectedCategory) {
+        url += `&category=${encodeURIComponent(selectedCategory)}`
       }
       const res = await fetch(url)
       if (res.ok) {
@@ -284,9 +311,59 @@ export default function CheckoutPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+
+          {/* Horizontal Category Tabs - Mobile Friendly */}
+          <div className="mt-3 -mx-4 px-4 lg:mx-0 lg:px-0">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {/* All Tab */}
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0",
+                  selectedCategory === null
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300"
+                )}
+              >
+                All
+                <span className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-full font-semibold",
+                  selectedCategory === null
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200 text-gray-600"
+                )}>
+                  {categories.reduce((sum, cat) => sum + cat.productCount, 0)}
+                </span>
+              </button>
+
+              {/* Category Tabs */}
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.name)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0",
+                    selectedCategory === category.name
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300"
+                  )}
+                >
+                  {category.name}
+                  <span className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded-full font-semibold",
+                    selectedCategory === category.name
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-200 text-gray-600"
+                  )}>
+                    {category.productCount}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 pb-20 lg:pb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 pb-32 lg:pb-4">
           {products.map((product) => (
             <div
               key={product.id}
@@ -339,16 +416,70 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Mobile Cart Toggle Button - Fixed at bottom */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-lg z-40">
-        <Button
-          className="w-full flex items-center justify-center gap-2"
-          size="lg"
-          onClick={() => setShowMobileCart(true)}
-        >
-          <ShoppingCart className="h-5 w-5" />
-          View Cart ({cart.length}) - ₹{calculateTotal().toFixed(2)}
-        </Button>
+      {/* Mobile Floating Summary Bar - Fixed at bottom */}
+      <div className={cn(
+        "lg:hidden fixed bottom-0 left-0 right-0 z-40 transition-all duration-300",
+        cart.length > 0 ? "translate-y-0" : "translate-y-full"
+      )}>
+        {/* Safe area padding for notch devices */}
+        <div className="bg-white border-t shadow-2xl pb-safe">
+          <div className="p-3 sm:p-4">
+            {/* Summary Info Row */}
+            <div
+              className="flex items-center justify-between gap-3 cursor-pointer"
+              onClick={() => setShowMobileCart(true)}
+            >
+              {/* Left: Total and Items */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="relative">
+                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <ShoppingCart className="h-6 w-6 text-blue-600" />
+                  </div>
+                  {/* Item Count Badge */}
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-500">Total Amount</p>
+                  <p className="text-lg sm:text-xl font-bold text-gray-900 truncate">
+                    ₹{calculateTotal().toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Center: Payment Method Icon */}
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center",
+                  paymentMethod === 'CASH' && "bg-green-100",
+                  paymentMethod === 'CARD' && "bg-blue-100",
+                  paymentMethod === 'UPI' && "bg-purple-100",
+                  paymentMethod === 'WALLET' && "bg-amber-100"
+                )}>
+                  {paymentMethod === 'CASH' && <DollarSign className="h-5 w-5 text-green-600" />}
+                  {paymentMethod === 'CARD' && <CreditCard className="h-5 w-5 text-blue-600" />}
+                  {paymentMethod === 'UPI' && <Smartphone className="h-5 w-5 text-purple-600" />}
+                  {paymentMethod === 'WALLET' && <Wallet className="h-5 w-5 text-amber-600" />}
+                </div>
+              </div>
+
+              {/* Right: Place Order Button */}
+              <Button
+                size="lg"
+                className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 h-12 rounded-xl font-semibold shadow-lg shadow-green-200 flex items-center gap-2"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowMobileCart(true)
+                }}
+              >
+                <span className="hidden sm:inline">Place Order</span>
+                <span className="sm:hidden">Order</span>
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Right side - Cart */}
