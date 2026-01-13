@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft, Mail, Loader2, Check } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
@@ -30,6 +31,9 @@ interface Customer {
 }
 
 export default function CheckoutPage() {
+  const searchParams = useSearchParams()
+  const categoryFilter = searchParams.get('category')
+
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -62,11 +66,15 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     fetchProducts()
-  }, [searchQuery])
+  }, [searchQuery, categoryFilter])
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch(`/api/pos/products?search=${searchQuery}`)
+      let url = `/api/pos/products?search=${searchQuery}`
+      if (categoryFilter) {
+        url += `&category=${encodeURIComponent(categoryFilter)}`
+      }
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         setProducts(data.products)

@@ -27,7 +27,7 @@ interface Category {
 
 const navigation = [
   { name: 'Dashboard', href: '/pos', icon: LayoutDashboard },
-  { name: 'Checkout', href: '/pos/checkout', icon: ShoppingCart },
+  { name: 'Products', href: '/pos/products', icon: Box },
   { name: 'Stock', href: '/pos/stock', icon: Package },
   { name: 'Customers', href: '/pos/customers', icon: Users },
   { name: 'Today\'s Sales', href: '/pos/sales', icon: TrendingUp },
@@ -45,7 +45,7 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [isMobile, setIsMobile] = useState(false)
-  const [productsExpanded, setProductsExpanded] = useState(false)
+  const [checkoutExpanded, setCheckoutExpanded] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
 
@@ -176,8 +176,8 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto custom-scrollbar">
-          {/* Dashboard and Checkout */}
-          {navigation.slice(0, 2).map((item) => {
+          {/* Dashboard */}
+          {navigation.slice(0, 1).map((item) => {
             const isActive = pathname === item.href
             return (
               <Link
@@ -199,24 +199,24 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
             )
           })}
 
-          {/* Products Dropdown */}
+          {/* Checkout Dropdown with Categories */}
           <div>
             <button
-              onClick={() => setProductsExpanded(!productsExpanded)}
+              onClick={() => setCheckoutExpanded(!checkoutExpanded)}
               className={`
                 w-full flex items-center justify-between gap-3 px-3 sm:px-4 py-3 text-sm sm:text-base font-medium rounded-lg
                 transition-all duration-150 tap-target touch-feedback
-                ${pathname.startsWith('/pos/products')
+                ${pathname.startsWith('/pos/checkout')
                   ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600 shadow-sm'
                   : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                 }
               `}
             >
               <div className="flex items-center gap-3">
-                <Box className={`h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 ${pathname.startsWith('/pos/products') ? 'text-blue-600' : 'text-gray-500'}`} />
-                <span>Products</span>
+                <ShoppingCart className={`h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 ${pathname.startsWith('/pos/checkout') ? 'text-blue-600' : 'text-gray-500'}`} />
+                <span>Checkout</span>
               </div>
-              {productsExpanded ? (
+              {checkoutExpanded ? (
                 <ChevronDown className="h-4 w-4 text-gray-400" />
               ) : (
                 <ChevronRight className="h-4 w-4 text-gray-400" />
@@ -224,13 +224,13 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
             </button>
 
             {/* Categories Submenu */}
-            {productsExpanded && (
+            {checkoutExpanded && (
               <div className="ml-6 mt-1 space-y-1 border-l-2 border-gray-200 pl-4">
                 <Link
-                  href="/pos/products"
+                  href="/pos/checkout"
                   className={`
                     block px-3 py-2 text-sm rounded-lg transition-colors
-                    ${pathname === '/pos/products' && !pathname.includes('?')
+                    ${pathname === '/pos/checkout' && !pathname.includes('?')
                       ? 'bg-blue-50 text-blue-600 font-medium'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }
@@ -244,7 +244,7 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
                   categories.map((category) => (
                     <Link
                       key={category.id}
-                      href={`/pos/products?category=${encodeURIComponent(category.name)}`}
+                      href={`/pos/checkout?category=${encodeURIComponent(category.name)}`}
                       className={`
                         block px-3 py-2 text-sm rounded-lg transition-colors
                         ${pathname.includes(`category=${category.name}`)
@@ -264,8 +264,8 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
             )}
           </div>
 
-          {/* Rest of navigation items */}
-          {navigation.slice(2).map((item) => {
+          {/* Rest of navigation items (Products, Stock, etc.) */}
+          {navigation.slice(1).map((item) => {
             const isActive = pathname === item.href
             return (
               <Link
