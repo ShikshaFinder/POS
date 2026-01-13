@@ -1,6 +1,6 @@
-{/*ft6f6rf*/}
-
 "use client"
+
+{/*ft6f6rf*/}
 
 import { Button } from "@/components/ui/button"
 import { Navbar } from "@/components/ui/navbar"
