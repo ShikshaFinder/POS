@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Plus, Edit, Search, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +20,9 @@ interface Product {
 }
 
 export default function ProductsPage() {
+  const searchParams = useSearchParams()
+  const categoryFilter = searchParams.get('category')
+
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -37,11 +41,15 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts()
-  }, [searchQuery])
+  }, [searchQuery, categoryFilter])
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch(`/api/pos/products?search=${searchQuery}`)
+      let url = `/api/pos/products?search=${searchQuery}`
+      if (categoryFilter) {
+        url += `&category=${encodeURIComponent(categoryFilter)}`
+      }
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         setProducts(data.products)
@@ -129,9 +137,18 @@ export default function ProductsPage() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Products</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">
+            Products{categoryFilter && ` - ${categoryFilter}`}
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Manage your product catalog
+            {categoryFilter ? (
+              <span>
+                Showing products in "{categoryFilter}" •{' '}
+                <a href="/pos/products" className="text-blue-600 hover:underline">View all</a>
+              </span>
+            ) : (
+              'Manage your product catalog'
+            )}
           </p>
         </div>
         <Button
@@ -209,8 +226,8 @@ export default function ProductsPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-xs sm:text-sm text-gray-600">Stock:</span>
                   <span className={`font-semibold text-sm sm:text-base ${(product.currentStock || 0) <= (product.reorderLevel || 0)
-                      ? 'text-red-600'
-                      : 'text-gray-900'
+                    ? 'text-red-600'
+                    : 'text-gray-900'
                     }`}>
                     {product.currentStock || 0} {product.unit}
                   </span>

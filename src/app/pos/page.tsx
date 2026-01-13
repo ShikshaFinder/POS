@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import {
@@ -36,9 +37,15 @@ interface DashboardStats {
 }
 
 export default function POSDashboard() {
+  const router = useRouter()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Redirect to checkout page on load
+  useEffect(() => {
+    router.replace('/pos/checkout')
+  }, [router])
 
   const fetchStats = useCallback(async () => {
     try {

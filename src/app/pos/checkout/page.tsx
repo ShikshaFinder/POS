@@ -45,7 +45,7 @@ export default function CheckoutPage() {
   const [emailForReceipt, setEmailForReceipt] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
-  
+
   // Category-based fallback icons
   const getCategoryIcon = (category: string) => {
     const cat = category?.toUpperCase() || ''
@@ -176,7 +176,7 @@ export default function CheckoutPage() {
         }),
       })
 
-if (res.ok) {
+      if (res.ok) {
         const data = await res.json()
         setLastReceipt(data.transaction)
         setShowReceipt(true)
@@ -217,7 +217,7 @@ if (res.ok) {
     }
   }
 
-const paymentMethods = [
+  const paymentMethods = [
     { value: 'CASH', label: 'Cash', icon: DollarSign },
     { value: 'CARD', label: 'Card', icon: CreditCard },
     { value: 'UPI', label: 'UPI', icon: Smartphone },
@@ -226,7 +226,7 @@ const paymentMethods = [
 
   const sendReceiptToEmail = async () => {
     if (!emailForReceipt || !lastReceipt) return
-    
+
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(emailForReceipt)) {
@@ -261,9 +261,9 @@ const paymentMethods = [
   }
 
   return (
-    <div className="h-full flex flex-col lg:flex-row relative">
+    <div className="min-h-screen lg:h-screen flex flex-col lg:flex-row relative">
       {/* Left side - Products */}
-      <div className={`flex-1 p-4 sm:p-6 overflow-y-auto ${showMobileCart ? 'hidden lg:block' : ''}`}>
+      <div className={`flex-1 h-full p-4 sm:p-6 overflow-y-auto ${showMobileCart ? 'hidden lg:block' : ''}`}>
         <div className="mb-4 sm:mb-6">
           <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Checkout</h1>
           <div className="relative">
@@ -346,10 +346,10 @@ const paymentMethods = [
       {/* Right side - Cart */}
       <div className={`
         fixed inset-0 z-50 bg-gray-50 flex flex-col
-        lg:static lg:w-96 lg:border-l lg:z-auto lg:flex-shrink-0
+        lg:static lg:w-96 lg:min-w-[320px] lg:max-w-md lg:border-l lg:z-auto lg:flex-shrink-0
         transform transition-transform duration-300 ease-in-out
-        ${showMobileCart ? 'translate-x-0 pointer-events-auto visible' : 'translate-x-full pointer-events-none invisible'}
-        lg:visible lg:pointer-events-auto
+        ${showMobileCart ? 'translate-x-0' : 'translate-x-full'}
+        lg:translate-x-0 lg:visible lg:pointer-events-auto
       `}>
         <div className="p-4 sm:p-6 border-b bg-white">
           <div className="flex items-center gap-2">
@@ -408,7 +408,7 @@ const paymentMethods = [
         </div>
 
         {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+        <div className="flex-1 min-h-[200px] lg:min-h-[40vh] overflow-y-auto p-3 sm:p-4">
           {cart.length === 0 ? (
             <div className="text-center text-gray-400 mt-8">
               Cart is empty
