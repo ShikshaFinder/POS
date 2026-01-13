@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft, Mail, Loader2, Check, ChevronRight } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft, Mail, Loader2, Check, ChevronRight, Phone, MessageCircle } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,6 +58,13 @@ export default function CheckoutPage() {
   const [emailSent, setEmailSent] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryFilter)
+  
+  // WhatsApp receipt states
+  const [whatsappName, setWhatsappName] = useState('')
+  const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false)
+  const [whatsappSent, setWhatsappSent] = useState(false)
+  const [whatsappError, setWhatsappError] = useState('')
 
   // Sync selectedCategory with URL param when it changes
   useEffect(() => {
@@ -305,6 +312,70 @@ export default function CheckoutPage() {
       alert('Failed to send email')
     } finally {
       setSendingEmail(false)
+    }
+  }
+
+  const sendReceiptToWhatsApp = async () => {
+    if (!whatsappPhone || !lastReceipt) return
+
+    // Basic phone validation (Indian mobile number)
+    const cleanPhone = whatsappPhone.replace(/\D/g, '')
+    if (cleanPhone.length < 10) {
+      setWhatsappError('Please enter a valid 10-digit phone number')
+      return
+    }
+
+    setSendingWhatsApp(true)
+    setWhatsappError('')
+
+    try {
+      // Format the invoice message
+      const customerName = whatsappName || 'Valued Customer'
+      const formattedDate = new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+      const formattedAmount = new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2,
+      }).format(lastReceipt.totalAmount)
+
+      const message = `Hello ${customerName},
+
+Thank you for your purchase! 🙏
+
+🧾 Invoice No: ${lastReceipt.receiptNumber}
+💰 Amount: ${formattedAmount}
+📅 Date: ${formattedDate}
+
+We appreciate your visit!`
+
+      const res = await fetch('/api/pos/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: cleanPhone,
+          message: message,
+          invoiceId: lastReceipt.id,
+          customerName: customerName,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.success) {
+        setWhatsappSent(true)
+        setTimeout(() => setWhatsappSent(false), 3000)
+      } else {
+        setWhatsappError(data.error || 'Failed to send WhatsApp message')
+      }
+    } catch (error) {
+      console.error('Failed to send WhatsApp:', error)
+      setWhatsappError('Failed to send WhatsApp message')
+    } finally {
+      setSendingWhatsApp(false)
     }
   }
 
@@ -725,11 +796,80 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            {/* WhatsApp Receipt Section */}
+            <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-100">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageCircle className="h-4 w-4 text-green-600" />
+                <label className="text-sm font-medium text-gray-700">
+                  Send Receipt via WhatsApp
+                </label>
+              </div>
+              <div className="space-y-2">
+                {/* Customer Name (Optional) */}
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Customer name (optional)"
+                    value={whatsappName}
+                    onChange={(e) => setWhatsappName(e.target.value)}
+                    className="pl-10 text-sm"
+                    disabled={sendingWhatsApp}
+                  />
+                </div>
+                {/* Phone Number */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="tel"
+                      placeholder="Phone number (10 digits)"
+                      value={whatsappPhone}
+                      onChange={(e) => {
+                        setWhatsappPhone(e.target.value)
+                        setWhatsappError('')
+                      }}
+                      className="pl-10 text-sm"
+                      disabled={sendingWhatsApp}
+                      maxLength={10}
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={sendReceiptToWhatsApp}
+                    disabled={sendingWhatsApp || !whatsappPhone || whatsappSent}
+                    className="shrink-0 bg-green-500 hover:bg-green-600 text-white border-green-500"
+                  >
+                    {sendingWhatsApp ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : whatsappSent ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <MessageCircle className="h-4 w-4" />
+                        Send
+                      </span>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {whatsappSent && (
+                <p className="text-xs text-green-600 mt-1">WhatsApp message sent successfully!</p>
+              )}
+              {whatsappError && (
+                <p className="text-xs text-red-500 mt-1">{whatsappError}</p>
+              )}
+            </div>
+
             {/* Email Receipt Section */}
-            <div className="mb-4 sm:mb-6 p-3 bg-gray-50 rounded-lg">
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Send Receipt via Email
-              </label>
+            <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Mail className="h-4 w-4 text-blue-600" />
+                <label className="text-sm font-medium text-gray-700">
+                  Send Receipt via Email
+                </label>
+              </div>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -778,6 +918,10 @@ export default function CheckoutPage() {
                   setShowMobileCart(false)
                   setEmailForReceipt('')
                   setEmailSent(false)
+                  setWhatsappName('')
+                  setWhatsappPhone('')
+                  setWhatsappSent(false)
+                  setWhatsappError('')
                 }}
               >
                 New Sale
