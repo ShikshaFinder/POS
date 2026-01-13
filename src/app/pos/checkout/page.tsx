@@ -57,7 +57,20 @@ export default function CheckoutPage() {
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryFilter)
+
+  // Sync selectedCategory with URL param when it changes
+  useEffect(() => {
+    setSelectedCategory(categoryFilter)
+  }, [categoryFilter])
+
+  // Auto-fill amountPaid with total when payment method is not CASH
+  useEffect(() => {
+    if (paymentMethod !== 'CASH' && cart.length > 0) {
+      const total = calculateTotal()
+      setAmountPaid(total.toFixed(2))
+    }
+  }, [paymentMethod, cart])
 
   // Category-based fallback icons
   const getCategoryIcon = (category: string) => {
@@ -363,7 +376,7 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 pb-32 lg:pb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 pb-40 lg:pb-4">
           {products.map((product) => (
             <div
               key={product.id}
@@ -416,13 +429,13 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Mobile Floating Summary Bar - Fixed at bottom */}
+      {/* Mobile Floating Summary Bar - Fixed above MobileNav */}
       <div className={cn(
-        "lg:hidden fixed bottom-0 left-0 right-0 z-40 transition-all duration-300",
+        "lg:hidden fixed bottom-16 left-0 right-0 z-50 transition-all duration-300",
         cart.length > 0 ? "translate-y-0" : "translate-y-full"
       )}>
-        {/* Safe area padding for notch devices */}
-        <div className="bg-white border-t shadow-2xl pb-safe">
+        {/* Cart summary bar */}
+        <div className="bg-white border-t shadow-2xl">
           <div className="p-3 sm:p-4">
             {/* Summary Info Row */}
             <div
