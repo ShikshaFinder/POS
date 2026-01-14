@@ -78,9 +78,9 @@ export default function CheckoutPage() {
     setSelectedCategory(categoryFilter)
   }, [categoryFilter])
 
-  // Auto-fill amountPaid with total when payment method is not CASH
+  // Auto-fill amountPaid with total for all payment methods (including CASH)
   useEffect(() => {
-    if (paymentMethod !== 'CASH' && cart.length > 0) {
+    if (cart.length > 0) {
       const total = calculateTotal()
       setAmountPaid(total.toFixed(2))
     }
