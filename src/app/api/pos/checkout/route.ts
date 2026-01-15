@@ -13,19 +13,19 @@ export async function POST(req: NextRequest) {
 
     const organizationId = (session.user as any).currentOrganizationId
     const body = await req.json()
-    
+
     // Support both old format (direct) and new format (nested objects from billing page)
     const items = body.items
     const customerName = body.customer?.name || body.customerName
     const customerPhone = body.customer?.phone || body.customerPhone
     const deliveryDate = body.deliveryDate
-    
+
     // Extract totals - support both formats
     // Calculate total from items if not provided
     let totalAmount = body.totals?.total || body.totalAmount
     const subtotalAmount = body.totals?.subtotal
     const taxAmount = body.totals?.taxAmount
-    
+
     // Extract payment details
     const paymentMethod = body.payment?.method || body.paymentMethod || 'CASH'
     let amountPaid = body.payment?.amountPaid || body.amountPaid
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const walletAmount = body.payment?.walletAmount
     const roundOff = body.payment?.roundOff || 0
     const notes = body.payment?.notes || body.notes
-    
+
     // Extract discount info
     const billDiscount = body.billDiscount || 0
     const billDiscountType = body.billDiscountType || 'flat'
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     // Validate all products and stock outside the transaction (simple, reliable)
     const processedItems: any[] = [];
     let calculatedTotal = 0;
-    
+
     for (const item of items) {
       const product = await prisma.product.findUnique({
         where: { id: item.productId }
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       const itemPrice = item.price || item.unitPrice || product.unitPrice || 0;
       const itemTotal = itemPrice * item.quantity;
       calculatedTotal += itemTotal;
-      
+
       processedItems.push({
         productId: item.productId,
         quantity: item.quantity,
@@ -73,19 +73,20 @@ export async function POST(req: NextRequest) {
         product: product
       });
     }
-    
+
     // Use calculated total if not provided
     if (!totalAmount) {
       const tax = calculatedTotal * (taxPercent / 100);
       totalAmount = calculatedTotal + tax;
     }
-    
+
     // Default amountPaid to totalAmount if not provided
     if (!amountPaid) {
       amountPaid = totalAmount;
     }
 
     // Start a simple transaction for DB writes only
+    // Increased timeout to 30 seconds for large orders with many items
     const result = await prisma.$transaction(async (tx) => {
 
       // Create invoice/order
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
       // For POS, we'll create a sales order and invoice
       // First, create or get walk-in customer connection
       const connectionName = customerName || 'Walk-in Customer'
-      
+
       let connection = await tx.connection.findFirst({
         where: {
           organizationId,
@@ -174,7 +175,7 @@ export async function POST(req: NextRequest) {
           notes
         })
       }
-      
+
       await tx.payment.create({
         data: {
           organizationId,
@@ -218,6 +219,8 @@ export async function POST(req: NextRequest) {
         }
       }
       return { salesOrder, invoice };
+    }, {
+      timeout: 30000, // 30 seconds timeout for large orders
     });
 
     // 🔔 Send WhatsApp notification with PDF invoice (async - non-blocking)
