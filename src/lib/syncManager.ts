@@ -142,8 +142,18 @@ class SyncManager {
               serverId: result.serverId,
             })
           } else {
+            // Check if it's a validation error (product deleted, out of stock, etc.)
+            if (result.validationError) {
+              await indexedDBManager.updateTransaction(transaction.id, {
+                status: 'failed',
+                error: result.error || 'Product validation failed',
+                retryCount: transaction.retryCount + 1,
+              })
+              // Notify about validation failure
+              this.notifyValidationError(transaction, result.invalidItems || [])
+            }
             // Check if it's a conflict
-            if (result.conflict) {
+            else if (result.conflict) {
               await indexedDBManager.updateTransaction(transaction.id, {
                 status: 'failed',
                 error: 'Conflict detected',
@@ -191,14 +201,65 @@ class SyncManager {
     }
   }
 
+  /**
+   * Validates transaction data before syncing
+   * Checks if products exist and have sufficient stock
+   */
+  private async validateTransaction(transaction: PendingTransaction): Promise<{
+    valid: boolean
+    error?: string
+    invalidItems?: string[]
+  }> {
+    try {
+      const response = await fetch('/api/pos/validate-transaction', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: transaction.data.items,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        return {
+          valid: false,
+          error: data.error || 'Validation failed',
+          invalidItems: data.invalidItems,
+        }
+      }
+
+      return { valid: true }
+    } catch (error: any) {
+      // Network error during validation - allow sync to proceed
+      // The actual sync will handle the error
+      console.warn('Validation skipped due to network error:', error.message)
+      return { valid: true }
+    }
+  }
+
   private async syncTransaction(transaction: PendingTransaction): Promise<{
     success: boolean
     serverId?: string
     error?: string
     conflict?: boolean
     conflictData?: any
+    validationError?: boolean
+    invalidItems?: string[]
   }> {
     try {
+      // Pre-sync validation
+      const validation = await this.validateTransaction(transaction)
+      if (!validation.valid) {
+        return {
+          success: false,
+          error: validation.error,
+          validationError: true,
+          invalidItems: validation.invalidItems,
+        }
+      }
+
       const response = await fetch('/api/pos/checkout', {
         method: 'POST',
         headers: {
@@ -250,6 +311,21 @@ class SyncManager {
           detail: {
             transaction,
             conflictData,
+          },
+        })
+      )
+    }
+  }
+
+  private notifyValidationError(transaction: PendingTransaction, invalidItems: string[]) {
+    // Dispatch custom event for validation error notification
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('transaction-validation-error', {
+          detail: {
+            transaction,
+            invalidItems,
+            message: `Some products in this transaction are no longer available or out of stock`,
           },
         })
       )

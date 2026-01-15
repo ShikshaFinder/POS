@@ -1,12 +1,11 @@
 /**
  * IndexedDB wrapper for POS offline storage
- * Stores pending transactions and manages sync queue
+ * Stores pending transactions for offline-first sync
  */
 
 const DB_NAME = 'pos-offline-db'
 const DB_VERSION = 1
 const TRANSACTIONS_STORE = 'pending-transactions'
-const SYNC_QUEUE_STORE = 'sync-queue'
 
 export interface PendingTransaction {
   id: string // Unique local ID
@@ -22,16 +21,6 @@ export interface PendingTransaction {
   error?: string
   syncedAt?: number
   serverId?: string // ID from server after sync
-}
-
-export interface SyncQueueItem {
-  id: string
-  type: 'transaction' | 'stock' | 'other'
-  timestamp: number
-  data: any
-  status: 'pending' | 'syncing' | 'synced' | 'failed'
-  retryCount: number
-  error?: string
 }
 
 class IndexedDBManager {
@@ -63,14 +52,6 @@ class IndexedDBManager {
           const transactionsStore = db.createObjectStore(TRANSACTIONS_STORE, { keyPath: 'id' })
           transactionsStore.createIndex('timestamp', 'timestamp', { unique: false })
           transactionsStore.createIndex('status', 'status', { unique: false })
-        }
-
-        // Create sync queue store
-        if (!db.objectStoreNames.contains(SYNC_QUEUE_STORE)) {
-          const syncStore = db.createObjectStore(SYNC_QUEUE_STORE, { keyPath: 'id' })
-          syncStore.createIndex('timestamp', 'timestamp', { unique: false })
-          syncStore.createIndex('status', 'status', { unique: false })
-          syncStore.createIndex('type', 'type', { unique: false })
         }
       }
     })
@@ -191,37 +172,6 @@ class IndexedDBManager {
       })
 
       if (synced.length === 0) resolve()
-    })
-  }
-
-  async addToSyncQueue(item: SyncQueueItem): Promise<void> {
-    const db = await this.init()
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction([SYNC_QUEUE_STORE], 'readwrite')
-      const store = tx.objectStore(SYNC_QUEUE_STORE)
-      const request = store.add(item)
-
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-    })
-  }
-
-  async getSyncQueue(status?: SyncQueueItem['status']): Promise<SyncQueueItem[]> {
-    const db = await this.init()
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction([SYNC_QUEUE_STORE], 'readonly')
-      const store = tx.objectStore(SYNC_QUEUE_STORE)
-      
-      let request: IDBRequest
-      if (status) {
-        const index = store.index('status')
-        request = index.getAll(status)
-      } else {
-        request = store.getAll()
-      }
-
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
     })
   }
 }

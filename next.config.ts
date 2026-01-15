@@ -77,5 +77,9 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default process.env.NODE_ENV === "development" ? nextConfig : withPWA(nextConfig);
+// Enable PWA in all environments for easier offline testing
+// Set DISABLE_PWA=true in env to disable PWA in development
+const enablePWA = process.env.DISABLE_PWA !== 'true'
+
+export default enablePWA ? withPWA(nextConfig) : nextConfig;
 
