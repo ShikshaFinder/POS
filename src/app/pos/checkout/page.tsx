@@ -733,9 +733,9 @@ We appreciate your visit!`
         </div>
 
         {/* Cart Items */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-3 lg:p-2">
+        <div className={`${cart.length === 0 ? 'flex-none' : 'flex-1'} min-h-0 overflow-y-auto p-2 sm:p-3 lg:p-2`}>
           {cart.length === 0 ? (
-            <div className="text-center text-gray-400 mt-8">
+            <div className="text-center text-gray-400 py-4">
               Cart is empty
             </div>
           ) : (
