@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft, Mail, Loader2, Check, ChevronRight, Phone, MessageCircle, ChevronDown, UserPlus } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, User, DollarSign, CreditCard, Smartphone, Wallet, X, ChevronLeft, Mail, Loader2, Check, ChevronRight, Phone, MessageCircle, ChevronDown, UserPlus, Zap } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -732,6 +732,21 @@ We appreciate your visit!`
           )}
         </div>
 
+        {/* Top Quick Billing Button */}
+        {cart.length > 0 && (
+          <div className="px-2 sm:px-3 lg:px-2 pb-2">
+            <Button
+              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-200 font-semibold"
+              size="sm"
+              onClick={handleCheckout}
+              disabled={loading}
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              {loading ? 'Processing...' : `Quick Bill • ₹${calculateTotal().toFixed(2)}`}
+            </Button>
+          </div>
+        )}
+
         {/* Cart Items */}
         <div className={`${cart.length === 0 ? 'flex-none' : 'flex-1'} min-h-0 overflow-y-auto p-2 sm:p-3 lg:p-2`}>
           {cart.length === 0 ? (
@@ -861,9 +876,21 @@ We appreciate your visit!`
             </div>
           </div>
 
-          {/* Checkout Button */}
+          {/* Quick Billing Button */}
           <Button
-            className="w-full mt-1.5 lg:mt-1"
+            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-200 font-bold text-base"
+            size="lg"
+            onClick={handleCheckout}
+            disabled={loading || cart.length === 0}
+          >
+            <Zap className="h-5 w-5 mr-2" />
+            {loading ? 'Processing...' : `Quick Bill • ₹${calculateTotal().toFixed(2)}`}
+          </Button>
+
+          {/* Complete Sale Button */}
+          <Button
+            className="w-full mt-2"
+            variant="outline"
             size="default"
             onClick={handleCheckout}
             disabled={loading || cart.length === 0}
