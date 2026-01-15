@@ -249,14 +249,18 @@ class SyncManager {
     invalidItems?: string[]
   }> {
     try {
-      // Pre-sync validation
-      const validation = await this.validateTransaction(transaction)
-      if (!validation.valid) {
-        return {
-          success: false,
-          error: validation.error,
-          validationError: true,
-          invalidItems: validation.invalidItems,
+      // Skip pre-validation to make sync faster
+      // The checkout API will validate and return proper errors if needed
+      // Only validate on retries to provide better error messages
+      if (transaction.retryCount > 0) {
+        const validation = await this.validateTransaction(transaction)
+        if (!validation.valid) {
+          return {
+            success: false,
+            error: validation.error,
+            validationError: true,
+            invalidItems: validation.invalidItems,
+          }
         }
       }
 

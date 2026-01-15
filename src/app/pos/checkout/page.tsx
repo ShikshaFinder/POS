@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { syncManager } from '@/lib/syncManager'
+import { toast } from 'sonner'
 
 interface Product {
   id: string
@@ -215,7 +216,7 @@ export default function CheckoutPage() {
 
   const handleCheckout = async () => {
     if (cart.length === 0) {
-      alert('Cart is empty!')
+      toast.error('Cart is empty!')
       return
     }
 
@@ -223,7 +224,9 @@ export default function CheckoutPage() {
     const paid = parseFloat(amountPaid) || 0
 
     if (paid < total) {
-      alert('Insufficient payment amount!')
+      toast.error('Insufficient payment amount!', {
+        description: `Total: ₹${total.toFixed(2)}, Paid: ₹${paid.toFixed(2)}`,
+      })
       return
     }
 
@@ -233,47 +236,87 @@ export default function CheckoutPage() {
       const subtotal = calculateSubtotal()
       const taxAmount = calculateTax(subtotal)
 
-      const res = await fetch('/api/pos/transactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Prepare transaction data for offline-first sync
+      const transactionData = {
+        items: cart.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+          price: item.unitPrice,
+        })),
+        totals: {
+          subtotal,
+          taxAmount,
+          total,
         },
-        body: JSON.stringify({
-          items: cart.map(item => ({
-            productId: item.id,
-            quantity: item.quantity,
-          })),
-          customerId: customer?.id,
-          customerName: customer?.name,
-          customerPhone: customer?.phone,
-          paymentMethod,
+        payment: {
+          method: paymentMethod,
           amountPaid: paid,
-          taxPercent: 5,
-          deliveryDate: deliveryDate || null,
-        }),
+          changeGiven: paid - total,
+        },
+        customer: customer ? {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+        } : undefined,
+        customerName: customer?.name,
+        customerPhone: customer?.phone,
+        taxPercent: 5,
+        deliveryDate: deliveryDate || undefined,
+      }
+
+      // Save to IndexedDB first (INSTANT - offline-first)
+      const localId = await syncManager.addTransaction(transactionData)
+
+      // Generate a local receipt number for immediate display
+      const localReceiptNumber = localId.substring(0, 12).toUpperCase()
+
+      // Show instant success toast
+      toast.success('Sale completed!', {
+        description: `Receipt: ${localReceiptNumber}`,
+        duration: 3000,
       })
 
-      if (res.ok) {
-        const data = await res.json()
-        setLastReceipt(data.transaction)
-        setShowReceipt(true)
-        // Pre-fill email if customer has one
-        if (customer?.email) {
-          setEmailForReceipt(customer.email)
-        } else {
-          setEmailForReceipt('')
-        }
-        setEmailSent(false)
-        // Clear cart
-        setCart([])
-        setAmountPaid('')
-        setDeliveryDate('')
-        setCustomer(null)
-        setCustomerSearch('')
+      // Show success IMMEDIATELY with local receipt
+      setLastReceipt({
+        id: localId,
+        receiptNumber: localReceiptNumber,
+        totalAmount: total,
+        amountPaid: paid,
+        changeGiven: paid - total,
+        paymentMethod,
+        items: cart,
+        customer,
+        timestamp: Date.now(),
+        syncStatus: 'pending', // Indicate it's pending sync
+      })
+      setShowReceipt(true)
+
+      // Pre-fill email/WhatsApp if customer has contact info
+      if (customer?.email) {
+        setEmailForReceipt(customer.email)
+      } else {
+        setEmailForReceipt('')
       }
+      if (customer?.phone) {
+        setWhatsappPhone(customer.phone)
+        setWhatsappName(customer.name || '')
+      }
+      setEmailSent(false)
+
+      // Clear cart immediately
+      setCart([])
+      setAmountPaid('')
+      setDeliveryDate('')
+      setCustomer(null)
+      setCustomerSearch('')
+
+      // Background sync will happen automatically via syncManager
+
     } catch (error) {
       console.error('Checkout failed:', error)
-      alert('Failed to complete checkout')
+      toast.error('Failed to save transaction', {
+        description: 'Please try again',
+      })
     } finally {
       setLoading(false)
     }
