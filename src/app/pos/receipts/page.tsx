@@ -82,21 +82,108 @@ export default function ReceiptsPage() {
     // Print the receipt content
     const content = document.getElementById('receipt-content')
     if (content) {
-      const printWindow = window.open('', '', 'width=300,height=600')
+      const printWindow = window.open('', '_blank', 'width=400,height=700')
       if (printWindow) {
         printWindow.document.write(`
+          <!DOCTYPE html>
           <html>
             <head>
-              <title>Receipt</title>
+              <title>Receipt - ${selectedReceipt?.receiptNumber || 'POS'}</title>
               <style>
-                body { font-family: monospace; font-size: 12px; padding: 10px; }
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                  font-family: 'Courier New', Courier, monospace; 
+                  font-size: 12px; 
+                  padding: 15px;
+                  max-width: 300px;
+                  margin: 0 auto;
+                  background: white;
+                  color: #000;
+                }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+                .text-left { text-align: left; }
+                .mb-4 { margin-bottom: 16px; }
+                .mb-2 { margin-bottom: 8px; }
+                .my-3 { margin-top: 12px; margin-bottom: 12px; }
+                .mt-4 { margin-top: 16px; }
+                .pt-1 { padding-top: 4px; }
+                .px-4 { padding-left: 16px; padding-right: 16px; }
+                .py-2 { padding-top: 8px; padding-bottom: 8px; }
+                .space-y-1 > * + * { margin-top: 4px; }
+                .space-y-2 > * + * { margin-top: 8px; }
+                .text-xs { font-size: 10px; }
+                .text-sm { font-size: 12px; }
+                .text-base { font-size: 14px; }
+                .text-lg { font-size: 16px; font-weight: bold; }
+                .font-bold { font-weight: bold; }
+                .font-semibold { font-weight: 600; }
+                .font-medium { font-weight: 500; }
+                .text-gray-600 { color: #4B5563; }
+                .text-gray-500 { color: #6B7280; }
+                .text-gray-700 { color: #374151; }
+                .text-green-600 { color: #059669; }
+                .border-t { border-top: 1px solid #D1D5DB; }
+                .border-dashed { border-style: dashed; }
+                .border-gray-400 { border-color: #9CA3AF; }
+                .border-gray-300 { border-color: #D1D5DB; }
+                .bg-gray-100 { background-color: #F3F4F6; }
+                .rounded { border-radius: 4px; }
+                .inline-block { display: inline-block; }
+                .flex { display: flex; }
+                .justify-between { justify-content: space-between; }
+                .justify-center { justify-content: center; }
+                .items-center { align-items: center; }
+                .gap-1 { gap: 4px; }
+                .flex-1 { flex: 1; }
+                .w-12 { width: 48px; }
+                .w-16 { width: 64px; }
+                .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .hidden { display: none; }
+                /* Hide icons/svgs for printing */
+                svg { width: 20px; height: 20px; display: inline-block; vertical-align: middle; }
+                .divider { 
+                  border-top: 1px dashed #9CA3AF; 
+                  margin: 12px 0; 
+                }
+                .item-row { display: flex; justify-content: space-between; }
+                .barcode { 
+                  background: #F3F4F6; 
+                  padding: 8px 16px; 
+                  border-radius: 4px; 
+                  display: inline-block;
+                  font-size: 10px;
+                  color: #6B7280;
+                }
+                @media print {
+                  body { 
+                    width: 80mm; 
+                    margin: 0;
+                    padding: 5mm;
+                  }
+                  @page { 
+                    size: 80mm auto;
+                    margin: 0;
+                  }
+                }
               </style>
             </head>
-            <body>${content.innerHTML}</body>
+            <body>
+              ${content.innerHTML}
+            </body>
           </html>
         `)
         printWindow.document.close()
-        printWindow.print()
+        // Wait for content to load before printing
+        printWindow.onload = () => {
+          printWindow.focus()
+          printWindow.print()
+        }
+        // Fallback for browsers that don't trigger onload properly
+        setTimeout(() => {
+          printWindow.focus()
+          printWindow.print()
+        }, 250)
       }
     }
   }
