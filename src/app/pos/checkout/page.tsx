@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { syncManager } from '@/lib/syncManager'
 
 interface Product {
   id: string
@@ -626,8 +627,8 @@ We appreciate your visit!`
 
       {/* Right side - Cart */}
       <div className={`
-        fixed inset-0 z-50 bg-gray-50 flex flex-col
-        lg:static lg:w-96 lg:min-w-[320px] lg:max-w-md lg:border-l lg:z-auto lg:flex-shrink-0
+        fixed inset-x-0 top-0 bottom-16 z-50 bg-gray-50 flex flex-col
+        lg:static lg:inset-auto lg:bottom-auto lg:w-96 lg:min-w-[320px] lg:max-w-md lg:border-l lg:z-auto lg:flex-shrink-0
         transform transition-transform duration-300 ease-in-out
         ${showMobileCart ? 'translate-x-0' : 'translate-x-full'}
         lg:translate-x-0 lg:visible lg:pointer-events-auto
@@ -749,7 +750,7 @@ We appreciate your visit!`
         </div>
 
         {/* Payment Section - Fixed at bottom */}
-        <div className="flex-shrink-0 border-t bg-white p-3 sm:p-4 pb-6 space-y-2 sm:space-y-3 max-h-[55vh] overflow-y-auto">
+        <div className="flex-shrink-0 border-t bg-white p-3 sm:p-4 pb-4 space-y-2 sm:space-y-3 max-h-[55vh] overflow-y-auto">
           {/* Totals */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs sm:text-sm">
