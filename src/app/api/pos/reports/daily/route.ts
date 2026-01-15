@@ -15,8 +15,10 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url)
         const dateStr = searchParams.get('date') || new Date().toISOString().slice(0, 10)
 
-        const startOfDay = new Date(dateStr + 'T00:00:00.000Z')
-        const endOfDay = new Date(dateStr + 'T23:59:59.999Z')
+        // Parse date in local timezone, not UTC
+        const [year, month, day] = dateStr.split('-').map(Number)
+        const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0)
+        const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999)
 
         // Get transactions for the day
         const transactions = await prisma.pOSTransaction.findMany({
