@@ -671,12 +671,12 @@ We appreciate your visit!`
       {/* Right side - Cart */}
       <div className={`
         fixed inset-x-0 top-0 bottom-16 z-50 bg-gray-50 flex flex-col
-        lg:static lg:inset-auto lg:bottom-auto lg:w-96 lg:min-w-[320px] lg:max-w-md lg:border-l lg:z-auto lg:flex-shrink-0
+        lg:static lg:inset-auto lg:bottom-auto lg:w-96 lg:min-w-[320px] lg:max-w-md lg:border-l lg:z-auto lg:flex-shrink-0 lg:h-screen lg:max-h-screen lg:overflow-hidden
         transform transition-transform duration-300 ease-in-out
         ${showMobileCart ? 'translate-x-0' : 'translate-x-full'}
         lg:translate-x-0 lg:visible lg:pointer-events-auto
       `}>
-        <div className="p-4 sm:p-6 border-b bg-white">
+        <div className="p-3 sm:p-4 lg:p-3 border-b bg-white">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -686,15 +686,15 @@ We appreciate your visit!`
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5" />
+            <h2 className="text-base sm:text-lg lg:text-base font-bold flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 lg:h-4 lg:w-4" />
               Cart ({cart.length})
             </h2>
           </div>
         </div>
 
         {/* Customer Section */}
-        <div className="p-3 sm:p-4 border-b bg-white">
+        <div className="p-2 sm:p-3 lg:p-2 border-b bg-white">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -733,7 +733,7 @@ We appreciate your visit!`
         </div>
 
         {/* Cart Items */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-3 lg:p-2">
           {cart.length === 0 ? (
             <div className="text-center text-gray-400 mt-8">
               Cart is empty
@@ -793,7 +793,7 @@ We appreciate your visit!`
         </div>
 
         {/* Payment Section - Fixed at bottom */}
-        <div className="flex-shrink-0 border-t bg-white p-3 sm:p-4 pb-4 space-y-2 sm:space-y-3">
+        <div className="flex-shrink-0 border-t bg-white p-2 sm:p-3 lg:p-2 pb-3 lg:pb-2 space-y-1.5 sm:space-y-2 lg:space-y-1.5">
           {/* Totals */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs sm:text-sm">
@@ -863,8 +863,8 @@ We appreciate your visit!`
 
           {/* Checkout Button */}
           <Button
-            className="w-full mt-2"
-            size="lg"
+            className="w-full mt-1.5 lg:mt-1"
+            size="default"
             onClick={handleCheckout}
             disabled={loading || cart.length === 0}
           >
