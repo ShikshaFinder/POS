@@ -141,7 +141,11 @@ class SyncManager {
               syncedAt: Date.now(),
               serverId: result.serverId,
             })
+            // Notify success
+            this.notifySyncSuccess(transaction, result.serverId || '')
           } else {
+            const isPermanentFailure = transaction.retryCount >= 2 // Will become 3 after increment
+            
             // Check if it's a validation error (product deleted, out of stock, etc.)
             if (result.validationError) {
               await indexedDBManager.updateTransaction(transaction.id, {
@@ -151,6 +155,7 @@ class SyncManager {
               })
               // Notify about validation failure
               this.notifyValidationError(transaction, result.invalidItems || [])
+              this.notifySyncFailed(transaction, result.error || 'Product validation failed', true)
             }
             // Check if it's a conflict
             else if (result.conflict) {
@@ -162,11 +167,16 @@ class SyncManager {
               // Notify about conflict
               this.notifyConflict(transaction, result.conflictData)
             } else {
+              const newStatus = isPermanentFailure ? 'failed' : 'pending'
               await indexedDBManager.updateTransaction(transaction.id, {
-                status: transaction.retryCount >= 3 ? 'failed' : 'pending',
+                status: newStatus,
                 error: result.error,
                 retryCount: transaction.retryCount + 1,
               })
+              // Only notify on permanent failure
+              if (isPermanentFailure) {
+                this.notifySyncFailed(transaction, result.error || 'Sync failed', true)
+              }
             }
           }
 
@@ -264,21 +274,27 @@ class SyncManager {
         }
       }
 
+      const payload = {
+        ...transaction.data,
+        localId: transaction.id,
+        timestamp: transaction.timestamp,
+      }
+      
+      console.log('[SyncManager] Syncing transaction:', transaction.id, payload)
+      
       const response = await fetch('/api/pos/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...transaction.data,
-          localId: transaction.id,
-          timestamp: transaction.timestamp,
-        }),
+        body: JSON.stringify(payload),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
+        console.error('[SyncManager] Sync failed:', response.status, data)
+        
         // Check for conflict (409)
         if (response.status === 409) {
           return {
@@ -295,11 +311,13 @@ class SyncManager {
         }
       }
 
+      console.log('[SyncManager] Sync successful:', data)
       return {
         success: true,
         serverId: data.transaction?.id || data.receiptNumber,
       }
     } catch (error: any) {
+      console.error('[SyncManager] Sync error:', error)
       return {
         success: false,
         error: error.message || 'Network error',
@@ -330,6 +348,35 @@ class SyncManager {
             transaction,
             invalidItems,
             message: `Some products in this transaction are no longer available or out of stock`,
+          },
+        })
+      )
+    }
+  }
+
+  private notifySyncSuccess(transaction: PendingTransaction, serverId: string) {
+    // Dispatch custom event for successful sync
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('transaction-synced', {
+          detail: {
+            localId: transaction.id,
+            serverId,
+          },
+        })
+      )
+    }
+  }
+
+  private notifySyncFailed(transaction: PendingTransaction, error: string, permanent: boolean) {
+    // Dispatch custom event for sync failure
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('transaction-sync-failed', {
+          detail: {
+            transaction,
+            error,
+            permanent, // true if max retries exceeded
           },
         })
       )

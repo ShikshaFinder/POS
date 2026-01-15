@@ -60,7 +60,7 @@ export default function CheckoutPage() {
   const [emailSent, setEmailSent] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryFilter)
-  
+
   // WhatsApp receipt states
   const [whatsappName, setWhatsappName] = useState('')
   const [whatsappPhone, setWhatsappPhone] = useState('')
@@ -68,7 +68,7 @@ export default function CheckoutPage() {
   const [whatsappSent, setWhatsappSent] = useState(false)
   const [whatsappError, setWhatsappError] = useState('')
   const [saveCustomer, setSaveCustomer] = useState(false)
-  
+
   // Customer dropdown states for WhatsApp
   const [allCustomers, setAllCustomers] = useState<Customer[]>([])
   const [selectedWhatsappCustomer, setSelectedWhatsappCustomer] = useState<Customer | null>(null)
@@ -107,7 +107,7 @@ export default function CheckoutPage() {
     fetchCategories()
     fetchAllCustomers()
   }, [])
-  
+
   // Fetch all customers for dropdown
   const fetchAllCustomers = async () => {
     try {
@@ -464,7 +464,7 @@ We appreciate your visit!`
       setSendingWhatsApp(false)
     }
   }
-  
+
   // Handle customer selection from dropdown
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedWhatsappCustomer(customer)
@@ -474,9 +474,9 @@ We appreciate your visit!`
     setCustomerSearchQuery('')
     setSaveCustomer(false) // No need to save existing customer
   }
-  
+
   // Filter customers based on search
-  const filteredCustomers = allCustomers.filter(c => 
+  const filteredCustomers = allCustomers.filter(c =>
     c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
     (c.phone && c.phone.includes(customerSearchQuery))
   )
@@ -554,7 +554,7 @@ We appreciate your visit!`
             <div
               key={product.id}
               onClick={() => addToCart(product)}
-              className="cursor-pointer"
+              className="cursor-pointer select-none"
             >
               <Card
                 className="group hover:shadow-lg transition-all overflow-hidden h-full"
@@ -793,7 +793,7 @@ We appreciate your visit!`
         </div>
 
         {/* Payment Section - Fixed at bottom */}
-        <div className="flex-shrink-0 border-t bg-white p-3 sm:p-4 pb-4 space-y-2 sm:space-y-3 max-h-[55vh] overflow-y-auto">
+        <div className="flex-shrink-0 border-t bg-white p-3 sm:p-4 pb-4 space-y-2 sm:space-y-3">
           {/* Totals */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs sm:text-sm">
@@ -920,7 +920,7 @@ We appreciate your visit!`
                     </span>
                     <ChevronDown className={cn("h-4 w-4 transition-transform", showCustomerDropdown && "rotate-180")} />
                   </button>
-                  
+
                   {/* Dropdown Menu */}
                   {showCustomerDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
@@ -935,7 +935,7 @@ We appreciate your visit!`
                           autoFocus
                         />
                       </div>
-                      
+
                       {/* Customer List */}
                       {filteredCustomers.length > 0 ? (
                         filteredCustomers.map((c) => (
@@ -954,7 +954,7 @@ We appreciate your visit!`
                           {customerSearchQuery ? 'No customers found' : 'No customers yet'}
                         </div>
                       )}
-                      
+
                       {/* New Customer Option */}
                       <button
                         type="button"
@@ -973,7 +973,7 @@ We appreciate your visit!`
                     </div>
                   )}
                 </div>
-                
+
                 {/* Customer Name */}
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -991,7 +991,7 @@ We appreciate your visit!`
                     disabled={sendingWhatsApp}
                   />
                 </div>
-                
+
                 {/* Phone Number */}
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -1031,7 +1031,7 @@ We appreciate your visit!`
                     )}
                   </Button>
                 </div>
-                
+
                 {/* Save Customer Checkbox - only show for new customers */}
                 {!selectedWhatsappCustomer && whatsappName && whatsappPhone && (
                   <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
