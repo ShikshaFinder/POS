@@ -742,7 +742,7 @@ We appreciate your visit!`
               disabled={loading}
             >
               <Zap className="h-4 w-4 mr-2" />
-              {loading ? 'Processing...' : `Quick Bill • ₹${calculateTotal().toFixed(2)}`}
+              {loading ? 'Processing...' : `Quick Bill • ${cart.reduce((sum, item) => sum + item.quantity, 0)} items • ₹${calculateTotal().toFixed(2)}`}
             </Button>
           </div>
         )}
@@ -884,7 +884,7 @@ We appreciate your visit!`
             disabled={loading || cart.length === 0}
           >
             <Zap className="h-5 w-5 mr-2" />
-            {loading ? 'Processing...' : `Quick Bill • ₹${calculateTotal().toFixed(2)}`}
+            {loading ? 'Processing...' : `Quick Bill • ${cart.reduce((sum, item) => sum + item.quantity, 0)} items • ₹${calculateTotal().toFixed(2)}`}
           </Button>
 
           {/* Complete Sale Button */}
