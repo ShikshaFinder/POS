@@ -15,11 +15,12 @@ import { cn } from '@/lib/utils'
 
 export default function POSHomePage() {
   const { data: session } = useSession()
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
 
   useEffect(() => {
+    setCurrentTime(new Date())
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
 
     // PWA Install Prompt Capture
@@ -133,10 +134,10 @@ export default function POSHomePage() {
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold text-gray-900 font-mono">
-                {format(currentTime, 'HH:mm:ss')}
+                {currentTime ? format(currentTime, 'HH:mm:ss') : <span className="opacity-0">00:00:00</span>}
               </p>
               <p className="text-sm text-gray-500">
-                {format(currentTime, 'EEEE, MMMM d, yyyy')}
+                {currentTime ? format(currentTime, 'EEEE, MMMM d, yyyy') : <span className="opacity-0">Sunday, January 1, 2000</span>}
               </p>
             </div>
           </div>
