@@ -37,6 +37,13 @@ function transformSession(session: any): Session | null {
     if (!session) return null
     return {
         ...session,
+        totalSales: session.totalSales ?? 0,
+        totalCash: session.totalCash ?? 0,
+        totalCard: session.totalCard ?? 0,
+        totalUPI: session.totalUPI ?? 0,
+        totalWallet: session.totalWallet ?? 0,
+        transactionCount: session.transactionCount ?? 0,
+        openingBalance: session.openingBalance ?? 0,
         cashier: session.cashier ? {
             name: session.cashier.profile?.fullName || session.cashier.email || 'Unknown',
             email: session.cashier.email,
