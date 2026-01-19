@@ -71,6 +71,7 @@ export async function GET(req: NextRequest) {
         unit: true,
         category: true,
         categoryId: true,
+        gstRate: true,
         images: {
           take: 1,
           select: {
@@ -102,6 +103,7 @@ export async function GET(req: NextRequest) {
       unit: product.unit,
       category: product.productCategory?.name || product.category,
       categoryId: product.categoryId || product.productCategory?.id,
+      gstRate: product.gstRate || 0,
       imageUrl: product.images?.[0]?.url || null
     }))
 

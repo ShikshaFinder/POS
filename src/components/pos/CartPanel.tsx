@@ -16,6 +16,7 @@ export interface CartItem {
     discountValue: number // Original discount input value
     subtotal: number // unitPrice * quantity
     total: number // After line item discount
+    gstRate?: number // Tax rate
 }
 
 interface CartPanelProps {
@@ -159,7 +160,26 @@ export default function CartPanel({
         : (subtotal - lineDiscountTotal) * (billDiscount.value / 100)
 
     const afterDiscount = subtotal - lineDiscountTotal - billDiscountAmount - couponDiscount
-    const taxAmount = afterDiscount * (taxPercent / 100)
+
+    // Calculate total tax by summing up tax for each item
+    // Assuming tax is exclusive (on top of discounted price)
+    // Formula: Item Tax = (Item Total - (Item's share of Bill Discount)) * GST%
+    // Simplified: We apply Bill Discount proportionally to items to get accurate tax base?
+    // Or just apply tax on the final discounted amount?
+    // If different items have different Tax Rates, we MUST calculate tax per item.
+    // Issue: 'billDiscount' and 'couponDiscount' are global. How to distribute?
+    // Standard practice: Distribute bill discount proportionally to line items.
+
+    // Distribution factor = 1 - (TotalBillDiscount / (Subtotal - LineItemDiscounts))
+    const totalLineAmounts = subtotal - lineDiscountTotal;
+    const globalDiscount = billDiscountAmount + couponDiscount;
+    const discountFactor = totalLineAmounts > 0 ? (1 - (globalDiscount / totalLineAmounts)) : 1;
+
+    const taxAmount = items.reduce((sum, item) => {
+        const itemNetValue = (item.total) * discountFactor; // item.total already includes line discount
+        return sum + (itemNetValue * ((item.gstRate || 0) / 100));
+    }, 0);
+
     const total = afterDiscount + taxAmount
 
     const cartContent = (

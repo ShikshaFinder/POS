@@ -21,7 +21,9 @@ interface Product {
   reorderLevel: number | null
   unit: string
   category: string
+  category: string
   categoryId: string | null
+  gstRate: number
   imageUrl: string | null
 }
 
@@ -164,42 +166,29 @@ export default function BillingPage() {
           toast.error('Insufficient stock')
           return prevCart
         }
-        return prevCart.map(item => {
-          if (item.id === product.id) {
-            const newQty = item.quantity + 1
-            const subtotal = item.unitPrice * newQty
-            const discount = item.discountType === 'flat'
-              ? item.discountValue
-              : subtotal * (item.discountValue / 100)
-            return {
-              ...item,
-              quantity: newQty,
-              subtotal,
-              discount,
-              total: subtotal - discount
-            }
-          }
-          return item
-        })
+        return prev.map(item =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.unitPrice, total: ((item.quantity + 1) * item.unitPrice) - item.discount }
+            : item
+        )
       }
-
-      const price = product.unitPrice ?? 0
-      toast.success(`${product.name} added`)
-      return [...prevCart, {
+      return [...prev, {
         id: product.id,
         name: product.name,
         sku: product.sku,
-        unitPrice: price,
+        unitPrice: product.unitPrice || 0,
         markedPrice: product.markedPrice,
         quantity: 1,
         unit: product.unit,
         discount: 0,
-        discountType: 'flat' as const,
+        discountType: 'flat',
         discountValue: 0,
-        subtotal: price,
-        total: price
+        subtotal: product.unitPrice || 0,
+        total: product.unitPrice || 0,
+        gstRate: product.gstRate || 0
       }]
     })
+    toast.success('Added to cart')
   }, [])
 
   // Update quantity
@@ -401,7 +390,7 @@ export default function BillingPage() {
       toast.success(`Transaction saved! Receipt: ${localId.substring(0, 8).toUpperCase()}`)
       setShowPaymentModal(false)
       clearCart()
-      
+
       // Fetch products in background to update stock
       fetchProducts()
 
@@ -499,7 +488,7 @@ export default function BillingPage() {
                 />
               </div>
             </div>
-            
+
             {/* Desktop Customer Info */}
             <div className="hidden lg:flex gap-2">
               <input
@@ -519,7 +508,7 @@ export default function BillingPage() {
                 aria-label="Customer phone"
               />
             </div>
-            
+
             {/* Keyboard shortcuts hint - desktop only */}
             <p className="text-xs text-gray-500 hidden lg:block">
               Alt+Q: Search • Alt+H: Hold • Alt+B: Held Bills • Alt+P: Pay • Alt+C: Clear
