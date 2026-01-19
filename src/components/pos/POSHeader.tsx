@@ -74,8 +74,10 @@ export function POSHeader() {
                 <span className="font-semibold text-sm">Shift Report Ready</span>
                 <span className="text-xs text-gray-500">Previous shift report has been generated.</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 text-blue-600 justify-center font-medium">
-                View All Notifications
+              <DropdownMenuItem asChild>
+                <Link href="/pos/notifications" className="flex items-center justify-center p-3 text-blue-600 font-medium cursor-pointer w-full">
+                  View All Notifications
+                </Link>
               </DropdownMenuItem>
             </div>
           </DropdownMenuContent>
