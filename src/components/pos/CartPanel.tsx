@@ -19,6 +19,20 @@ export interface CartItem {
     gstRate?: number // Tax rate
 }
 
+// Weight/Volume unit detection
+const isWeightable = (unit: string): boolean => {
+    const weightUnits = ['kg', 'g', 'gram', 'grams', 'l', 'liter', 'litre', 'ml', 'kilogram']
+    return weightUnits.includes(unit.toLowerCase())
+}
+
+// Quick presets for weight-based products
+const WEIGHT_PRESETS = [
+    { label: '250g', value: 0.25 },
+    { label: '500g', value: 0.5 },
+    { label: '1 KG', value: 1 },
+    { label: '2 KG', value: 2 },
+]
+
 interface CartPanelProps {
     items: CartItem[]
     onUpdateQuantity: (itemId: string, quantity: number) => void
@@ -68,6 +82,7 @@ export default function CartPanel({
     onClose
 }: CartPanelProps) {
     const [showDiscountInput, setShowDiscountInput] = useState<string | null>(null)
+    const [customQtyEdit, setCustomQtyEdit] = useState<string | null>(null) // Track which item is in custom qty edit mode
     const [isMobile, setIsMobile] = useState(false)
     const [swipeItemId, setSwipeItemId] = useState<string | null>(null)
     const [swipeDistance, setSwipeDistance] = useState(0)
@@ -262,38 +277,125 @@ export default function CartPanel({
                                 </div>
 
                                 {/* Quantity Controls */}
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2 sm:gap-3" role="group" aria-label="Quantity controls">
-                                        <button
-                                            onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                                            className="p-2 hover:bg-white active:bg-gray-100 rounded border border-gray-300 tap-target flex items-center justify-center touch-feedback"
-                                            aria-label="Decrease quantity"
-                                            disabled={item.quantity <= 1}
-                                        >
-                                            <Minus className="h-4 w-4" aria-hidden="true" />
-                                        </button>
-                                        <span className="w-10 sm:w-12 text-center font-medium text-sm sm:text-base" aria-live="polite">
-                                            {item.quantity}
-                                        </span>
-                                        <button
-                                            onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                                            className="p-2 hover:bg-white active:bg-gray-100 rounded border border-gray-300 tap-target flex items-center justify-center touch-feedback"
-                                            aria-label="Increase quantity"
-                                        >
-                                            <Plus className="h-4 w-4" aria-hidden="true" />
-                                        </button>
-                                        <span className="text-xs sm:text-sm text-gray-600">× ₹{item.unitPrice.toFixed(2)}</span>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm sm:text-base font-semibold text-gray-900">
-                                            ₹{item.total.toFixed(2)}
-                                        </p>
-                                        {item.discount > 0 && (
-                                            <p className="text-xs text-green-600">
-                                                -₹{item.discount.toFixed(2)}
-                                            </p>
-                                        )}
-                                    </div>
+                                <div className="mb-2">
+                                    {isWeightable(item.unit) ? (
+                                        /* Weight-based quantity UI */
+                                        <div className="space-y-2">
+                                            {/* Quick Presets */}
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {WEIGHT_PRESETS.map((preset) => (
+                                                    <button
+                                                        key={preset.label}
+                                                        onClick={() => {
+                                                            onUpdateQuantity(item.id, preset.value)
+                                                            setCustomQtyEdit(null)
+                                                        }}
+                                                        className={`px-2 py-1 text-xs rounded-full border transition-all touch-feedback ${item.quantity === preset.value
+                                                                ? 'bg-blue-600 text-white border-blue-600'
+                                                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                                            }`}
+                                                        aria-label={`Set quantity to ${preset.label}`}
+                                                    >
+                                                        {preset.label}
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    onClick={() => setCustomQtyEdit(item.id)}
+                                                    className={`px-2 py-1 text-xs rounded-full border transition-all touch-feedback ${customQtyEdit === item.id || !WEIGHT_PRESETS.some(p => p.value === item.quantity)
+                                                            ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                                        }`}
+                                                    aria-label="Enter custom quantity"
+                                                >
+                                                    Custom
+                                                </button>
+                                            </div>
+
+                                            {/* Quantity Display/Edit Row */}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    {customQtyEdit === item.id ? (
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0.01"
+                                                            defaultValue={item.quantity}
+                                                            className="w-20 px-2 py-1.5 border border-blue-400 rounded text-sm text-center focus:ring-2 focus:ring-blue-500"
+                                                            onBlur={(e) => {
+                                                                const val = parseFloat(e.target.value) || 0.25
+                                                                onUpdateQuantity(item.id, Math.max(0.01, val))
+                                                                setCustomQtyEdit(null)
+                                                            }}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    const val = parseFloat(e.currentTarget.value) || 0.25
+                                                                    onUpdateQuantity(item.id, Math.max(0.01, val))
+                                                                    setCustomQtyEdit(null)
+                                                                }
+                                                            }}
+                                                            autoFocus
+                                                            aria-label="Enter custom quantity"
+                                                        />
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setCustomQtyEdit(item.id)}
+                                                            className="w-20 px-2 py-1.5 bg-gray-100 rounded text-sm text-center font-medium hover:bg-gray-200 transition-colors"
+                                                            aria-label="Click to edit quantity"
+                                                        >
+                                                            {item.quantity}
+                                                        </button>
+                                                    )}
+                                                    <span className="text-xs text-gray-500 uppercase">{item.unit}</span>
+                                                    <span className="text-xs text-gray-600">× ₹{item.unitPrice.toFixed(2)}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm sm:text-base font-semibold text-gray-900">
+                                                        ₹{item.total.toFixed(2)}
+                                                    </p>
+                                                    {item.discount > 0 && (
+                                                        <p className="text-xs text-green-600">
+                                                            -₹{item.discount.toFixed(2)}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        /* Regular quantity UI with +/- buttons */
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 sm:gap-3" role="group" aria-label="Quantity controls">
+                                                <button
+                                                    onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                                                    className="p-2 hover:bg-white active:bg-gray-100 rounded border border-gray-300 tap-target flex items-center justify-center touch-feedback"
+                                                    aria-label="Decrease quantity"
+                                                    disabled={item.quantity <= 1}
+                                                >
+                                                    <Minus className="h-4 w-4" aria-hidden="true" />
+                                                </button>
+                                                <span className="w-10 sm:w-12 text-center font-medium text-sm sm:text-base" aria-live="polite">
+                                                    {item.quantity}
+                                                </span>
+                                                <button
+                                                    onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                                                    className="p-2 hover:bg-white active:bg-gray-100 rounded border border-gray-300 tap-target flex items-center justify-center touch-feedback"
+                                                    aria-label="Increase quantity"
+                                                >
+                                                    <Plus className="h-4 w-4" aria-hidden="true" />
+                                                </button>
+                                                <span className="text-xs sm:text-sm text-gray-600">× ₹{item.unitPrice.toFixed(2)}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm sm:text-base font-semibold text-gray-900">
+                                                    ₹{item.total.toFixed(2)}
+                                                </p>
+                                                {item.discount > 0 && (
+                                                    <p className="text-xs text-green-600">
+                                                        -₹{item.discount.toFixed(2)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Discount Button */}
