@@ -20,6 +20,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Validate that receiptId is a valid MongoDB ObjectID (24 hex characters)
+    const isValidObjectId = /^[a-f0-9]{24}$/i.test(receiptId)
+    if (!isValidObjectId) {
+      return NextResponse.json(
+        { error: 'Invalid receipt ID format' },
+        { status: 400 }
+      )
+    }
+
     // Fetch the receipt/invoice
     const invoice = await prisma.invoice.findUnique({
       where: { id: receiptId },
@@ -46,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     // Format the receipt message
     const items = invoice.salesOrder?.items || []
-    const itemsList = items.map(item => 
+    const itemsList = items.map(item =>
       `• ${item.product.name} x${item.qty} - ₹${(item.price * item.qty).toFixed(2)}`
     ).join('\n')
 
@@ -91,9 +100,9 @@ export async function POST(req: NextRequest) {
         )
 
         if (response.ok) {
-          return NextResponse.json({ 
-            success: true, 
-            message: 'Receipt sent via WhatsApp' 
+          return NextResponse.json({
+            success: true,
+            message: 'Receipt sent via WhatsApp'
           })
         }
       } catch (apiError) {

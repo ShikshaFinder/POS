@@ -23,6 +23,15 @@ export async function GET(req: NextRequest) {
 
     // If specific receipt requested
     if (receiptId) {
+      // Validate that receiptId is a valid MongoDB ObjectID (24 hex characters)
+      const isValidObjectId = /^[a-f0-9]{24}$/i.test(receiptId)
+      if (!isValidObjectId) {
+        return NextResponse.json(
+          { error: 'Invalid receipt ID format. Please use a valid receipt ID.' },
+          { status: 400 }
+        )
+      }
+
       const invoice = await prisma.invoice.findFirst({
         where: {
           id: receiptId,
@@ -130,11 +139,11 @@ export async function GET(req: NextRequest) {
 function transformInvoiceToReceipt(invoice: any) {
   const items = invoice.salesOrder?.items || []
   const payment = invoice.payments?.[0]
-  
+
   // Parse payment details from referenceNo if stored as JSON
   let paymentMethod = payment?.method || 'CASH'
   let paymentDetails: any = {}
-  
+
   if (payment?.referenceNo) {
     try {
       paymentDetails = JSON.parse(payment.referenceNo)
