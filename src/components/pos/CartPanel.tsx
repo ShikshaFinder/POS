@@ -2,6 +2,7 @@
 
 import { Plus, Minus, Trash2, ShoppingCart, Tag, Percent, X } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+import { isDecimalUnit, getPresetsForUnit, type QuantityPreset } from '@/lib/constants/units'
 
 export interface CartItem {
     id: string
@@ -18,20 +19,6 @@ export interface CartItem {
     total: number // After line item discount
     gstRate?: number // Tax rate
 }
-
-// Weight/Volume unit detection
-const isWeightable = (unit: string): boolean => {
-    const weightUnits = ['kg', 'g', 'gram', 'grams', 'l', 'liter', 'litre', 'ml', 'kilogram']
-    return weightUnits.includes(unit.toLowerCase())
-}
-
-// Quick presets for weight-based products
-const WEIGHT_PRESETS = [
-    { label: '250g', value: 0.25 },
-    { label: '500g', value: 0.5 },
-    { label: '1 KG', value: 1 },
-    { label: '2 KG', value: 2 },
-]
 
 interface CartPanelProps {
     items: CartItem[]
@@ -278,38 +265,43 @@ export default function CartPanel({
 
                                 {/* Quantity Controls */}
                                 <div className="mb-2">
-                                    {isWeightable(item.unit) ? (
-                                        /* Weight-based quantity UI */
+                                {isDecimalUnit(item.unit) ? (
+                                        /* Weight/Volume-based quantity UI */
                                         <div className="space-y-2">
-                                            {/* Quick Presets */}
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {WEIGHT_PRESETS.map((preset) => (
-                                                    <button
-                                                        key={preset.label}
-                                                        onClick={() => {
-                                                            onUpdateQuantity(item.id, preset.value)
-                                                            setCustomQtyEdit(null)
-                                                        }}
-                                                        className={`px-2 py-1 text-xs rounded-full border transition-all touch-feedback ${item.quantity === preset.value
-                                                                ? 'bg-blue-600 text-white border-blue-600'
-                                                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                                                            }`}
-                                                        aria-label={`Set quantity to ${preset.label}`}
-                                                    >
-                                                        {preset.label}
-                                                    </button>
-                                                ))}
-                                                <button
-                                                    onClick={() => setCustomQtyEdit(item.id)}
-                                                    className={`px-2 py-1 text-xs rounded-full border transition-all touch-feedback ${customQtyEdit === item.id || !WEIGHT_PRESETS.some(p => p.value === item.quantity)
-                                                            ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                                                        }`}
-                                                    aria-label="Enter custom quantity"
-                                                >
-                                                    Custom
-                                                </button>
-                                            </div>
+                                            {/* Quick Presets - Unit-specific */}
+                                            {(() => {
+                                                const presets = getPresetsForUnit(item.unit)
+                                                return (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {presets.map((preset: QuantityPreset) => (
+                                                            <button
+                                                                key={preset.label}
+                                                                onClick={() => {
+                                                                    onUpdateQuantity(item.id, preset.value)
+                                                                    setCustomQtyEdit(null)
+                                                                }}
+                                                                className={`px-2 py-1 text-xs rounded-full border transition-all touch-feedback ${item.quantity === preset.value
+                                                                        ? 'bg-blue-600 text-white border-blue-600'
+                                                                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                                                    }`}
+                                                                aria-label={`Set quantity to ${preset.label}`}
+                                                            >
+                                                                {preset.label}
+                                                            </button>
+                                                        ))}
+                                                        <button
+                                                            onClick={() => setCustomQtyEdit(item.id)}
+                                                            className={`px-2 py-1 text-xs rounded-full border transition-all touch-feedback ${customQtyEdit === item.id || !presets.some((p: QuantityPreset) => p.value === item.quantity)
+                                                                    ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                                                }`}
+                                                            aria-label="Enter custom quantity"
+                                                        >
+                                                            Custom
+                                                        </button>
+                                                    </div>
+                                                )
+                                            })()}
 
                                             {/* Quantity Display/Edit Row */}
                                             <div className="flex items-center justify-between">

@@ -2,6 +2,7 @@
 
 import { Store, Phone } from 'lucide-react'
 import { format } from 'date-fns'
+import { formatQuantityWithUnit, isDecimalUnit } from '@/lib/constants/units'
 
 interface ReceiptItem {
     productName: string
@@ -9,6 +10,7 @@ interface ReceiptItem {
     unitPrice: number
     discountAmount: number
     total: number
+    unit?: string // Unit type (KG, LITRE, PIECE, etc.)
 }
 
 interface ReceiptData {
@@ -128,7 +130,11 @@ export default function ReceiptPreview({
                                 <span className="col-span-5 font-medium text-gray-900 truncate" title={item.productName}>
                                     {item.productName}
                                 </span>
-                                <span className="col-span-2 text-center text-gray-700">{item.quantity}</span>
+                                <span className="col-span-2 text-center text-gray-700">
+                                    {item.unit && isDecimalUnit(item.unit)
+                                        ? formatQuantityWithUnit(item.quantity, item.unit)
+                                        : item.quantity}
+                                </span>
                                 <span className="col-span-2 text-right text-gray-700">₹{item.unitPrice.toFixed(0)}</span>
                                 <span className="col-span-3 text-right font-semibold text-gray-900">₹{item.total.toFixed(2)}</span>
                             </div>

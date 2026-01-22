@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { getUnitOptions, ProductUnit } from '@/lib/constants/units'
 
 interface Product {
   id: string
@@ -29,13 +30,21 @@ export default function ProductsPage() {
   const [showDialog, setShowDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    sku: string
+    unitPrice: string
+    currentStock: string
+    reorderLevel: string
+    unit: string
+    category: string
+  }>({
     name: '',
     sku: '',
     unitPrice: '',
     currentStock: '',
     reorderLevel: '',
-    unit: 'PIECE',
+    unit: ProductUnit.PIECE,
     category: 'General',
   })
 
@@ -102,7 +111,7 @@ export default function ProductsPage() {
           unitPrice: '',
           currentStock: '',
           reorderLevel: '',
-          unit: 'PIECE',
+          unit: ProductUnit.PIECE,
           category: 'General',
         })
         setEditingProduct(null)
@@ -305,11 +314,11 @@ export default function ProductsPage() {
                   value={formData.unit}
                   onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                 >
-                  <option value="PIECE">Piece</option>
-                  <option value="KG">Kilogram</option>
-                  <option value="LITRE">Litre</option>
-                  <option value="GRAM">Gram</option>
-                  <option value="ML">Millilitre</option>
+                  {getUnitOptions().map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

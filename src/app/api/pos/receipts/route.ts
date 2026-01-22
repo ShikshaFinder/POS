@@ -172,7 +172,8 @@ function transformInvoiceToReceipt(invoice: any) {
       quantity: item.qty,
       unitPrice: item.price,
       discountAmount: 0,
-      total: item.price * item.qty
+      total: item.price * item.qty,
+      unit: item.product?.unit || 'PIECE'
     })),
     subtotal: subtotal,
     discountAmount: 0,

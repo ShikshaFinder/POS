@@ -19,6 +19,7 @@ interface ReceiptItem {
   unitPrice: number
   discountAmount: number
   total: number
+  unit?: string
 }
 
 interface ReceiptData {

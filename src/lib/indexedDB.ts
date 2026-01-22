@@ -1,11 +1,15 @@
 /**
  * IndexedDB wrapper for POS offline storage
- * Stores pending transactions for offline-first sync
+ * Stores pending transactions, products, categories, and images for offline-first sync
  */
 
 const DB_NAME = 'pos-offline-db'
-const DB_VERSION = 1
+const DB_VERSION = 2 // Bumped for new stores
 const TRANSACTIONS_STORE = 'pending-transactions'
+const PRODUCTS_STORE = 'products'
+const CATEGORIES_STORE = 'categories'
+const PRODUCT_IMAGES_STORE = 'product-images'
+const SYNC_METADATA_STORE = 'sync-metadata'
 
 export interface PendingTransaction {
   id: string // Unique local ID
@@ -21,6 +25,43 @@ export interface PendingTransaction {
   error?: string
   syncedAt?: number
   serverId?: string // ID from server after sync
+}
+
+export interface CachedProduct {
+  id: string
+  name: string
+  sku: string | null
+  unitPrice: number | null
+  markedPrice: number | null
+  currentStock: number | null
+  reorderLevel: number | null
+  unit: string
+  category: string
+  categoryId: string | null
+  gstRate: number
+  imageUrl: string | null // Original remote URL
+  hasLocalImage: boolean // Whether image is cached locally
+  updatedAt: number // Timestamp when cached
+}
+
+export interface CachedCategory {
+  id: string
+  name: string
+  productCount: number
+  updatedAt: number
+}
+
+export interface CachedProductImage {
+  productId: string
+  blob: Blob
+  mimeType: string
+  cachedAt: number
+}
+
+export interface SyncMetadata {
+  key: string // 'products' | 'categories' | 'lastSync'
+  value: any
+  updatedAt: number
 }
 
 class IndexedDBManager {
@@ -46,18 +87,49 @@ class IndexedDBManager {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result
+        const oldVersion = event.oldVersion
 
-        // Create transactions store
+        // Create transactions store (v1)
         if (!db.objectStoreNames.contains(TRANSACTIONS_STORE)) {
           const transactionsStore = db.createObjectStore(TRANSACTIONS_STORE, { keyPath: 'id' })
           transactionsStore.createIndex('timestamp', 'timestamp', { unique: false })
           transactionsStore.createIndex('status', 'status', { unique: false })
+        }
+
+        // Create new stores (v2)
+        if (oldVersion < 2) {
+          // Products store
+          if (!db.objectStoreNames.contains(PRODUCTS_STORE)) {
+            const productsStore = db.createObjectStore(PRODUCTS_STORE, { keyPath: 'id' })
+            productsStore.createIndex('categoryId', 'categoryId', { unique: false })
+            productsStore.createIndex('name', 'name', { unique: false })
+            productsStore.createIndex('sku', 'sku', { unique: false })
+          }
+
+          // Categories store
+          if (!db.objectStoreNames.contains(CATEGORIES_STORE)) {
+            const categoriesStore = db.createObjectStore(CATEGORIES_STORE, { keyPath: 'id' })
+            categoriesStore.createIndex('name', 'name', { unique: false })
+          }
+
+          // Product images store (stores blobs)
+          if (!db.objectStoreNames.contains(PRODUCT_IMAGES_STORE)) {
+            const imagesStore = db.createObjectStore(PRODUCT_IMAGES_STORE, { keyPath: 'productId' })
+            imagesStore.createIndex('cachedAt', 'cachedAt', { unique: false })
+          }
+
+          // Sync metadata store
+          if (!db.objectStoreNames.contains(SYNC_METADATA_STORE)) {
+            db.createObjectStore(SYNC_METADATA_STORE, { keyPath: 'key' })
+          }
         }
       }
     })
 
     return this.initPromise
   }
+
+  // ==================== TRANSACTION METHODS ====================
 
   async addTransaction(transaction: PendingTransaction): Promise<void> {
     const db = await this.init()
@@ -173,6 +245,261 @@ class IndexedDBManager {
 
       if (synced.length === 0) resolve()
     })
+  }
+
+  // ==================== PRODUCT METHODS ====================
+
+  async saveProducts(products: CachedProduct[]): Promise<void> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCTS_STORE], 'readwrite')
+      const store = tx.objectStore(PRODUCTS_STORE)
+
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+
+      // Clear existing products and add new ones
+      store.clear()
+      products.forEach(product => {
+        store.add(product)
+      })
+    })
+  }
+
+  async getProduct(id: string): Promise<CachedProduct | null> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCTS_STORE], 'readonly')
+      const store = tx.objectStore(PRODUCTS_STORE)
+      const request = store.get(id)
+
+      request.onsuccess = () => resolve(request.result || null)
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async getAllProducts(): Promise<CachedProduct[]> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCTS_STORE], 'readonly')
+      const store = tx.objectStore(PRODUCTS_STORE)
+      const request = store.getAll()
+
+      request.onsuccess = () => resolve(request.result || [])
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async getProductsByCategory(categoryId: string): Promise<CachedProduct[]> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCTS_STORE], 'readonly')
+      const store = tx.objectStore(PRODUCTS_STORE)
+      const index = store.index('categoryId')
+      const request = index.getAll(categoryId)
+
+      request.onsuccess = () => resolve(request.result || [])
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async searchProducts(query: string): Promise<CachedProduct[]> {
+    const allProducts = await this.getAllProducts()
+    const lowerQuery = query.toLowerCase()
+    return allProducts.filter(p => 
+      p.name.toLowerCase().includes(lowerQuery) ||
+      (p.sku && p.sku.toLowerCase().includes(lowerQuery))
+    )
+  }
+
+  async getProductsCount(): Promise<number> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCTS_STORE], 'readonly')
+      const store = tx.objectStore(PRODUCTS_STORE)
+      const request = store.count()
+
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async clearProducts(): Promise<void> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCTS_STORE], 'readwrite')
+      const store = tx.objectStore(PRODUCTS_STORE)
+      const request = store.clear()
+
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  // ==================== CATEGORY METHODS ====================
+
+  async saveCategories(categories: CachedCategory[]): Promise<void> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([CATEGORIES_STORE], 'readwrite')
+      const store = tx.objectStore(CATEGORIES_STORE)
+
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+
+      // Clear existing categories and add new ones
+      store.clear()
+      categories.forEach(category => {
+        store.add(category)
+      })
+    })
+  }
+
+  async getAllCategories(): Promise<CachedCategory[]> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([CATEGORIES_STORE], 'readonly')
+      const store = tx.objectStore(CATEGORIES_STORE)
+      const request = store.getAll()
+
+      request.onsuccess = () => resolve(request.result || [])
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async clearCategories(): Promise<void> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([CATEGORIES_STORE], 'readwrite')
+      const store = tx.objectStore(CATEGORIES_STORE)
+      const request = store.clear()
+
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  // ==================== PRODUCT IMAGE METHODS ====================
+
+  async saveProductImage(productId: string, blob: Blob, mimeType: string): Promise<void> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCT_IMAGES_STORE], 'readwrite')
+      const store = tx.objectStore(PRODUCT_IMAGES_STORE)
+      
+      const imageData: CachedProductImage = {
+        productId,
+        blob,
+        mimeType,
+        cachedAt: Date.now()
+      }
+      
+      const request = store.put(imageData)
+
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async getProductImage(productId: string): Promise<CachedProductImage | null> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCT_IMAGES_STORE], 'readonly')
+      const store = tx.objectStore(PRODUCT_IMAGES_STORE)
+      const request = store.get(productId)
+
+      request.onsuccess = () => resolve(request.result || null)
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async deleteProductImage(productId: string): Promise<void> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCT_IMAGES_STORE], 'readwrite')
+      const store = tx.objectStore(PRODUCT_IMAGES_STORE)
+      const request = store.delete(productId)
+
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async clearProductImages(): Promise<void> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCT_IMAGES_STORE], 'readwrite')
+      const store = tx.objectStore(PRODUCT_IMAGES_STORE)
+      const request = store.clear()
+
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async getProductImagesCount(): Promise<number> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([PRODUCT_IMAGES_STORE], 'readonly')
+      const store = tx.objectStore(PRODUCT_IMAGES_STORE)
+      const request = store.count()
+
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  // ==================== SYNC METADATA METHODS ====================
+
+  async setSyncMetadata(key: string, value: any): Promise<void> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([SYNC_METADATA_STORE], 'readwrite')
+      const store = tx.objectStore(SYNC_METADATA_STORE)
+      
+      const metadata: SyncMetadata = {
+        key,
+        value,
+        updatedAt: Date.now()
+      }
+      
+      const request = store.put(metadata)
+
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async getSyncMetadata(key: string): Promise<SyncMetadata | null> {
+    const db = await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([SYNC_METADATA_STORE], 'readonly')
+      const store = tx.objectStore(SYNC_METADATA_STORE)
+      const request = store.get(key)
+
+      request.onsuccess = () => resolve(request.result || null)
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async getLastSyncTime(): Promise<number | null> {
+    const metadata = await this.getSyncMetadata('lastSync')
+    return metadata?.value || null
+  }
+
+  async setLastSyncTime(timestamp: number): Promise<void> {
+    await this.setSyncMetadata('lastSync', timestamp)
+  }
+
+  // ==================== UTILITY METHODS ====================
+
+  async clearAllProductData(): Promise<void> {
+    await Promise.all([
+      this.clearProducts(),
+      this.clearCategories(),
+      this.clearProductImages(),
+      this.setSyncMetadata('lastSync', null)
+    ])
   }
 }
 

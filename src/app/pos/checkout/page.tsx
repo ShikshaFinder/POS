@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { syncManager } from '@/lib/syncManager'
+import { productSyncService } from '@/lib/productSyncService'
+import { getCachedImageUrl } from '@/lib/imageCache'
 import { toast } from 'sonner'
 
 interface Product {
@@ -20,6 +22,7 @@ interface Product {
   unit: string
   category: string
   imageUrl: string | null
+  cachedImageUrl?: string | null
 }
 
 interface CartItem extends Product {
@@ -128,6 +131,22 @@ export default function CheckoutPage() {
 
   const fetchCategories = async () => {
     try {
+      // Try cached categories first
+      const hasCachedData = await productSyncService.hasCachedData()
+
+      if (hasCachedData) {
+        const cachedCategories = await productSyncService.getCategories()
+        if (cachedCategories.length > 0) {
+          setCategories(cachedCategories.map(c => ({
+            id: c.id,
+            name: c.name,
+            productCount: c.productCount
+          })))
+          return
+        }
+      }
+
+      // Fall back to network
       const res = await fetch('/api/pos/categories')
       if (res.ok) {
         const data = await res.json()
@@ -135,11 +154,55 @@ export default function CheckoutPage() {
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
+      // Try cache on network failure
+      const cachedCategories = await productSyncService.getCategories()
+      if (cachedCategories.length > 0) {
+        setCategories(cachedCategories.map(c => ({
+          id: c.id,
+          name: c.name,
+          productCount: c.productCount
+        })))
+      }
     }
   }
 
   const fetchProducts = async () => {
     try {
+      // Try to get from cache first
+      const hasCachedData = await productSyncService.hasCachedData()
+
+      if (hasCachedData) {
+        // Use cached products
+        let cachedProducts = await productSyncService.getProducts({
+          search: searchQuery || undefined,
+          categoryId: selectedCategory || undefined
+        })
+
+        // Load cached image URLs for products
+        const productsWithImages = await Promise.all(
+          cachedProducts.map(async (product) => {
+            const cachedImageUrl = product.hasLocalImage
+              ? await getCachedImageUrl(product.id)
+              : null
+            return {
+              id: product.id,
+              name: product.name,
+              sku: product.sku,
+              unitPrice: product.unitPrice || 0,
+              currentStock: product.currentStock || 0,
+              unit: product.unit,
+              category: product.category,
+              imageUrl: product.imageUrl,
+              cachedImageUrl
+            } as Product
+          })
+        )
+
+        setProducts(productsWithImages)
+        return
+      }
+
+      // Fall back to network if no cached data
       let url = `/api/pos/products?search=${searchQuery}`
       if (selectedCategory) {
         url += `&category=${encodeURIComponent(selectedCategory)}`
@@ -151,6 +214,31 @@ export default function CheckoutPage() {
       }
     } catch (error) {
       console.error('Failed to fetch products:', error)
+      // Try cache on network failure
+      const hasCachedData = await productSyncService.hasCachedData()
+      if (hasCachedData) {
+        const cachedProducts = await productSyncService.getProducts()
+        const productsWithImages = await Promise.all(
+          cachedProducts.map(async (product) => {
+            const cachedImageUrl = product.hasLocalImage
+              ? await getCachedImageUrl(product.id)
+              : null
+            return {
+              id: product.id,
+              name: product.name,
+              sku: product.sku,
+              unitPrice: product.unitPrice || 0,
+              currentStock: product.currentStock || 0,
+              unit: product.unit,
+              category: product.category,
+              imageUrl: product.imageUrl,
+              cachedImageUrl
+            } as Product
+          })
+        )
+        setProducts(productsWithImages)
+        toast.info('Using offline product data')
+      }
     }
   }
 
@@ -560,9 +648,9 @@ We appreciate your visit!`
                 className="group hover:shadow-lg transition-all overflow-hidden h-full"
               >
                 <div className="relative h-24 sm:h-32 w-full bg-gradient-to-br from-gray-50 to-gray-100">
-                  {product.imageUrl ? (
+                  {(product.cachedImageUrl || product.imageUrl) ? (
                     <Image
-                      src={product.imageUrl}
+                      src={product.cachedImageUrl || product.imageUrl!}
                       alt={product.name}
                       fill
                       unoptimized

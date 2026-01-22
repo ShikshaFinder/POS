@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { Search, AlertTriangle, Package, Grid, List } from 'lucide-react'
 
-interface Product {
+export interface Product {
     id: string
     name: string
     sku: string | null
@@ -15,7 +15,10 @@ interface Product {
     unit: string
     category: string
     categoryId: string | null
+    gstRate?: number
     imageUrl: string | null
+    cachedImageUrl?: string | null // Blob URL from IndexedDB
+    hasLocalImage?: boolean
 }
 
 interface ProductGridProps {
@@ -155,11 +158,11 @@ export default function ProductGrid({
                                         </div>
                                     )}
 
-                                    {/* Product Image */}
+                                    {/* Product Image - Use cached image if available */}
                                     <div className="relative w-full aspect-square bg-gray-100">
-                                        {product.imageUrl ? (
+                                        {(product.cachedImageUrl || product.imageUrl) ? (
                                             <Image
-                                                src={product.imageUrl}
+                                                src={product.cachedImageUrl || product.imageUrl!}
                                                 alt={product.name}
                                                 fill
                                                 unoptimized
@@ -232,11 +235,11 @@ export default function ProductGrid({
                                         }
                                     }}
                                 >
-                                    {/* Product Image */}
+                                    {/* Product Image - Use cached image if available */}
                                     <div className="relative w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
-                                        {product.imageUrl ? (
+                                        {(product.cachedImageUrl || product.imageUrl) ? (
                                             <Image
-                                                src={product.imageUrl}
+                                                src={product.cachedImageUrl || product.imageUrl!}
                                                 alt={product.name}
                                                 fill
                                                 unoptimized
