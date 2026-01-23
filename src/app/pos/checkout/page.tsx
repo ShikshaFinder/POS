@@ -278,6 +278,30 @@ export default function CheckoutPage() {
     }))
   }
 
+  const setQuantity = (productId: string, value: string) => {
+    // Allow empty string for typing
+    if (value === '') {
+      setCart(cart.map(item =>
+        item.id === productId ? { ...item, quantity: 0 } : item
+      ))
+      return
+    }
+
+    const newQuantity = parseInt(value)
+    if (isNaN(newQuantity) || newQuantity < 0) return
+
+    setCart(cart.map(item => {
+      if (item.id === productId) {
+        if (newQuantity > item.currentStock) {
+          toast.error('Insufficient stock!')
+          return { ...item, quantity: item.currentStock }
+        }
+        return { ...item, quantity: newQuantity }
+      }
+      return item
+    }))
+  }
+
   const removeFromCart = (productId: string) => {
     setCart(cart.filter(item => item.id !== productId))
   }
@@ -872,9 +896,17 @@ We appreciate your visit!`
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="w-8 text-center font-semibold text-sm sm:text-base">
-                        {item.quantity}
-                      </span>
+                      <Input
+                        type="number"
+                        value={item.quantity === 0 ? '' : item.quantity.toString()}
+                        onChange={(e) => setQuantity(item.id, e.target.value)}
+                        onBlur={(e) => {
+                          if (!e.target.value || parseInt(e.target.value) < 1) {
+                            setQuantity(item.id, "1")
+                          }
+                        }}
+                        className="w-14 h-8 text-center mx-1 p-0 text-sm font-semibold border border-gray-300 rounded bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent no-spinner appearance-none"
+                      />
                       <Button
                         size="sm"
                         variant="outline"
