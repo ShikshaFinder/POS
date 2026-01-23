@@ -252,13 +252,13 @@ export default function CheckoutPage() {
             : item
         ))
       } else {
-        alert('Insufficient stock!')
+        toast.error('Insufficient stock!')
       }
     } else {
       if (product.currentStock > 0) {
         setCart([...cart, { ...product, quantity: 1 }])
       } else {
-        alert('Product out of stock!')
+        toast.error('Product out of stock!')
       }
     }
   }
@@ -269,7 +269,7 @@ export default function CheckoutPage() {
         const newQuantity = item.quantity + delta
         if (newQuantity <= 0) return item
         if (newQuantity > item.currentStock) {
-          alert('Insufficient stock!')
+          toast.error('Insufficient stock!')
           return item
         }
         return { ...item, quantity: newQuantity }
@@ -438,7 +438,7 @@ export default function CheckoutPage() {
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(emailForReceipt)) {
-      alert('Please enter a valid email address')
+      toast.error('Please enter a valid email address')
       return
     }
 
@@ -458,11 +458,11 @@ export default function CheckoutPage() {
         setTimeout(() => setEmailSent(false), 3000)
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to send email')
+        toast.error(error.error || 'Failed to send email')
       }
     } catch (error) {
       console.error('Failed to send email:', error)
-      alert('Failed to send email')
+      toast.error('Failed to send email')
     } finally {
       setSendingEmail(false)
     }
