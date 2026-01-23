@@ -102,6 +102,7 @@ export async function GET(req: NextRequest) {
       unit: product.unit,
       category: product.productCategory?.name || product.category,
       categoryId: product.categoryId || product.productCategory?.id,
+      gstRate: 0,
       imageUrl: product.images?.[0]?.url || null
     }))
 
