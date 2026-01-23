@@ -12,7 +12,7 @@ export default function ProfilePage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const [isEditing, setIsEditing] = useState(false)
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(session?.user?.image || null)
+    const [avatarUrl, setAvatarUrl] = useState<string | null>((session?.user as any)?.image || null)
     const [profileData, setProfileData] = useState({
         name: session?.user?.name || '',
         email: session?.user?.email || '',

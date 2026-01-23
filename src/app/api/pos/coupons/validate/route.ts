@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check minimum purchase requirement
-    if (coupon.minPurchase && orderAmount < coupon.minPurchase) {
+    if (coupon.minPurchase !== null && orderAmount < coupon.minPurchase) {
       return NextResponse.json(
         {
           valid: false,

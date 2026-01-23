@@ -211,7 +211,7 @@ export default function CouponsTab() {
                   </span>
                 </div>
 
-                {coupon.minPurchase > 0 && (
+                {coupon.minPurchase && coupon.minPurchase > 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Min. Purchase:</span>
                     <span className="font-semibold">₹{coupon.minPurchase}</span>
