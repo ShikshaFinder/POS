@@ -199,6 +199,10 @@ model Organization {
   // Import Relations
   importBatches ImportBatch[]
 
+  // Email Marketing Relations
+  emailCampaigns EmailCampaign[]
+  posCouponCodes POSCouponCode[]
+
   complaintIssueTypes ComplaintIssueType[]
 }
 
@@ -1941,6 +1945,8 @@ model POSLocation {
   customers     POSCustomer[]      @relation("POSLocationCustomers")
   sessions      POSSession[]       @relation("POSLocationSessions")
   invites       OrganizationInvite[] @relation("POSLocationInvite")
+  emailCampaigns EmailCampaign[]
+  couponCodes    POSCouponCode[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -2248,6 +2254,13 @@ model POSCustomer {
   lastVisitDate  DateTime?
   loyaltyPoints  Int      @default(0)
 
+  // Email Marketing
+  tags              String[]  @default([])
+  marketingConsent  Boolean   @default(false)
+  emailVerified     Boolean   @default(false)
+  lastEmailSent     DateTime?
+  unsubscribedAt    DateTime?
+
   notes          String?
 
   createdAt      DateTime @default(now())
@@ -2255,6 +2268,7 @@ model POSCustomer {
 
   // Relations
   transactions   POSTransaction[] @relation("POSCustomerTransactions")
+  emailCampaignRecipients EmailCampaignRecipient[]
 
   @@index([organizationId])
   @@index([posLocationId])
@@ -2377,5 +2391,114 @@ model ImportRecord {
 
   @@index([importBatchId])
   @@index([entityType, entityId])
+}
+
+// ============================================
+// EMAIL MARKETING MODELS
+// ============================================
+
+// Email Campaign - Marketing campaigns sent to POS customers
+model EmailCampaign {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  posLocationId  String?  @db.ObjectId
+  posLocation    POSLocation? @relation(fields: [posLocationId], references: [id], onDelete: SetNull)
+  
+  // Campaign details
+  name           String
+  subject        String
+  emailBody      String   // HTML email body with template variables
+  
+  // Targeting criteria
+  targetTags     String[] // Customer tags to target
+  minTotalSpent  Float?   // Minimum total spent
+  maxTotalSpent  Float?   // Maximum total spent
+  minVisitCount  Int?     // Minimum visit count
+  
+  // Coupon code (optional)
+  couponCodeId   String?  @db.ObjectId
+  couponCode     POSCouponCode? @relation(fields: [couponCodeId], references: [id], onDelete: SetNull)
+  
+  // Campaign status
+  status         String   @default("DRAFT") // DRAFT, SENDING, SENT, FAILED
+  recipientCount Int      @default(0)
+  sentCount      Int      @default(0)
+  errorCount     Int      @default(0)
+  
+  sentAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  recipients     EmailCampaignRecipient[]
+  
+  @@index([organizationId, status])
+  @@index([posLocationId])
+}
+
+// Email Campaign Recipient - Tracks individual email sends
+model EmailCampaignRecipient {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  campaignId   String   @db.ObjectId
+  campaign     EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  customerId   String   @db.ObjectId
+  customer     POSCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  status       String   @default("PENDING") // PENDING, SENT, FAILED
+  sentAt       DateTime?
+  errorMessage String?
+  
+  // Email engagement tracking
+  opened       Boolean  @default(false)
+  openedAt     DateTime?
+  clicked      Boolean  @default(false)
+  clickedAt    DateTime?
+  
+  createdAt    DateTime @default(now())
+  
+  @@unique([campaignId, customerId])
+  @@index([campaignId, status])
+  @@index([customerId])
+}
+
+// POS Coupon Code - Discount codes for marketing campaigns
+model POSCouponCode {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  posLocationId  String?  @db.ObjectId
+  posLocation    POSLocation? @relation(fields: [posLocationId], references: [id], onDelete: SetNull)
+  
+  code           String   @unique
+  description    String?
+  
+  discountType   String   // PERCENTAGE, FIXED_AMOUNT
+  discountValue  Float
+  
+  minPurchase    Float?   // Minimum purchase amount
+  maxDiscount    Float?   // Maximum discount amount (for percentage)
+  
+  usageLimit     Int?     // Total usage limit
+  usageCount     Int      @default(0)
+  
+  perCustomerLimit Int?   // Usage limit per customer
+  
+  validFrom      DateTime
+  validUntil     DateTime?
+  
+  isActive       Boolean  @default(true)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  campaigns      EmailCampaign[]
+  
+  @@index([organizationId, isActive])
+  @@index([posLocationId])
 }
 
