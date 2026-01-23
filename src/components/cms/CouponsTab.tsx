@@ -27,22 +27,18 @@ import { toast } from 'sonner'
 interface Coupon {
   id: string
   code: string
-  name: string
   description: string | null
   discountType: string
   discountValue: number
   maxDiscount: number | null
-  minPurchase: number
-  maxUsagePerCustomer: number
-  totalUsageLimit: number | null
+  minPurchase: number | null
+  perCustomerLimit: number | null
+  usageLimit: number | null
   usageCount: number
   isActive: boolean
   validFrom: string
   validUntil: string | null
   createdAt: string
-  _count: {
-    redemptions: number
-  }
 }
 
 export default function CouponsTab() {
@@ -52,14 +48,13 @@ export default function CouponsTab() {
 
   const [formData, setFormData] = useState({
     code: '',
-    name: '',
     description: '',
     discountType: 'PERCENTAGE',
     discountValue: '',
     maxDiscount: '',
     minPurchase: '',
-    maxUsagePerCustomer: '1',
-    totalUsageLimit: '',
+    perCustomerLimit: '1',
+    usageLimit: '',
     validFrom: new Date().toISOString().split('T')[0],
     validUntil: '',
   })
@@ -97,8 +92,8 @@ export default function CouponsTab() {
           discountValue: parseFloat(formData.discountValue),
           maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : undefined,
           minPurchase: formData.minPurchase ? parseFloat(formData.minPurchase) : undefined,
-          maxUsagePerCustomer: parseInt(formData.maxUsagePerCustomer),
-          totalUsageLimit: formData.totalUsageLimit ? parseInt(formData.totalUsageLimit) : undefined,
+          perCustomerLimit: formData.perCustomerLimit ? parseInt(formData.perCustomerLimit) : undefined,
+          usageLimit: formData.usageLimit ? parseInt(formData.usageLimit) : undefined,
           validUntil: formData.validUntil || undefined,
         }),
       })
@@ -110,14 +105,13 @@ export default function CouponsTab() {
         // Reset form
         setFormData({
           code: '',
-          name: '',
           description: '',
           discountType: 'PERCENTAGE',
           discountValue: '',
           maxDiscount: '',
           minPurchase: '',
-          maxUsagePerCustomer: '1',
-          totalUsageLimit: '',
+          perCustomerLimit: '1',
+          usageLimit: '',
           validFrom: new Date().toISOString().split('T')[0],
           validUntil: '',
         })
@@ -192,7 +186,6 @@ export default function CouponsTab() {
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
-                  <h3 className="font-semibold text-lg text-gray-900">{coupon.name}</h3>
                   {coupon.description && (
                     <p className="text-sm text-gray-600 mt-1">{coupon.description}</p>
                   )}
@@ -202,8 +195,8 @@ export default function CouponsTab() {
                     isExpired(coupon.validUntil)
                       ? 'bg-red-100 text-red-800'
                       : coupon.isActive
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-800'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
                   }
                 >
                   {isExpired(coupon.validUntil) ? 'Expired' : coupon.isActive ? 'Active' : 'Inactive'}
@@ -235,15 +228,17 @@ export default function CouponsTab() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Usage:</span>
                   <span className="font-semibold">
-                    {coupon._count.redemptions}
-                    {coupon.totalUsageLimit && ` / ${coupon.totalUsageLimit}`}
+                    {coupon.usageCount}
+                    {coupon.usageLimit && ` / ${coupon.usageLimit}`}
                   </span>
                 </div>
 
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Per Customer:</span>
-                  <span className="font-semibold">{coupon.maxUsagePerCustomer}x</span>
-                </div>
+                {coupon.perCustomerLimit && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Per Customer:</span>
+                    <span className="font-semibold">{coupon.perCustomerLimit}x</span>
+                  </div>
+                )}
 
                 {coupon.validUntil && (
                   <div className="flex justify-between">
@@ -281,23 +276,14 @@ export default function CouponsTab() {
               </div>
 
               <div>
-                <Label>Coupon Name</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Summer Sale"
+                <Label>Description (Optional)</Label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe what this coupon is for"
+                  rows={2}
                 />
               </div>
-            </div>
-
-            <div>
-              <Label>Description (Optional)</Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Describe what this coupon is for"
-                rows={2}
-              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -354,12 +340,12 @@ export default function CouponsTab() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Usage Per Customer</Label>
+                <Label>Usage Per Customer (Optional)</Label>
                 <Input
                   type="number"
-                  value={formData.maxUsagePerCustomer}
+                  value={formData.perCustomerLimit}
                   onChange={(e) =>
-                    setFormData({ ...formData, maxUsagePerCustomer: e.target.value })
+                    setFormData({ ...formData, perCustomerLimit: e.target.value })
                   }
                   placeholder="1"
                 />
@@ -369,8 +355,8 @@ export default function CouponsTab() {
                 <Label>Total Usage Limit (Optional)</Label>
                 <Input
                   type="number"
-                  value={formData.totalUsageLimit}
-                  onChange={(e) => setFormData({ ...formData, totalUsageLimit: e.target.value })}
+                  value={formData.usageLimit}
+                  onChange={(e) => setFormData({ ...formData, usageLimit: e.target.value })}
                   placeholder="e.g., 100"
                 />
               </div>
@@ -405,6 +391,6 @@ export default function CouponsTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   )
 }
