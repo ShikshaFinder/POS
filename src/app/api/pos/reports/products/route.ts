@@ -16,8 +16,11 @@ export async function GET(req: NextRequest) {
         const dateFrom = searchParams.get('dateFrom') || new Date().toISOString().slice(0, 10)
         const dateTo = searchParams.get('dateTo') || dateFrom
 
-        const startDate = new Date(dateFrom + 'T00:00:00.000Z')
-        const endDate = new Date(dateTo + 'T23:59:59.999Z')
+        // Parse dates in local timezone, not UTC
+        const [fromYear, fromMonth, fromDay] = dateFrom.split('-').map(Number)
+        const [toYear, toMonth, toDay] = dateTo.split('-').map(Number)
+        const startDate = new Date(fromYear, fromMonth - 1, fromDay, 0, 0, 0, 0)
+        const endDate = new Date(toYear, toMonth - 1, toDay, 23, 59, 59, 999)
 
         // Get all transaction items in date range
         const transactionItems = await prisma.pOSTransactionItem.findMany({

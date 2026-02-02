@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/pos/receipts - List receipts with pagination
+// Uses Invoice model since that's what checkout creates
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -22,91 +23,99 @@ export async function GET(req: NextRequest) {
 
     // If specific receipt requested
     if (receiptId) {
-      const receipt = await prisma.pOSTransaction.findFirst({
+      // Validate that receiptId is a valid MongoDB ObjectID (24 hex characters)
+      const isValidObjectId = /^[a-f0-9]{24}$/i.test(receiptId)
+      if (!isValidObjectId) {
+        return NextResponse.json(
+          { error: 'Invalid receipt ID format. Please use a valid receipt ID.' },
+          { status: 400 }
+        )
+      }
+
+      const invoice = await prisma.invoice.findFirst({
         where: {
           id: receiptId,
           organizationId
         },
         include: {
-          items: true,
-          customer: true,
-          cashier: {
-            select: {
-              profile: {
-                select: { fullName: true }
-              }
+          salesOrder: {
+            include: {
+              items: {
+                include: {
+                  product: true
+                }
+              },
+              connection: true
             }
-          }
+          },
+          payments: true
         }
       })
 
-      if (!receipt) {
+      if (!invoice) {
         return NextResponse.json(
           { error: 'Receipt not found' },
           { status: 404 }
         )
       }
 
+      // Transform to receipt format
+      const receipt = transformInvoiceToReceipt(invoice)
       return NextResponse.json({ receipt })
     }
 
-    // Build where clause
+    // Build where clause for invoices
     const where: any = {
-      organizationId,
-      status: 'COMPLETED'
+      organizationId
     }
 
     if (dateFrom) {
-      where.transactionDate = {
-        ...(where.transactionDate || {}),
+      where.createdAt = {
+        ...(where.createdAt || {}),
         gte: new Date(dateFrom)
       }
     }
 
     if (dateTo) {
-      where.transactionDate = {
-        ...(where.transactionDate || {}),
+      where.createdAt = {
+        ...(where.createdAt || {}),
         lte: new Date(dateTo + 'T23:59:59.999Z')
       }
     }
 
     if (search) {
       where.OR = [
-        { receiptNumber: { contains: search, mode: 'insensitive' } },
-        { customerName: { contains: search, mode: 'insensitive' } },
-        { customerPhone: { contains: search } }
+        { invoiceNumber: { contains: search, mode: 'insensitive' } },
+        { customerName: { contains: search, mode: 'insensitive' } }
       ]
     }
 
     // Get total count
-    const total = await prisma.pOSTransaction.count({ where })
+    const total = await prisma.invoice.count({ where })
 
-    // Get receipts
-    const receipts = await prisma.pOSTransaction.findMany({
+    // Get invoices with related data
+    const invoices = await prisma.invoice.findMany({
       where,
       include: {
-        items: {
-          select: {
-            id: true,
-            productName: true,
-            quantity: true,
-            unitPrice: true,
-            discountAmount: true,
-            total: true
+        salesOrder: {
+          include: {
+            items: {
+              include: {
+                product: true
+              }
+            },
+            connection: true
           }
         },
-        cashier: {
-          select: {
-            profile: {
-              select: { fullName: true }
-            }
-          }
-        }
+        payments: true
       },
-      orderBy: { transactionDate: 'desc' },
+      orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit
     })
+
+    // Transform invoices to receipt format
+    const receipts = invoices.map(transformInvoiceToReceipt)
 
     return NextResponse.json({
       receipts,
@@ -123,6 +132,58 @@ export async function GET(req: NextRequest) {
       { error: 'Failed to fetch receipts' },
       { status: 500 }
     )
+  }
+}
+
+// Transform Invoice to Receipt format for frontend
+function transformInvoiceToReceipt(invoice: any) {
+  const items = invoice.salesOrder?.items || []
+  const payment = invoice.payments?.[0]
+
+  // Parse payment details from referenceNo if stored as JSON
+  let paymentMethod = payment?.method || 'CASH'
+  let paymentDetails: any = {}
+
+  if (payment?.referenceNo) {
+    try {
+      paymentDetails = JSON.parse(payment.referenceNo)
+    } catch (e) {
+      // Not JSON, just a reference number
+    }
+  }
+
+  // Calculate subtotal from items
+  const subtotal = items.reduce((sum: number, item: any) => {
+    return sum + (item.price * item.qty)
+  }, 0)
+
+  // Calculate tax (difference between total and subtotal, if any)
+  const taxAmount = Math.max(0, invoice.totalAmount - subtotal)
+
+  return {
+    id: invoice.id,
+    receiptNumber: invoice.invoiceNumber,
+    transactionDate: invoice.createdAt.toISOString(),
+    customerName: invoice.customerName || invoice.salesOrder?.connection?.name || 'Walk-in Customer',
+    customerPhone: invoice.salesOrder?.connection?.contacts?.[0]?.phone || null,
+    items: items.map((item: any) => ({
+      id: item.id,
+      productName: item.product?.name || 'Unknown Product',
+      quantity: item.qty,
+      unitPrice: item.price,
+      discountAmount: 0,
+      total: item.price * item.qty,
+      unit: item.product?.unit || 'PIECE'
+    })),
+    subtotal: subtotal,
+    discountAmount: 0,
+    taxAmount: taxAmount,
+    totalAmount: invoice.totalAmount,
+    paymentMethod: paymentMethod,
+    amountPaid: invoice.paidAmount,
+    changeGiven: Math.max(0, invoice.paidAmount - invoice.totalAmount),
+    status: invoice.status,
+    cashier: null // Could be added if we track cashier on invoice
   }
 }
 
@@ -145,14 +206,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get receipt
-    const receipt = await prisma.pOSTransaction.findFirst({
+    // Get invoice (receipt)
+    const invoice = await prisma.invoice.findFirst({
       where: {
         id: receiptId,
         organizationId
       },
       include: {
-        items: true,
+        salesOrder: {
+          include: {
+            items: {
+              include: {
+                product: true
+              }
+            }
+          }
+        },
+        payments: true,
         organization: {
           select: {
             name: true
@@ -161,16 +231,40 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    if (!receipt) {
+    if (!invoice) {
       return NextResponse.json(
         { error: 'Receipt not found' },
         { status: 404 }
       )
     }
 
-    // TODO: Implement actual email sending using Resend
-    // For now, we'll just simulate success
-    console.log(`Email receipt ${receipt.receiptNumber} to ${email}`)
+    // Transform to receipt format
+    const receipt = transformInvoiceToReceipt(invoice)
+
+    // Try to send email (if email service is configured)
+    try {
+      const { sendReceiptEmail } = await import('@/lib/email')
+      await sendReceiptEmail(email, {
+        receiptNumber: receipt.receiptNumber,
+        transactionDate: new Date(receipt.transactionDate),
+        customerName: receipt.customerName,
+        items: receipt.items,
+        subtotal: receipt.subtotal,
+        discountAmount: receipt.discountAmount,
+        taxAmount: receipt.taxAmount,
+        totalAmount: receipt.totalAmount,
+        paymentMethod: receipt.paymentMethod,
+        amountPaid: receipt.amountPaid,
+        changeGiven: receipt.changeGiven,
+        organizationName: invoice.organization.name,
+      })
+    } catch (emailError) {
+      console.error('Email service error:', emailError)
+      return NextResponse.json(
+        { error: 'Email service not configured' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,

@@ -40,6 +40,8 @@ export default function POSDashboard() {
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
 
+  // Dashboard is now shown instead of redirecting
+
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch('/api/pos/dashboard/stats')

@@ -38,33 +38,8 @@ export async function GET(req: NextRequest) {
       where.validUntil = { lt: new Date() }
     }
 
-    const coupons = await prisma.couponCode.findMany({
+    const coupons = await prisma.pOSCouponCode.findMany({
       where,
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            email: true,
-            profile: {
-              select: {
-                fullName: true,
-              },
-            },
-          },
-        },
-        posLocation: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-        _count: {
-          select: {
-            redemptions: true,
-          },
-        },
-      },
       orderBy: {
         createdAt: 'desc',
       },
@@ -95,35 +70,29 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const {
       code,
-      name,
       description,
       discountType,
       discountValue,
       maxDiscount,
       minPurchase,
-      maxUsagePerCustomer,
-      totalUsageLimit,
+      perCustomerLimit,
+      usageLimit,
       validFrom,
       validUntil,
       isActive,
-      targetProducts,
-      targetCategories,
-      targetCustomerTags,
-      excludeProducts,
       posLocationId,
-      notes,
     } = body
 
     // Validate required fields
-    if (!code || !name || !discountType || discountValue === undefined) {
+    if (!code || !discountType || discountValue === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields: code, name, discountType, discountValue' },
+        { error: 'Missing required fields: code, discountType, discountValue' },
         { status: 400 }
       )
     }
 
     // Validate discount type
-    const validDiscountTypes = ['PERCENTAGE', 'FIXED_AMOUNT', 'FREE_SHIPPING', 'BUY_X_GET_Y']
+    const validDiscountTypes = ['PERCENTAGE', 'FIXED_AMOUNT']
     if (!validDiscountTypes.includes(discountType)) {
       return NextResponse.json(
         { error: 'Invalid discount type' },
@@ -132,7 +101,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if coupon code already exists
-    const existing = await prisma.couponCode.findFirst({
+    const existing = await prisma.pOSCouponCode.findFirst({
       where: {
         organizationId: session.user.currentOrganizationId,
         code: code.toUpperCase(),
@@ -146,48 +115,21 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const coupon = await prisma.couponCode.create({
+    const coupon = await prisma.pOSCouponCode.create({
       data: {
         organizationId: session.user.currentOrganizationId,
         posLocationId,
         code: code.toUpperCase(),
-        name,
         description,
         discountType,
         discountValue,
         maxDiscount,
-        minPurchase: minPurchase || 0,
-        maxUsagePerCustomer: maxUsagePerCustomer || 1,
-        totalUsageLimit,
+        minPurchase,
+        perCustomerLimit,
+        usageLimit,
         validFrom: validFrom ? new Date(validFrom) : new Date(),
         validUntil: validUntil ? new Date(validUntil) : null,
         isActive: isActive !== undefined ? isActive : true,
-        targetProducts: targetProducts || [],
-        targetCategories: targetCategories || [],
-        targetCustomerTags: targetCustomerTags || [],
-        excludeProducts: excludeProducts || [],
-        createdById: session.user.id,
-        notes,
-      },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            email: true,
-            profile: {
-              select: {
-                fullName: true,
-              },
-            },
-          },
-        },
-        posLocation: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
       },
     })
 

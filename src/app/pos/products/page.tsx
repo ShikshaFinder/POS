@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Plus, Edit, Search, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { getUnitOptions, ProductUnit } from '@/lib/constants/units'
 
 interface Product {
   id: string
@@ -19,29 +21,44 @@ interface Product {
 }
 
 export default function ProductsPage() {
+  const searchParams = useSearchParams()
+  const categoryFilter = searchParams.get('category')
+
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [showDialog, setShowDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    sku: string
+    unitPrice: string
+    currentStock: string
+    reorderLevel: string
+    unit: string
+    category: string
+  }>({
     name: '',
     sku: '',
     unitPrice: '',
     currentStock: '',
     reorderLevel: '',
-    unit: 'PIECE',
+    unit: ProductUnit.PIECE,
     category: 'General',
   })
 
   useEffect(() => {
     fetchProducts()
-  }, [searchQuery])
+  }, [searchQuery, categoryFilter])
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch(`/api/pos/products?search=${searchQuery}`)
+      let url = `/api/pos/products?search=${searchQuery}`
+      if (categoryFilter) {
+        url += `&category=${encodeURIComponent(categoryFilter)}`
+      }
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         setProducts(data.products)
@@ -94,7 +111,7 @@ export default function ProductsPage() {
           unitPrice: '',
           currentStock: '',
           reorderLevel: '',
-          unit: 'PIECE',
+          unit: ProductUnit.PIECE,
           category: 'General',
         })
         setEditingProduct(null)
@@ -129,9 +146,18 @@ export default function ProductsPage() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Products</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">
+            Products{categoryFilter && ` - ${categoryFilter}`}
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Manage your product catalog
+            {categoryFilter ? (
+              <span>
+                Showing products in "{categoryFilter}" •{' '}
+                <a href="/pos/products" className="text-blue-600 hover:underline">View all</a>
+              </span>
+            ) : (
+              'Manage your product catalog'
+            )}
           </p>
         </div>
         <Button
@@ -209,8 +235,8 @@ export default function ProductsPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-xs sm:text-sm text-gray-600">Stock:</span>
                   <span className={`font-semibold text-sm sm:text-base ${(product.currentStock || 0) <= (product.reorderLevel || 0)
-                      ? 'text-red-600'
-                      : 'text-gray-900'
+                    ? 'text-red-600'
+                    : 'text-gray-900'
                     }`}>
                     {product.currentStock || 0} {product.unit}
                   </span>
@@ -288,11 +314,11 @@ export default function ProductsPage() {
                   value={formData.unit}
                   onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                 >
-                  <option value="PIECE">Piece</option>
-                  <option value="KG">Kilogram</option>
-                  <option value="LITRE">Litre</option>
-                  <option value="GRAM">Gram</option>
-                  <option value="ML">Millilitre</option>
+                  {getUnitOptions().map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

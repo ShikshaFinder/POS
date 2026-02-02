@@ -66,9 +66,9 @@
   --secondary-foreground: #5B21B6;
   /* Purple 700 */
 
-  /* Accent - Orange 500 */
-  --accent: #F97316;
-  --accent-foreground: #FFFFFF;
+  /* Accent - Neutral Gray */
+  --accent: #F4F4F5;
+  --accent-foreground: #18181B;
 
   /* Muted - Gray 100 */
   --muted: #F4F4F5;
@@ -115,9 +115,9 @@
   /* Purple 200 */
 
   /* Accent */
-  --accent: #EA580C;
-  /* Orange 600 */
-  --accent-foreground: #FFFFFF;
+  --accent: #27272A;
+  /* Gray 800 */
+  --accent-foreground: #FAFAFA;
 
   /* Muted */
   --muted: #27272A;

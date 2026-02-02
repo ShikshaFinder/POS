@@ -1,5 +1,7 @@
 'use client'
 
+{/*responsive mobile*/}
+
 import { Card } from '@/components/ui/card'
 import { TrendingUp, Mail, Tag, Users } from 'lucide-react'
 

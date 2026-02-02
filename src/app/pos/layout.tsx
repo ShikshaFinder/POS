@@ -10,6 +10,7 @@ import { ConflictResolutionModal } from '@/components/pos/ConflictResolutionModa
 import { PWAInstallPrompt } from '@/components/pos/PWAInstallPrompt'
 import { KeyboardShortcutsDialog } from '@/components/pos/KeyboardShortcutsDialog'
 import { syncManager } from '@/lib/syncManager'
+import { toast } from 'sonner'
 
 export default function POSLayout({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession()
@@ -34,10 +35,40 @@ export default function POSLayout({ children }: { children: ReactNode }) {
       }
     }
 
+    // Listen for sync events to show toasts
+    const handleSyncSuccess = (e: CustomEvent) => {
+      toast.success('Transaction synced!', {
+        description: `Server ID: ${e.detail.serverId?.substring(0, 8) || 'N/A'}`,
+        duration: 2000,
+      })
+    }
+
+    const handleSyncFailed = (e: CustomEvent) => {
+      if (e.detail.permanent) {
+        toast.error('Sync failed', {
+          description: e.detail.error || 'Transaction failed to sync after multiple attempts',
+          duration: 5000,
+        })
+      }
+    }
+
+    const handleValidationError = (e: CustomEvent) => {
+      toast.error('Product validation failed', {
+        description: e.detail.message,
+        duration: 5000,
+      })
+    }
+
     window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('transaction-synced', handleSyncSuccess as EventListener)
+    window.addEventListener('transaction-sync-failed', handleSyncFailed as EventListener)
+    window.addEventListener('transaction-validation-error', handleValidationError as EventListener)
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('transaction-synced', handleSyncSuccess as EventListener)
+      window.removeEventListener('transaction-sync-failed', handleSyncFailed as EventListener)
+      window.removeEventListener('transaction-validation-error', handleValidationError as EventListener)
     }
   }, [])
 

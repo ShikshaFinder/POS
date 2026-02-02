@@ -77,5 +77,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default process.env.NODE_ENV === "development" ? nextConfig : withPWA(nextConfig);
+// Enable PWA in production, or if explicitly enabled in dev
+// We disable it by default in dev to support Turbopack (which is much faster)
+// as next-pwa currently conflicts with Turbopack.
+const enablePWA = process.env.NODE_ENV === 'production' || process.env.ENABLE_PWA_DEV === 'true';
+
+export default enablePWA ? withPWA(nextConfig) : nextConfig;
 

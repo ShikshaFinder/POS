@@ -40,7 +40,9 @@ function transformSession(session: any): Session | null {
         totalSales: session.totalSales ?? 0,
         totalCash: session.totalCash ?? 0,
         totalCard: session.totalCard ?? 0,
-        totalUPI: session.totalUPI ?? 0,
+        // Handle Prisma field name (totalUpi) vs interface name (totalUPI)
+        totalUPI: session.totalUPI ?? session.totalUpi ?? 0,
+        // totalWallet may not exist in schema
         totalWallet: session.totalWallet ?? 0,
         transactionCount: session.transactionCount ?? 0,
         openingBalance: session.openingBalance ?? 0,

@@ -6,9 +6,14 @@
 // This file should be run in the browser context where IndexedDB is available
 // You can copy this code and run it in the browser console at https://pos.flavidairysolution.com
 
-export function clearFailedSyncs() {
+// Database constants - MUST match indexedDB.ts
+const DB_NAME = 'pos-offline-db'
+const DB_VERSION = 1
+const TRANSACTIONS_STORE = 'pending-transactions'
+
+function clearFailedSyncs() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('POS_Offline_DB', 1)
+    const request = indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onerror = () => {
       console.error('Failed to open IndexedDB')
@@ -16,11 +21,11 @@ export function clearFailedSyncs() {
     }
 
     request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result
+      const db = event.target.result
       
       try {
-        const transaction = db.transaction(['transactions'], 'readwrite')
-        const store = transaction.objectStore('transactions')
+        const transaction = db.transaction([TRANSACTIONS_STORE], 'readwrite')
+        const store = transaction.objectStore(TRANSACTIONS_STORE)
         const index = store.index('status')
         const failedRequest = index.getAll('failed')
 
@@ -55,7 +60,7 @@ export function clearFailedSyncs() {
             deleteRequest.onsuccess = () => {
               deletedCount++
               if (deletedCount === failedTransactions.length) {
-                console.log(`✓ Cleared ${deletedCount} failed transactions`)
+                console.log(`Cleared ${deletedCount} failed transactions`)
                 resolve({ cleared: deletedCount })
               }
             }
@@ -80,9 +85,9 @@ export function clearFailedSyncs() {
 }
 
 // Also add a function to retry failed syncs
-export function retryFailedSyncs() {
+function retryFailedSyncs() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('POS_Offline_DB', 1)
+    const request = indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onerror = () => {
       console.error('Failed to open IndexedDB')
@@ -90,11 +95,11 @@ export function retryFailedSyncs() {
     }
 
     request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result
+      const db = event.target.result
       
       try {
-        const transaction = db.transaction(['transactions'], 'readwrite')
-        const store = transaction.objectStore('transactions')
+        const transaction = db.transaction([TRANSACTIONS_STORE], 'readwrite')
+        const store = transaction.objectStore(TRANSACTIONS_STORE)
         const index = store.index('status')
         const failedRequest = index.getAll('failed')
 
@@ -121,7 +126,7 @@ export function retryFailedSyncs() {
             updateRequest.onsuccess = () => {
               retriedCount++
               if (retriedCount === failedTransactions.length) {
-                console.log(`✓ Reset ${retriedCount} failed transactions to pending status`)
+                console.log(`Reset ${retriedCount} failed transactions to pending status`)
                 console.log('Transactions will be automatically synced in the next sync cycle')
                 resolve({ retried: retriedCount })
                 
@@ -146,13 +151,66 @@ export function retryFailedSyncs() {
   })
 }
 
+// Function to view all transactions
+function viewAllTransactions() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION)
+
+    request.onerror = () => {
+      console.error('Failed to open IndexedDB')
+      reject(new Error('Failed to open IndexedDB'))
+    }
+
+    request.onsuccess = (event) => {
+      const db = event.target.result
+      
+      try {
+        const transaction = db.transaction([TRANSACTIONS_STORE], 'readonly')
+        const store = transaction.objectStore(TRANSACTIONS_STORE)
+        const getAllRequest = store.getAll()
+
+        getAllRequest.onsuccess = () => {
+          const allTransactions = getAllRequest.result
+          console.log(`Total transactions: ${allTransactions.length}`)
+          
+          // Group by status
+          const grouped = allTransactions.reduce((acc, tx) => {
+            acc[tx.status] = acc[tx.status] || []
+            acc[tx.status].push(tx)
+            return acc
+          }, {})
+          
+          console.log('Transactions by status:', grouped)
+          console.table(allTransactions.map(tx => ({
+            id: tx.id,
+            status: tx.status,
+            retryCount: tx.retryCount,
+            error: tx.error,
+            timestamp: new Date(tx.timestamp).toLocaleString()
+          })))
+          
+          resolve(allTransactions)
+        }
+
+        getAllRequest.onerror = () => {
+          console.error('Failed to retrieve transactions')
+          reject(new Error('Failed to retrieve transactions'))
+        }
+      } catch (error) {
+        console.error('Error:', error)
+        reject(error)
+      }
+    }
+  })
+}
+
 // Instructions to use in browser console:
 console.log(`
 ========================================
 Failed Sync Cleanup Utility
 ========================================
 
-To clear failed syncs, run one of these commands in the browser console:
+To manage failed syncs, run one of these commands in the browser console:
 
 1. To DELETE failed transactions (cannot be undone):
    clearFailedSyncs()
@@ -160,8 +218,11 @@ To clear failed syncs, run one of these commands in the browser console:
 2. To RETRY failed transactions:
    retryFailedSyncs()
 
-3. To view all transactions:
-   Open DevTools > Application > IndexedDB > POS_Offline_DB > transactions
+3. To VIEW all transactions:
+   viewAllTransactions()
+
+4. To view in DevTools:
+   Open DevTools > Application > IndexedDB > pos-offline-db > pending-transactions
 
 Note: You must be on https://pos.flavidairysolution.com for this to work
 ========================================
@@ -169,6 +230,7 @@ Note: You must be on https://pos.flavidairysolution.com for this to work
 
 // Make functions available globally in browser
 if (typeof window !== 'undefined') {
-  ;(window as any).clearFailedSyncs = clearFailedSyncs
-  ;(window as any).retryFailedSyncs = retryFailedSyncs
+  window.clearFailedSyncs = clearFailedSyncs
+  window.retryFailedSyncs = retryFailedSyncs
+  window.viewAllTransactions = viewAllTransactions
 }

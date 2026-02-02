@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { Bell, User, LogOut, Settings, CreditCard, Shield } from 'lucide-react'
 import SyncStatusIndicator from './SyncStatusIndicator'
@@ -73,8 +74,10 @@ export function POSHeader() {
                 <span className="font-semibold text-sm">Shift Report Ready</span>
                 <span className="text-xs text-gray-500">Previous shift report has been generated.</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 text-blue-600 justify-center font-medium">
-                View All Notifications
+              <DropdownMenuItem asChild>
+                <Link href="/pos/notifications" className="flex items-center justify-center p-3 text-blue-600 font-medium cursor-pointer w-full">
+                  View All Notifications
+                </Link>
               </DropdownMenuItem>
             </div>
           </DropdownMenuContent>
@@ -106,17 +109,23 @@ export function POSHeader() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
+              <DropdownMenuItem asChild>
+                <Link href="/pos/profile" className="cursor-pointer w-full flex items-center">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
+              <DropdownMenuItem asChild>
+                <Link href="/pos/settings" className="cursor-pointer w-full flex items-center">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard className="mr-2 h-4 w-4" />
-                <span>Billing</span>
+              <DropdownMenuItem asChild>
+                <Link href="/pos/billing" className="cursor-pointer w-full flex items-center">
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  <span>Billing</span>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

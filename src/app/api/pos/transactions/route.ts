@@ -204,75 +204,84 @@ export async function POST(req: NextRequest) {
     })
     const receiptNumber = `POS-${dateStr}-${String(count + 1).padStart(4, '0')}`
 
-    // Create transaction in a transaction
-    const transaction = await prisma.$transaction(async (tx) => {
-      // Create transaction
-      const newTransaction = await tx.pOSTransaction.create({
-        data: {
-          organizationId: session.user!.currentOrganizationId!,
-          receiptNumber,
-          customerId,
-          customerName,
-          customerPhone,
-          subtotal,
-          discountAmount: finalDiscountAmount,
-          discountPercent,
-          taxAmount,
-          taxPercent,
-          totalAmount,
-          paymentMethod,
-          amountPaid,
-          changeGiven,
-          cashAmount,
-          cardAmount,
-          upiAmount,
-          walletAmount,
-          notes,
-          cashierId: session.user!.id,
-          items: {
-            create: processedItems,
-          },
-        },
-        include: {
-          items: {
-            include: {
-              product: true,
-            },
-          },
-          customer: true,
-        },
-      })
-
-      // Update product stock
-      for (const item of processedItems) {
-        await tx.product.update({
-          where: { id: item.productId },
+    // Create transaction with increased timeout for large orders
+    // and parallel stock updates for better performance
+    const transaction = await prisma.$transaction(
+      async (tx) => {
+        // Create transaction
+        const newTransaction = await tx.pOSTransaction.create({
           data: {
-            currentStock: {
-              decrement: item.quantity,
+            organizationId: session.user!.currentOrganizationId!,
+            receiptNumber,
+            customerId,
+            customerName,
+            customerPhone,
+            subtotal,
+            discountAmount: finalDiscountAmount,
+            discountPercent,
+            taxAmount,
+            taxPercent,
+            totalAmount,
+            paymentMethod,
+            amountPaid,
+            changeGiven,
+            cashAmount,
+            cardAmount,
+            upiAmount,
+            walletAmount,
+            notes,
+            cashierId: session.user!.id,
+            items: {
+              create: processedItems,
             },
+          },
+          include: {
+            items: {
+              include: {
+                product: true,
+              },
+            },
+            customer: true,
           },
         })
-      }
 
-      // Update customer stats if customer exists
-      if (customerId) {
-        await tx.pOSCustomer.update({
-          where: { id: customerId },
-          data: {
-            totalSpent: {
-              increment: totalAmount,
+        // Update product stock in parallel for better performance
+        const stockUpdates = processedItems.map((item) =>
+          tx.product.update({
+            where: { id: item.productId },
+            data: {
+              currentStock: {
+                decrement: item.quantity,
+              },
             },
-            visitCount: {
-              increment: 1,
-            },
-            lastVisitDate: new Date(),
-          },
-        })
-      }
+          })
+        )
 
-      return newTransaction
-    })
+        // Update customer stats if customer exists
+        const customerUpdate = customerId
+          ? tx.pOSCustomer.update({
+              where: { id: customerId },
+              data: {
+                totalSpent: {
+                  increment: totalAmount,
+                },
+                visitCount: {
+                  increment: 1,
+                },
+                lastVisitDate: new Date(),
+              },
+            })
+          : null
+
+        // Execute all updates in parallel
+        await Promise.all([...stockUpdates, customerUpdate].filter(Boolean))
+
+        return newTransaction
+      },
+      {
+        timeout: 15000, // 15 seconds for large transactions
+      }
+    )
 
     return NextResponse.json({ transaction }, { status: 201 })
   } catch (error) {

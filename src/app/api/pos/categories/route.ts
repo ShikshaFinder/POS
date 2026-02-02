@@ -25,28 +25,31 @@ export async function GET(req: NextRequest) {
             orderBy: { name: 'asc' }
         })
 
-        // Also get products grouped by legacy category field for backward compatibility
+        // Also get unique category names from the legacy category field on all products
         const legacyCategories = await prisma.product.groupBy({
             by: ['category'],
             where: {
-                organizationId,
-                categoryId: null // Only products without new category
+                organizationId
             },
             _count: { id: true }
         })
 
-        // Transform data
+        // Get category names from ProductCategory to filter out duplicates
+        const productCategoryNames = new Set(categories.map(c => c.name.toLowerCase()))
+
+        // Transform data - combine ProductCategory entries with legacy product.category values
         const transformedCategories = [
             ...categories.map((cat) => ({
                 id: cat.id,
                 name: cat.name,
                 productCount: cat._count.products
             })),
+            // Add legacy categories that don't exist in ProductCategory
             ...legacyCategories
-                .filter((cat) => cat.category) // Filter out nulls
+                .filter((cat) => cat.category && !productCategoryNames.has(cat.category.toLowerCase()))
                 .map((cat) => ({
                     id: `legacy_${cat.category}`,
-                    name: cat.category,
+                    name: cat.category!,
                     productCount: cat._count.id
                 }))
         ]

@@ -214,200 +214,202 @@ function AcceptInviteContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="max-w-lg w-full">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block">
-            <Image
-              src="/logo.png"
-              alt="Flavid POS"
-              width={150}
-              height={50}
-              className="mx-auto"
-              priority
-            />
-          </Link>
-        </div>
+    <div className="h-screen w-full overflow-y-auto bg-gray-50">
+      <div className="flex min-h-full flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-lg space-y-8">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <Link href="/" className="inline-block">
+              <Image
+                src="/flavi-logo.png"
+                alt="Flavid POS"
+                width={150}
+                height={50}
+                className="mx-auto"
+                priority
+              />
+            </Link>
+          </div>
 
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-white/20 rounded-lg">
-                <Store className="h-6 w-6" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">POS Location Invitation</h1>
-                <p className="text-blue-100 text-sm">Complete your account setup</p>
-              </div>
-            </div>
-
-            {invitation && (
-              <div className="bg-white/10 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <Building2 className="h-5 w-5 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">{invitation.organization.name}</p>
-                    <p className="text-sm text-blue-100">
-                      {invitation.invitedBy.profile?.fullName || invitation.invitedBy.email} has invited you
-                    </p>
-                  </div>
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <Store className="h-6 w-6" />
                 </div>
-                <div className="mt-3 pt-3 border-t border-white/20">
+                <div>
+                  <h1 className="text-xl font-bold">POS Location Invitation</h1>
+                  <p className="text-blue-100 text-sm">Complete your account setup</p>
+                </div>
+              </div>
+
+              {invitation && (
+                <div className="bg-white/10 rounded-lg p-4">
                   <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 shrink-0 mt-0.5" />
+                    <Building2 className="h-5 w-5 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-medium">{invitation.posLocation.name}</p>
+                      <p className="font-medium">{invitation.organization.name}</p>
                       <p className="text-sm text-blue-100">
-                        {invitation.posLocation.code}
-                        {invitation.posLocation.city && ` • ${invitation.posLocation.city}`}
+                        {invitation.invitedBy.profile?.fullName || invitation.invitedBy.email} has invited you
                       </p>
                     </div>
                   </div>
+                  <div className="mt-3 pt-3 border-t border-white/20">
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-5 w-5 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium">{invitation.posLocation.name}</p>
+                        <p className="text-sm text-blue-100">
+                          {invitation.posLocation.code}
+                          {invitation.posLocation.city && ` • ${invitation.posLocation.city}`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {error && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={invitation?.email || ''}
+                  disabled
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter your full name"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                 </div>
               </div>
-            )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="+91 9876543210"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Create Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    minLength={8}
+                    placeholder="At least 8 characters"
+                    className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                    minLength={8}
+                    placeholder="Confirm your password"
+                    className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Setting up your account...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    Accept Invitation & Get Started
+                  </>
+                )}
+              </button>
+
+              <p className="text-xs text-gray-500 text-center">
+                By accepting, you agree to our Terms of Service and Privacy Policy
+              </p>
+            </form>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={invitation?.email || ''}
-                disabled
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  required
-                  placeholder="Enter your full name"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="+91 9876543210"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Create Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  minLength={8}
-                  placeholder="At least 8 characters"
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                  minLength={8}
-                  placeholder="Confirm your password"
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Setting up your account...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4" />
-                  Accept Invitation & Get Started
-                </>
-              )}
-            </button>
-
-            <p className="text-xs text-gray-500 text-center">
-              By accepting, you agree to our Terms of Service and Privacy Policy
-            </p>
-          </form>
+          <p className="text-center text-sm text-gray-500 mt-6">
+            Already have an account?{' '}
+            <Link href="/signin" className="text-blue-600 hover:underline">
+              Sign in
+            </Link>
+          </p>
         </div>
-
-        <p className="text-center text-sm text-gray-500 mt-6">
-          Already have an account?{' '}
-          <Link href="/signin" className="text-blue-600 hover:underline">
-            Sign in
-          </Link>
-        </p>
       </div>
     </div>
   );

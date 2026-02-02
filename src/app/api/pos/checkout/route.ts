@@ -13,21 +13,22 @@ export async function POST(req: NextRequest) {
 
     const organizationId = (session.user as any).currentOrganizationId
     const body = await req.json()
-    
-    // Support both old format (direct fields) and new format (nested objects from billing page)
+
+    // Support both old format (direct) and new format (nested objects from billing page)
     const items = body.items
     const customerName = body.customer?.name || body.customerName
     const customerPhone = body.customer?.phone || body.customerPhone
     const deliveryDate = body.deliveryDate
-    
+
     // Extract totals - support both formats
-    const totalAmount = body.totals?.total || body.totalAmount
+    // Calculate total from items if not provided
+    let totalAmount = body.totals?.total || body.totalAmount
     const subtotalAmount = body.totals?.subtotal
     const taxAmount = body.totals?.taxAmount
-    
+
     // Extract payment details
     const paymentMethod = body.payment?.method || body.paymentMethod || 'CASH'
-    const amountPaid = body.payment?.amountPaid || body.amountPaid || totalAmount
+    let amountPaid = body.payment?.amountPaid || body.amountPaid
     const changeGiven = body.payment?.changeGiven || 0
     const cashAmount = body.payment?.cashAmount
     const cardAmount = body.payment?.cardAmount
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     const walletAmount = body.payment?.walletAmount
     const roundOff = body.payment?.roundOff || 0
     const notes = body.payment?.notes || body.notes
-    
+
     // Extract discount info
     const billDiscount = body.billDiscount || 0
     const billDiscountType = body.billDiscountType || 'flat'
@@ -49,6 +50,8 @@ export async function POST(req: NextRequest) {
 
     // Validate all products and stock outside the transaction (simple, reliable)
     const processedItems: any[] = [];
+    let calculatedTotal = 0;
+
     for (const item of items) {
       const product = await prisma.product.findUnique({
         where: { id: item.productId }
@@ -60,6 +63,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `Insufficient stock for ${product.name}` }, { status: 400 });
       }
       const itemPrice = item.price || item.unitPrice || product.unitPrice || 0;
+      const itemTotal = itemPrice * item.quantity;
+      calculatedTotal += itemTotal;
+
       processedItems.push({
         productId: item.productId,
         quantity: item.quantity,
@@ -68,7 +74,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Use calculated total if not provided
+    if (!totalAmount) {
+      const tax = calculatedTotal * (taxPercent / 100);
+      totalAmount = calculatedTotal + tax;
+    }
+
+    // Default amountPaid to totalAmount if not provided
+    if (!amountPaid) {
+      amountPaid = totalAmount;
+    }
+
     // Start a simple transaction for DB writes only
+    // Increased timeout to 30 seconds for large orders with many items
     const result = await prisma.$transaction(async (tx) => {
 
       // Create invoice/order
@@ -76,24 +94,27 @@ export async function POST(req: NextRequest) {
 
       // For POS, we'll create a sales order and invoice
       // First, create or get walk-in customer connection
+      const connectionName = customerName || 'Walk-in Customer'
+
       let connection = await tx.connection.findFirst({
         where: {
           organizationId,
-          name: customerName || 'Walk-in Customer',
+          name: connectionName,
           type: 'CUSTOMER'
         }
       })
 
-      if (!connection && customerName) {
+      // Always create connection if not found (for walk-in customers too)
+      if (!connection) {
         connection = await tx.connection.create({
           data: {
             organizationId,
-            name: customerName,
+            name: connectionName,
             type: 'CUSTOMER',
             businessCategory: 'RETAIL',
             contacts: customerPhone ? {
               create: {
-                fullName: customerName,
+                fullName: connectionName,
                 phone: customerPhone,
                 isPrimary: true
               }
@@ -104,11 +125,6 @@ export async function POST(req: NextRequest) {
 
       // Create sales order
       const orderRef = `SO-${Date.now()}`
-
-      // Ensure we have a connection (required by schema)
-      if (!connection) {
-        throw new Error('Customer connection is required')
-      }
 
       const salesOrder = await tx.salesOrder.create({
         data: {
@@ -134,8 +150,6 @@ export async function POST(req: NextRequest) {
           }
         }
       })
-
-      // Create invoice
       const invoice = await tx.invoice.create({
         data: {
           organizationId,
@@ -150,24 +164,28 @@ export async function POST(req: NextRequest) {
       })
 
       // Create payment record(s) based on payment method
-      const paymentData: any = {
-        organizationId,
-        invoiceId: invoice.id,
-        amount: amountPaid,
-        method: paymentMethod,
-        paidAt: new Date(),
-        status: 'COMPLETED'
+      // Store split payment details in referenceNo as JSON if needed
+      let referenceNo: string | undefined
+      if (cashAmount || cardAmount || upiAmount || walletAmount) {
+        referenceNo = JSON.stringify({
+          cashAmount,
+          cardAmount,
+          upiAmount,
+          walletAmount,
+          notes
+        })
       }
-      
-      // Add split payment details if available
-      if (cashAmount) paymentData.cashAmount = cashAmount
-      if (cardAmount) paymentData.cardAmount = cardAmount
-      if (upiAmount) paymentData.upiAmount = upiAmount
-      if (walletAmount) paymentData.walletAmount = walletAmount
-      if (notes) paymentData.notes = notes
-      
+
       await tx.payment.create({
-        data: paymentData
+        data: {
+          organizationId,
+          invoiceId: invoice.id,
+          amount: amountPaid,
+          method: paymentMethod,
+          paidAt: new Date(),
+          status: 'COMPLETED',
+          referenceNo
+        }
       })
 
       // Update stock and create inventory transaction for each item (simple, sequential)
@@ -201,6 +219,8 @@ export async function POST(req: NextRequest) {
         }
       }
       return { salesOrder, invoice };
+    }, {
+      timeout: 30000, // 30 seconds timeout for large orders
     });
 
     // 🔔 Send WhatsApp notification with PDF invoice (async - non-blocking)

@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')
     const categoryId = searchParams.get('categoryId')
+    const categoryName = searchParams.get('category')
 
     // Fetch products with images and enhanced data
     const products = await prisma.product.findMany({
@@ -51,7 +52,13 @@ export async function GET(req: NextRequest) {
             { sku: { contains: search, mode: 'insensitive' } }
           ]
         }),
-        ...(categoryId && { categoryId })
+        ...(categoryId && { categoryId }),
+        ...(categoryName && {
+          OR: [
+            { category: { equals: categoryName, mode: 'insensitive' } },
+            { productCategory: { name: { equals: categoryName, mode: 'insensitive' } } }
+          ]
+        })
       },
       select: {
         id: true,
@@ -95,6 +102,7 @@ export async function GET(req: NextRequest) {
       unit: product.unit,
       category: product.productCategory?.name || product.category,
       categoryId: product.categoryId || product.productCategory?.id,
+      gstRate: 0,
       imageUrl: product.images?.[0]?.url || null
     }))
 

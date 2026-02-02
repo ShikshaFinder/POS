@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { useSession } from 'next-auth/react'
 import {
@@ -14,13 +15,20 @@ import {
 import { cn } from '@/lib/utils'
 
 export default function POSHomePage() {
-  const { data: session } = useSession()
-  const [currentTime, setCurrentTime] = useState<Date | null>(null)
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [currentTime, setCurrentTime] = useState(new Date())
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
 
+  // Redirect logged-in users to checkout page
   useEffect(() => {
-    setCurrentTime(new Date())
+    if (status === 'authenticated' && session) {
+      router.replace('/pos/checkout')
+    }
+  }, [status, session, router])
+
+  useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
 
     // PWA Install Prompt Capture
@@ -116,6 +124,20 @@ export default function POSHomePage() {
     { name: 'Offline Mode', icon: AlertCircle }
   ]
 
+  // Show loading state while checking auth or redirecting
+  if (status === 'loading' || (status === 'authenticated' && session)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-4">
+            <Store className="h-10 w-10 text-white" />
+          </div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 overflow-y-auto h-screen">
       <header className="bg-white border-b border-gray-200 shadow-sm">
@@ -134,10 +156,10 @@ export default function POSHomePage() {
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold text-gray-900 font-mono">
-                {currentTime ? format(currentTime, 'HH:mm:ss') : <span className="opacity-0">00:00:00</span>}
+                {format(currentTime, 'HH:mm:ss')}
               </p>
               <p className="text-sm text-gray-500">
-                {currentTime ? format(currentTime, 'EEEE, MMMM d, yyyy') : <span className="opacity-0">Sunday, January 1, 2000</span>}
+                {format(currentTime, 'EEEE, MMMM d, yyyy')}
               </p>
             </div>
           </div>

@@ -27,23 +27,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Find the coupon
-    const coupon = await prisma.couponCode.findFirst({
+    const coupon = await prisma.pOSCouponCode.findFirst({
       where: {
         organizationId: session.user.currentOrganizationId,
         code: code.toUpperCase(),
-      },
-      include: {
-        redemptions: customerId ? {
-          where: {
-            customerId,
-          },
-        } : false,
       },
     })
 
     if (!coupon) {
       return NextResponse.json(
-        { 
+        {
           valid: false,
           error: 'Invalid coupon code',
           errorCode: 'INVALID_CODE'
@@ -91,7 +84,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check minimum purchase requirement
-    if (coupon.minPurchase && orderAmount < coupon.minPurchase) {
+    if (coupon.minPurchase !== null && orderAmount < coupon.minPurchase) {
       return NextResponse.json(
         {
           valid: false,
@@ -104,7 +97,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check total usage limit
-    if (coupon.totalUsageLimit && coupon.currentUsageCount >= coupon.totalUsageLimit) {
+    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
       return NextResponse.json(
         {
           valid: false,
@@ -115,60 +108,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check per-customer usage limit
-    if (customerId && coupon.maxUsagePerCustomer) {
-      const customerUsageCount = (coupon.redemptions as any[])?.length || 0
-      if (customerUsageCount >= coupon.maxUsagePerCustomer) {
-        return NextResponse.json(
-          {
-            valid: false,
-            error: 'You have already used this coupon the maximum number of times',
-            errorCode: 'CUSTOMER_LIMIT_REACHED',
-            maxUsagePerCustomer: coupon.maxUsagePerCustomer
-          },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Check product targeting (if specified)
-    if (productIds && productIds.length > 0) {
-      if (coupon.targetProducts.length > 0) {
-        // Use Set for O(1) lookup performance
-        const targetProductsSet = new Set(coupon.targetProducts)
-        const hasTargetProduct = productIds.some((id: string) => 
-          targetProductsSet.has(id)
-        )
-        if (!hasTargetProduct) {
-          return NextResponse.json(
-            {
-              valid: false,
-              error: 'This coupon is not applicable to the products in your order',
-              errorCode: 'PRODUCT_NOT_ELIGIBLE'
-            },
-            { status: 400 }
-          )
-        }
-      }
-
-      // Check excluded products with Set for performance
-      if (coupon.excludeProducts.length > 0) {
-        const excludeProductsSet = new Set(coupon.excludeProducts)
-        const hasExcludedProduct = productIds.some((id: string) => 
-          excludeProductsSet.has(id)
-        )
-        if (hasExcludedProduct) {
-          return NextResponse.json(
-            {
-              valid: false,
-              error: 'This coupon cannot be used with some products in your order',
-              errorCode: 'PRODUCT_EXCLUDED'
-            },
-            { status: 400 }
-          )
-        }
-      }
-    }
+    // Note: Per-customer usage limit and product targeting features are not available
+    // in the current schema. These would require additional models/fields to implement.
 
     // Calculate discount
     let discountAmount = 0
@@ -193,7 +134,6 @@ export async function POST(req: NextRequest) {
       coupon: {
         id: coupon.id,
         code: coupon.code,
-        name: coupon.name,
         description: coupon.description,
         discountType: coupon.discountType,
         discountValue: coupon.discountValue,
