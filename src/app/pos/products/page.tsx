@@ -103,6 +103,9 @@ export default function ProductsPage() {
       }
 
       if (res.ok) {
+        // Dispatch event to refresh categories in sidebar
+        window.dispatchEvent(new CustomEvent('categories-updated'))
+
         setShowDialog(false)
         fetchProducts() // Refresh the product list
         setFormData({
