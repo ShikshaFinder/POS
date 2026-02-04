@@ -268,8 +268,8 @@ export async function PUT(req: NextRequest) {
         unitPrice: unitPrice ? parseFloat(unitPrice) : null,
         currentStock: currentStock ? parseFloat(currentStock) : 0,
         reorderLevel: reorderLevel ? parseFloat(reorderLevel) : 0,
-        ...(unit && { unit }),
-        ...(category && { category }),
+        unit,
+        category: category || 'General',
       },
       select: {
         id: true,
