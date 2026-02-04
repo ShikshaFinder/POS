@@ -65,7 +65,14 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
         setLoadingCategories(false)
       }
     }
+
     fetchCategories()
+
+    // Listen for category update events
+    window.addEventListener('categories-updated', fetchCategories)
+    return () => {
+      window.removeEventListener('categories-updated', fetchCategories)
+    }
   }, [])
 
   // Detect mobile screen size
