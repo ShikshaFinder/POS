@@ -8,7 +8,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
-  
+
   /* Semantic Colors */
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
@@ -39,15 +39,23 @@
   --radius-xl: calc(var(--radius) + 4px);
 
   @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
+
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
   }
 }
 
 :root {
   /* Base */
   --background: #FFFFFF;
-  --foreground: #18181B; /* Gray 900 */
+  --foreground: #18181B;
+  /* Gray 900 */
 
   /* Primary - Purple 500 */
   --primary: #7C3AED;
@@ -55,15 +63,17 @@
 
   /* Secondary - Purple 100 */
   --secondary: #F3E8FF;
-  --secondary-foreground: #5B21B6; /* Purple 700 */
+  --secondary-foreground: #5B21B6;
+  /* Purple 700 */
 
-  /* Accent - Orange 500 */
-  --accent: #F97316;
-  --accent-foreground: #FFFFFF;
+  /* Accent - Neutral Gray */
+  --accent: #F4F4F5;
+  --accent-foreground: #18181B;
 
   /* Muted - Gray 100 */
   --muted: #F4F4F5;
-  --muted-foreground: #71717A; /* Gray 500 */
+  --muted-foreground: #71717A;
+  /* Gray 500 */
 
   /* Destructive - Red 500 */
   --destructive: #EF4444;
@@ -74,10 +84,12 @@
   --card-foreground: #18181B;
   --popover: #FFFFFF;
   --popover-foreground: #18181B;
-  --border: #E4E4E7; /* Gray 200 */
+  --border: #E4E4E7;
+  /* Gray 200 */
   --input: #E4E4E7;
-  --ring: #7C3AED; /* Purple 500 */
-  
+  --ring: #7C3AED;
+  /* Purple 500 */
+
   --radius: 0.5rem;
 
   --font-sans: 'Poppins', 'Inter', sans-serif;
@@ -86,31 +98,41 @@
 
 .dark {
   /* Base */
-  --background: #09090B; /* Gray 950 */
-  --foreground: #FAFAFA; /* Gray 50 */
+  --background: #09090B;
+  /* Gray 950 */
+  --foreground: #FAFAFA;
+  /* Gray 50 */
 
   /* Primary */
-  --primary: #8B5CF6; /* Purple 500 slightly lighter for dark mode if needed, kept generic for now or adjusted */
+  --primary: #8B5CF6;
+  /* Purple 500 slightly lighter for dark mode if needed, kept generic for now or adjusted */
   --primary-foreground: #FFFFFF;
 
   /* Secondary */
-  --secondary: #2E1065; /* Purple 950 */
-  --secondary-foreground: #E9D5FF; /* Purple 200 */
+  --secondary: #2E1065;
+  /* Purple 950 */
+  --secondary-foreground: #E9D5FF;
+  /* Purple 200 */
 
   /* Accent */
-  --accent: #EA580C; /* Orange 600 */
-  --accent-foreground: #FFFFFF;
+  --accent: #27272A;
+  /* Gray 800 */
+  --accent-foreground: #FAFAFA;
 
   /* Muted */
-  --muted: #27272A; /* Gray 800 */
-  --muted-foreground: #A1A1AA; /* Gray 400 */
+  --muted: #27272A;
+  /* Gray 800 */
+  --muted-foreground: #A1A1AA;
+  /* Gray 400 */
 
   /* UI Elements */
-  --card: #18181B; /* Gray 900 */
+  --card: #18181B;
+  /* Gray 900 */
   --card-foreground: #FAFAFA;
   --popover: #18181B;
   --popover-foreground: #FAFAFA;
-  --border: #27272A; /* Gray 800 */
+  --border: #27272A;
+  /* Gray 800 */
   --input: #27272A;
   --ring: #8B5CF6;
 }
@@ -118,14 +140,44 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
+    /* Remove default blue tap box */
   }
+
+  html {
+    @apply h-full w-full overflow-hidden;
+    /* Prevent elastic scrolling on document */
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground h-full w-full select-none;
+    /* Disable text selection by default for app feel */
+    overscroll-behavior-y: none;
+    /* specific bounce prevention */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Re-enable selection for specific text content and inputs */
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  span,
+  article,
+  input,
+  textarea,
+  .selectable {
+    @apply select-text;
   }
 }
 
 /* Responsive utilities and accessibility */
 @layer utilities {
+
   /* Smooth scrolling */
   .smooth-scroll {
     scroll-behavior: smooth;
@@ -136,9 +188,39 @@
     @apply min-h-[44px] min-w-[44px];
   }
 
+  .tap-target-lg {
+    @apply min-h-[48px] min-w-[48px];
+  }
+
   /* Focus visible for accessibility */
   .focus-visible-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+
+  /* Mobile-optimized touch feedback */
+  .touch-feedback {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    @apply active:scale-95 transition-transform duration-100;
+  }
+
+  /* Prevent overscroll bounce on mobile */
+  .no-overscroll {
+    overscroll-behavior: none;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Mobile-friendly card shadows */
+  .mobile-card {
+    @apply shadow-sm hover:shadow-md active:shadow-sm transition-shadow;
   }
 
   /* Truncate text with ellipsis */
@@ -221,10 +303,109 @@
   .safe-right {
     padding-right: env(safe-area-inset-right);
   }
+
+  /* Mobile viewport height fix */
+  .h-screen-mobile {
+    height: 100vh;
+    height: 100dvh;
+    /* Dynamic viewport height for mobile */
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  .no-zoom-on-focus {
+    font-size: 16px !important;
+  }
+
+  /* Slide drawer animations */
+  .slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+  }
+
+  .slide-out-right {
+    animation: slideOutRight 0.3s ease-in;
+  }
+
+  .slide-in-bottom {
+    animation: slideInBottom 0.3s ease-out;
+  }
+
+  .slide-out-bottom {
+    animation: slideOutBottom 0.3s ease-in;
+  }
+
+  /* Fade animations */
+  .fade-in {
+    animation: fadeIn 0.2s ease-in;
+  }
+
+  .fade-out {
+    animation: fadeOut 0.2s ease-out;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes slideInBottom {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOutBottom {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
 }
 
 /* Reduce motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -247,7 +428,7 @@
   .no-print {
     display: none !important;
   }
-  
+
   body {
     background: white !important;
     color: black !important;

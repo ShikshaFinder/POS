@@ -13,52 +13,108 @@ export async function POST(req: NextRequest) {
 
     const organizationId = (session.user as any).currentOrganizationId
     const body = await req.json()
-    const { items, customerName, customerPhone, totalAmount } = body
+
+    // Support both old format (direct) and new format (nested objects from billing page)
+    const items = body.items
+    const customerName = body.customer?.name || body.customerName
+    const customerPhone = body.customer?.phone || body.customerPhone
+    const deliveryDate = body.deliveryDate
+
+    // Extract totals - support both formats
+    // Calculate total from items if not provided
+    let totalAmount = body.totals?.total || body.totalAmount
+    const subtotalAmount = body.totals?.subtotal
+    const taxAmount = body.totals?.taxAmount
+
+    // Extract payment details
+    const paymentMethod = body.payment?.method || body.paymentMethod || 'CASH'
+    let amountPaid = body.payment?.amountPaid || body.amountPaid
+    const changeGiven = body.payment?.changeGiven || 0
+    const cashAmount = body.payment?.cashAmount
+    const cardAmount = body.payment?.cardAmount
+    const upiAmount = body.payment?.upiAmount
+    const walletAmount = body.payment?.walletAmount
+    const roundOff = body.payment?.roundOff || 0
+    const notes = body.payment?.notes || body.notes
+
+    // Extract discount info
+    const billDiscount = body.billDiscount || 0
+    const billDiscountType = body.billDiscountType || 'flat'
+    const couponCode = body.couponCode
+    const couponDiscount = body.couponDiscount || 0
+    const taxPercent = body.taxPercent || 0
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 })
     }
 
-    // Start a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Check stock availability for all items
-      for (const item of items) {
-        const product = await tx.product.findUnique({
-          where: { id: item.productId }
-        })
+    // Validate all products and stock outside the transaction (simple, reliable)
+    const processedItems: any[] = [];
+    let calculatedTotal = 0;
 
-        if (!product) {
-          throw new Error(`Product ${item.productId} not found`)
-        }
-
-        if ((product.currentStock ?? 0) < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}`)
-        }
+    for (const item of items) {
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId }
+      });
+      if (!product) {
+        return NextResponse.json({ error: `Product ${item.productId} not found` }, { status: 404 });
       }
+      if ((product.currentStock ?? 0) < item.quantity) {
+        return NextResponse.json({ error: `Insufficient stock for ${product.name}` }, { status: 400 });
+      }
+      const itemPrice = item.price || item.unitPrice || product.unitPrice || 0;
+      const itemTotal = itemPrice * item.quantity;
+      calculatedTotal += itemTotal;
+
+      processedItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: itemPrice,
+        product: product
+      });
+    }
+
+    // Use calculated total if not provided
+    if (!totalAmount) {
+      const tax = calculatedTotal * (taxPercent / 100);
+      totalAmount = calculatedTotal + tax;
+    }
+
+    // Default amountPaid to totalAmount if not provided
+    if (!amountPaid) {
+      amountPaid = totalAmount;
+    }
+
+    // Start a simple transaction for DB writes only
+    // Increased timeout to 30 seconds for large orders with many items
+    const result = await prisma.$transaction(async (tx) => {
 
       // Create invoice/order
       const invoiceNumber = `INV-${Date.now()}`
 
       // For POS, we'll create a sales order and invoice
       // First, create or get walk-in customer connection
+      const connectionName = customerName || 'Walk-in Customer'
+
       let connection = await tx.connection.findFirst({
         where: {
           organizationId,
-          name: customerName || 'Walk-in Customer',
+          name: connectionName,
           type: 'CUSTOMER'
         }
       })
 
-      if (!connection && customerName) {
+      // Always create connection if not found (for walk-in customers too)
+      if (!connection) {
         connection = await tx.connection.create({
           data: {
             organizationId,
-            name: customerName,
+            name: connectionName,
             type: 'CUSTOMER',
             businessCategory: 'RETAIL',
             contacts: customerPhone ? {
               create: {
-                fullName: customerName,
+                fullName: connectionName,
                 phone: customerPhone,
                 isPrimary: true
               }
@@ -70,19 +126,15 @@ export async function POST(req: NextRequest) {
       // Create sales order
       const orderRef = `SO-${Date.now()}`
 
-      // Ensure we have a connection (required by schema)
-      if (!connection) {
-        throw new Error('Customer connection is required')
-      }
-
       const salesOrder = await tx.salesOrder.create({
         data: {
           organizationId,
           orderRef,
           connectionId: connection.id,
           stage: 'COMPLETED',
+          deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
           items: {
-            create: items.map((item: any) => ({
+            create: processedItems.map((item: any) => ({
               organizationId,
               productId: item.productId,
               qty: item.quantity,
@@ -98,35 +150,46 @@ export async function POST(req: NextRequest) {
           }
         }
       })
-
-      // Create invoice
       const invoice = await tx.invoice.create({
         data: {
           organizationId,
           invoiceNumber,
           salesOrderId: salesOrder.id,
-          totalAmount,
-          paidAmount: totalAmount,
-          status: 'PAID',
+          totalAmount: totalAmount,
+          paidAmount: amountPaid,
+          status: amountPaid >= totalAmount ? 'PAID' : 'PARTIALLY_PAID',
           approvalStatus: 'APPROVED',
           customerName: customerName || 'Walk-in Customer'
         }
       })
 
-      // Create payment record
+      // Create payment record(s) based on payment method
+      // Store split payment details in referenceNo as JSON if needed
+      let referenceNo: string | undefined
+      if (cashAmount || cardAmount || upiAmount || walletAmount) {
+        referenceNo = JSON.stringify({
+          cashAmount,
+          cardAmount,
+          upiAmount,
+          walletAmount,
+          notes
+        })
+      }
+
       await tx.payment.create({
         data: {
           organizationId,
           invoiceId: invoice.id,
-          amount: totalAmount,
-          method: 'CASH',
+          amount: amountPaid,
+          method: paymentMethod,
           paidAt: new Date(),
-          status: 'COMPLETED'
+          status: 'COMPLETED',
+          referenceNo
         }
       })
 
-      // Update stock levels
-      for (const item of items) {
+      // Update stock and create inventory transaction for each item (simple, sequential)
+      for (const item of processedItems) {
         await tx.product.update({
           where: { id: item.productId },
           data: {
@@ -134,16 +197,14 @@ export async function POST(req: NextRequest) {
               decrement: item.quantity
             }
           }
-        })
-
-        // Create inventory transaction
+        });
+        // Create inventory transaction if stock exists
         const stock = await tx.inventoryStock.findFirst({
           where: {
             organizationId,
             productId: item.productId
           }
-        })
-
+        });
         if (stock) {
           await tx.inventoryTransaction.create({
             data: {
@@ -154,12 +215,13 @@ export async function POST(req: NextRequest) {
               referenceType: 'SalesOrder',
               referenceId: salesOrder.id
             }
-          })
+          });
         }
       }
-
-      return { salesOrder, invoice }
-    })
+      return { salesOrder, invoice };
+    }, {
+      timeout: 30000, // 30 seconds timeout for large orders
+    });
 
     // 🔔 Send WhatsApp notification with PDF invoice (async - non-blocking)
     if (customerPhone) {
@@ -223,8 +285,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      transaction: {
+        id: result.invoice.id,
+        receiptNumber: result.invoice.invoiceNumber,
+        salesOrderId: result.salesOrder.id,
+        invoiceId: result.invoice.id
+      },
       orderId: result.salesOrder.id,
       invoiceNumber: result.invoice.invoiceNumber,
+      receiptNumber: result.invoice.invoiceNumber, // For syncManager compatibility
       whatsAppSent: !!customerPhone, // Indicates if WhatsApp notification was triggered
     })
   } catch (error: any) {

@@ -22,20 +22,23 @@ export default function CategoryTabs({
     const totalProducts = categories.reduce((sum, cat) => sum + cat.productCount, 0)
 
     return (
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar -mx-1 px-1" role="tablist" aria-label="Product categories">
             {/* All Tab */}
             <button
                 onClick={() => onCategoryChange(null)}
+                role="tab"
+                aria-selected={selectedCategory === null}
+                aria-label={`All products, ${totalProducts} items`}
                 className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+                    "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all touch-feedback tap-target",
                     selectedCategory === null
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        ? "bg-blue-600 text-white shadow-md scale-105"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300"
                 )}
             >
                 All
                 <span className={cn(
-                    "text-xs px-1.5 py-0.5 rounded-full",
+                    "text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded-full font-semibold",
                     selectedCategory === null
                         ? "bg-blue-500 text-white"
                         : "bg-gray-200 text-gray-600"
@@ -49,16 +52,19 @@ export default function CategoryTabs({
                 <button
                     key={category.id}
                     onClick={() => onCategoryChange(category.id)}
+                    role="tab"
+                    aria-selected={selectedCategory === category.id}
+                    aria-label={`${category.name}, ${category.productCount} items`}
                     className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+                        "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all touch-feedback tap-target",
                         selectedCategory === category.id
-                            ? "bg-blue-600 text-white shadow-sm"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            ? "bg-blue-600 text-white shadow-md scale-105"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300"
                     )}
                 >
                     {category.name}
                     <span className={cn(
-                        "text-xs px-1.5 py-0.5 rounded-full",
+                        "text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded-full font-semibold",
                         selectedCategory === category.id
                             ? "bg-blue-500 text-white"
                             : "bg-gray-200 text-gray-600"

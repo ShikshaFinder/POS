@@ -28,7 +28,29 @@ interface Session {
     transactionCount: number
     status: string
     notes: string | null
-    cashier?: { name: string; profile?: { fullName: string } }
+    cashier?: { name: string; email?: string; profile?: { fullName?: string } }
+}
+
+// Helper function to transform session data from API response
+function transformSession(session: any): Session | null {
+    if (!session) return null
+    return {
+        ...session,
+        totalSales: session.totalSales ?? 0,
+        totalCash: session.totalCash ?? 0,
+        totalCard: session.totalCard ?? 0,
+        // Handle Prisma field name (totalUpi) vs interface name (totalUPI)
+        totalUPI: session.totalUPI ?? session.totalUpi ?? 0,
+        // totalWallet may not exist in schema
+        totalWallet: session.totalWallet ?? 0,
+        transactionCount: session.transactionCount ?? 0,
+        openingBalance: session.openingBalance ?? 0,
+        cashier: session.cashier ? {
+            name: session.cashier.profile?.fullName || session.cashier.email || 'Unknown',
+            email: session.cashier.email,
+            profile: session.cashier.profile
+        } : undefined
+    }
 }
 
 export default function SessionsPage() {
@@ -43,7 +65,7 @@ export default function SessionsPage() {
             const res = await fetch('/api/pos/sessions?current=true')
             if (res.ok) {
                 const data = await res.json()
-                setCurrentSession(data.session)
+                setCurrentSession(transformSession(data.session))
             }
         } catch (error) {
             console.error('Failed to fetch current session:', error)
@@ -55,7 +77,8 @@ export default function SessionsPage() {
             const res = await fetch('/api/pos/sessions')
             if (res.ok) {
                 const data = await res.json()
-                setPastSessions(data.sessions || [])
+                const sessions = (data.sessions || []).map(transformSession).filter(Boolean) as Session[]
+                setPastSessions(sessions)
             }
         } catch (error) {
             console.error('Failed to fetch past sessions:', error)
@@ -69,8 +92,8 @@ export default function SessionsPage() {
         fetchPastSessions()
     }, [fetchCurrentSession, fetchPastSessions])
 
-    const handleShiftOpened = (session: Session) => {
-        setCurrentSession(session)
+    const handleShiftOpened = (session: any) => {
+        setCurrentSession(transformSession(session))
         fetchPastSessions()
     }
 

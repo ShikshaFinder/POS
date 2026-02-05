@@ -46,7 +46,7 @@ export default function CustomersPage() {
       const res = await fetch(`/api/pos/customers?search=${searchQuery}`)
       if (res.ok) {
         const data = await res.json()
-        setCustomers(data.customers)
+        setCustomers(data.customers || [])
       }
     } catch (error) {
       console.error('Failed to fetch customers:', error)
@@ -156,7 +156,7 @@ export default function CustomersPage() {
             <div>
               <p className="text-sm text-gray-600">Total Purchases</p>
               <p className="text-2xl font-bold">
-                ₹{customers.reduce((sum, c) => sum + c.totalPurchases, 0).toLocaleString()}
+                ₹{customers.reduce((sum, c) => sum + (c.totalPurchases || 0), 0).toLocaleString()}
               </p>
             </div>
           </div>
@@ -205,12 +205,12 @@ export default function CustomersPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Total Purchases:</span>
                   <span className="font-semibold text-green-600">
-                    ₹{customer.totalPurchases.toFixed(2)}
+                    ₹{(customer.totalPurchases || 0).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Total Visits:</span>
-                  <span className="font-semibold">{customer.totalVisits}</span>
+                  <span className="font-semibold">{customer.totalVisits || 0}</span>
                 </div>
                 {customer.lastVisitDate && (
                   <div className="flex justify-between text-sm">
@@ -316,19 +316,19 @@ export default function CustomersPage() {
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <p className="text-xs text-gray-600 mb-1">Total Purchases</p>
                   <p className="text-xl font-bold text-blue-600">
-                    ₹{selectedCustomer.totalPurchases.toFixed(2)}
+                    ₹{(selectedCustomer.totalPurchases || 0).toFixed(2)}
                   </p>
                 </div>
                 <div className="bg-green-50 p-3 rounded-lg">
                   <p className="text-xs text-gray-600 mb-1">Total Visits</p>
                   <p className="text-xl font-bold text-green-600">
-                    {selectedCustomer.totalVisits}
+                    {selectedCustomer.totalVisits || 0}
                   </p>
                 </div>
                 <div className="bg-purple-50 p-3 rounded-lg">
                   <p className="text-xs text-gray-600 mb-1">Avg. Order</p>
                   <p className="text-xl font-bold text-purple-600">
-                    ₹{(selectedCustomer.totalPurchases / Math.max(selectedCustomer.totalVisits, 1)).toFixed(2)}
+                    ₹{((selectedCustomer.totalPurchases || 0) / Math.max(selectedCustomer.totalVisits || 0, 1)).toFixed(2)}
                   </p>
                 </div>
               </div>

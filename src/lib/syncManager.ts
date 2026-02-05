@@ -141,9 +141,24 @@ class SyncManager {
               syncedAt: Date.now(),
               serverId: result.serverId,
             })
+            // Notify success
+            this.notifySyncSuccess(transaction, result.serverId || '')
           } else {
+            const isPermanentFailure = transaction.retryCount >= 2 // Will become 3 after increment
+            
+            // Check if it's a validation error (product deleted, out of stock, etc.)
+            if (result.validationError) {
+              await indexedDBManager.updateTransaction(transaction.id, {
+                status: 'failed',
+                error: result.error || 'Product validation failed',
+                retryCount: transaction.retryCount + 1,
+              })
+              // Notify about validation failure
+              this.notifyValidationError(transaction, result.invalidItems || [])
+              this.notifySyncFailed(transaction, result.error || 'Product validation failed', true)
+            }
             // Check if it's a conflict
-            if (result.conflict) {
+            else if (result.conflict) {
               await indexedDBManager.updateTransaction(transaction.id, {
                 status: 'failed',
                 error: 'Conflict detected',
@@ -152,11 +167,16 @@ class SyncManager {
               // Notify about conflict
               this.notifyConflict(transaction, result.conflictData)
             } else {
+              const newStatus = isPermanentFailure ? 'failed' : 'pending'
               await indexedDBManager.updateTransaction(transaction.id, {
-                status: transaction.retryCount >= 3 ? 'failed' : 'pending',
+                status: newStatus,
                 error: result.error,
                 retryCount: transaction.retryCount + 1,
               })
+              // Only notify on permanent failure
+              if (isPermanentFailure) {
+                this.notifySyncFailed(transaction, result.error || 'Sync failed', true)
+              }
             }
           }
 
@@ -191,29 +211,90 @@ class SyncManager {
     }
   }
 
+  /**
+   * Validates transaction data before syncing
+   * Checks if products exist and have sufficient stock
+   */
+  private async validateTransaction(transaction: PendingTransaction): Promise<{
+    valid: boolean
+    error?: string
+    invalidItems?: string[]
+  }> {
+    try {
+      const response = await fetch('/api/pos/validate-transaction', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: transaction.data.items,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        return {
+          valid: false,
+          error: data.error || 'Validation failed',
+          invalidItems: data.invalidItems,
+        }
+      }
+
+      return { valid: true }
+    } catch (error: any) {
+      // Network error during validation - allow sync to proceed
+      // The actual sync will handle the error
+      console.warn('Validation skipped due to network error:', error.message)
+      return { valid: true }
+    }
+  }
+
   private async syncTransaction(transaction: PendingTransaction): Promise<{
     success: boolean
     serverId?: string
     error?: string
     conflict?: boolean
     conflictData?: any
+    validationError?: boolean
+    invalidItems?: string[]
   }> {
     try {
+      // Skip pre-validation to make sync faster
+      // The checkout API will validate and return proper errors if needed
+      // Only validate on retries to provide better error messages
+      if (transaction.retryCount > 0) {
+        const validation = await this.validateTransaction(transaction)
+        if (!validation.valid) {
+          return {
+            success: false,
+            error: validation.error,
+            validationError: true,
+            invalidItems: validation.invalidItems,
+          }
+        }
+      }
+
+      const payload = {
+        ...transaction.data,
+        localId: transaction.id,
+        timestamp: transaction.timestamp,
+      }
+      
+      console.log('[SyncManager] Syncing transaction:', transaction.id, payload)
+      
       const response = await fetch('/api/pos/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...transaction.data,
-          localId: transaction.id,
-          timestamp: transaction.timestamp,
-        }),
+        body: JSON.stringify(payload),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
+        console.error('[SyncManager] Sync failed:', response.status, data)
+        
         // Check for conflict (409)
         if (response.status === 409) {
           return {
@@ -230,11 +311,13 @@ class SyncManager {
         }
       }
 
+      console.log('[SyncManager] Sync successful:', data)
       return {
         success: true,
         serverId: data.transaction?.id || data.receiptNumber,
       }
     } catch (error: any) {
+      console.error('[SyncManager] Sync error:', error)
       return {
         success: false,
         error: error.message || 'Network error',
@@ -250,6 +333,50 @@ class SyncManager {
           detail: {
             transaction,
             conflictData,
+          },
+        })
+      )
+    }
+  }
+
+  private notifyValidationError(transaction: PendingTransaction, invalidItems: string[]) {
+    // Dispatch custom event for validation error notification
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('transaction-validation-error', {
+          detail: {
+            transaction,
+            invalidItems,
+            message: `Some products in this transaction are no longer available or out of stock`,
+          },
+        })
+      )
+    }
+  }
+
+  private notifySyncSuccess(transaction: PendingTransaction, serverId: string) {
+    // Dispatch custom event for successful sync
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('transaction-synced', {
+          detail: {
+            localId: transaction.id,
+            serverId,
+          },
+        })
+      )
+    }
+  }
+
+  private notifySyncFailed(transaction: PendingTransaction, error: string, permanent: boolean) {
+    // Dispatch custom event for sync failure
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('transaction-sync-failed', {
+          detail: {
+            transaction,
+            error,
+            permanent, // true if max retries exceeded
           },
         })
       )
@@ -295,6 +422,17 @@ class SyncManager {
 
     await this.updateState()
     this.syncNow()
+  }
+  
+  async clearFailed(): Promise<void> {
+    const failed = await indexedDBManager.getAllTransactions('failed')
+    
+    for (const transaction of failed) {
+      await indexedDBManager.deleteTransaction(transaction.id)
+    }
+
+    await this.updateState()
+    console.log(`Cleared ${failed.length} failed transaction(s)`)
   }
 
   async clearSynced(): Promise<void> {

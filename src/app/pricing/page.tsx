@@ -1,5 +1,7 @@
 "use client"
 
+{/*ft6f6rf*/}
+
 import { Button } from "@/components/ui/button"
 import { Navbar } from "@/components/ui/navbar"
 import { Footer } from "@/components/ui/footer"

@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
+import { useSession } from 'next-auth/react'
 import {
   ShoppingCart, Package, DollarSign, Users,
   Clock, Receipt, BarChart3, TrendingUp,
@@ -13,12 +15,44 @@ import {
 import { cn } from '@/lib/utils'
 
 export default function POSHomePage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [currentTime, setCurrentTime] = useState(new Date())
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+
+  // Redirect logged-in users to checkout page
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      router.replace('/pos/checkout')
+    }
+  }, [status, session, router])
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
+
+    // PWA Install Prompt Capture
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    }
   }, [])
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt()
+      const { outcome } = await deferredPrompt.userChoice
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null)
+      }
+    }
+  }
 
   const features = [
     {
@@ -90,8 +124,22 @@ export default function POSHomePage() {
     { name: 'Offline Mode', icon: AlertCircle }
   ]
 
+  // Show loading state while checking auth or redirecting
+  if (status === 'loading' || (status === 'authenticated' && session)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-4">
+            <Store className="h-10 w-10 text-white" />
+          </div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 overflow-y-auto h-screen">
       <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
@@ -101,7 +149,7 @@ export default function POSHomePage() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-                  Flexi POS
+                  Flavi POS
                 </h1>
                 <p className="text-sm text-gray-600 font-medium">Complete Point of Sale Solution</p>
               </div>
@@ -137,14 +185,25 @@ export default function POSHomePage() {
               Streamline your retail operations with our comprehensive point of sale system.
               Fast, reliable, and packed with features to help you succeed.
             </p>
-            <div className="flex items-center justify-center gap-4 mt-6">
+            <div className="flex flex-wrap items-center justify-center gap-4 mt-6">
               <Link
-                href="/signin"
+                href={session ? "/pos" : "/signin"}
                 className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold text-lg shadow-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
               >
                 <Store className="h-5 w-5" />
                 Get Started
               </Link>
+
+              {deferredPrompt && (
+                <button
+                  onClick={handleInstallClick}
+                  className="px-6 py-3 bg-gray-900 text-white rounded-xl font-semibold text-lg shadow-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-2 animate-bounce-subtle"
+                >
+                  <Download className="h-5 w-5" />
+                  Install App
+                </button>
+              )}
+
               <Link
                 href="/pos/products"
                 className="px-6 py-3 bg-white text-gray-700 rounded-xl font-semibold text-lg shadow-lg hover:bg-gray-50 transition-colors border border-gray-200 inline-flex items-center gap-2"
@@ -222,12 +281,12 @@ export default function POSHomePage() {
               Access the dashboard to start managing your business operations
             </p>
             <div className="flex items-center justify-center gap-4">
-              <a
-                href="/signin"
+              <Link
+                href={session ? "/pos" : "/signin"}
                 className="px-6 py-3 bg-white text-blue-600 rounded-xl font-semibold text-lg shadow-lg hover:bg-gray-50 transition-colors cursor-pointer inline-block"
               >
                 → Go to Dashboard
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -236,7 +295,7 @@ export default function POSHomePage() {
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center text-gray-500 text-sm">
-          <p>© 2024 Flexi POS. All rights reserved.</p>
+          <p>© 2026 Flavi POS. All rights reserved.</p>
         </div>
       </footer>
     </div>

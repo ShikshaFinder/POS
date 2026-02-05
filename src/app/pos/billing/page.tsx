@@ -3,26 +3,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { ShoppingCart } from 'lucide-react'
-import ProductGrid from '@/components/pos/ProductGrid'
+import ProductGrid, { Product } from '@/components/pos/ProductGrid'
 import CategoryTabs from '@/components/pos/CategoryTabs'
 import CartPanel, { CartItem } from '@/components/pos/CartPanel'
 import PaymentModal, { PaymentDetails } from '@/components/pos/PaymentModal'
 import HeldBillsPanel, { HeldBill } from '@/components/pos/HeldBillsPanel'
+import { MobileBottomNav } from '@/components/pos/MobileBottomNav'
+import ProductSyncButton from '@/components/pos/ProductSyncButton'
 import { syncManager } from '@/lib/syncManager'
-
-interface Product {
-  id: string
-  name: string
-  sku: string | null
-  unitPrice: number | null
-  markedPrice: number | null
-  currentStock: number | null
-  reorderLevel: number | null
-  unit: string
-  category: string
-  categoryId: string | null
-  imageUrl: string | null
-}
+import { productSyncService } from '@/lib/productSyncService'
+import { getCachedImageUrl } from '@/lib/imageCache'
 
 interface Category {
   id: string
@@ -64,10 +54,54 @@ export default function BillingPage() {
   // Refs for keyboard shortcuts
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Fetch products
+  // State for offline mode
+  const [isUsingCache, setIsUsingCache] = useState(false)
+
+  // Fetch products - tries cached first, then falls back to network
   const fetchProducts = useCallback(async () => {
     try {
       setProductsLoading(true)
+
+      // Try to get from cache first
+      const hasCachedData = await productSyncService.hasCachedData()
+
+      if (hasCachedData) {
+        // Use cached products
+        const categoryId = selectedCategory && !selectedCategory.startsWith('legacy_')
+          ? selectedCategory
+          : undefined
+
+        let cachedProducts = await productSyncService.getProducts({
+          search: searchQuery || undefined,
+          categoryId
+        })
+
+        // Handle legacy category filtering
+        if (selectedCategory?.startsWith('legacy_')) {
+          const legacyCat = selectedCategory.replace('legacy_', '')
+          cachedProducts = cachedProducts.filter(p => p.category === legacyCat)
+        }
+
+        // Load cached image URLs for products
+        const productsWithImages = await Promise.all(
+          cachedProducts.map(async (product) => {
+            const cachedImageUrl = product.hasLocalImage
+              ? await getCachedImageUrl(product.id)
+              : null
+            return {
+              ...product,
+              cachedImageUrl
+            } as Product
+          })
+        )
+
+        setProducts(productsWithImages)
+        setIsUsingCache(true)
+        return
+      }
+
+      // Fall back to network if no cached data
+      setIsUsingCache(false)
       const params = new URLSearchParams()
       if (searchQuery) params.append('search', searchQuery)
       if (selectedCategory && !selectedCategory.startsWith('legacy_')) {
@@ -89,15 +123,51 @@ export default function BillingPage() {
       }
     } catch (error) {
       console.error('Failed to fetch products:', error)
-      toast.error('Failed to load products')
+      // Try cache on network failure
+      const hasCachedData = await productSyncService.hasCachedData()
+      if (hasCachedData) {
+        const cachedProducts = await productSyncService.getProducts()
+        const productsWithImages = await Promise.all(
+          cachedProducts.map(async (product) => {
+            const cachedImageUrl = product.hasLocalImage
+              ? await getCachedImageUrl(product.id)
+              : null
+            return {
+              ...product,
+              cachedImageUrl
+            } as Product
+          })
+        )
+        setProducts(productsWithImages)
+        setIsUsingCache(true)
+        toast.info('Using offline product data')
+      } else {
+        toast.error('Failed to load products')
+      }
     } finally {
       setProductsLoading(false)
     }
   }, [searchQuery, selectedCategory])
 
-  // Fetch categories
+  // Fetch categories - tries cached first, then falls back to network
   const fetchCategories = useCallback(async () => {
     try {
+      // Try cached categories first
+      const hasCachedData = await productSyncService.hasCachedData()
+
+      if (hasCachedData) {
+        const cachedCategories = await productSyncService.getCategories()
+        if (cachedCategories.length > 0) {
+          setCategories(cachedCategories.map(c => ({
+            id: c.id,
+            name: c.name,
+            productCount: c.productCount
+          })))
+          return
+        }
+      }
+
+      // Fall back to network
       const res = await fetch('/api/pos/categories')
       if (res.ok) {
         const data = await res.json()
@@ -105,6 +175,15 @@ export default function BillingPage() {
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
+      // Try cache on network failure
+      const cachedCategories = await productSyncService.getCategories()
+      if (cachedCategories.length > 0) {
+        setCategories(cachedCategories.map(c => ({
+          id: c.id,
+          name: c.name,
+          productCount: c.productCount
+        })))
+      }
     }
   }, [])
 
@@ -163,42 +242,29 @@ export default function BillingPage() {
           toast.error('Insufficient stock')
           return prevCart
         }
-        return prevCart.map(item => {
-          if (item.id === product.id) {
-            const newQty = item.quantity + 1
-            const subtotal = item.unitPrice * newQty
-            const discount = item.discountType === 'flat'
-              ? item.discountValue
-              : subtotal * (item.discountValue / 100)
-            return {
-              ...item,
-              quantity: newQty,
-              subtotal,
-              discount,
-              total: subtotal - discount
-            }
-          }
-          return item
-        })
+        return prevCart.map((item: CartItem) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.unitPrice, total: ((item.quantity + 1) * item.unitPrice) - item.discount }
+            : item
+        )
       }
-
-      const price = product.unitPrice ?? 0
-      toast.success(`${product.name} added`)
       return [...prevCart, {
         id: product.id,
         name: product.name,
         sku: product.sku,
-        unitPrice: price,
+        unitPrice: product.unitPrice || 0,
         markedPrice: product.markedPrice,
         quantity: 1,
         unit: product.unit,
         discount: 0,
-        discountType: 'flat' as const,
+        discountType: 'flat',
         discountValue: 0,
-        subtotal: price,
-        total: price
+        subtotal: product.unitPrice || 0,
+        total: product.unitPrice || 0,
+        gstRate: product.gstRate ?? 0
       }]
     })
+    toast.success('Added to cart')
   }, [])
 
   // Update quantity
@@ -400,7 +466,7 @@ export default function BillingPage() {
       toast.success(`Transaction saved! Receipt: ${localId.substring(0, 8).toUpperCase()}`)
       setShowPaymentModal(false)
       clearCart()
-      
+
       // Fetch products in background to update stock
       fetchProducts()
 
@@ -471,120 +537,152 @@ export default function BillingPage() {
   const totals = calculateTotals()
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-4">
-      {/* Left Side - Products */}
-      <div className="flex-1 flex flex-col space-y-4 min-w-0">
-        {/* Header with Customer Info */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-4">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Billing</h1>
-            <p className="text-xs lg:text-sm text-gray-500 mt-0.5 hidden md:block">
-              Alt+Q: Search • Alt+A: Add Item • Alt+D: Discount • Alt+H: Hold • Alt+B: Held Bills • Alt+P: Pay • Alt+C: Clear
+    <>
+      <div className="h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-4">
+        {/* Left Side - Products */}
+        <div className="flex-1 flex flex-col space-y-3 sm:space-y-4 min-w-0">
+          {/* Header with Customer Info */}
+          <div className="flex flex-col gap-2 sm:gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Billing</h1>
+                {isUsingCache && (
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+                    Offline Mode
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Product Sync Button */}
+                <ProductSyncButton onSyncComplete={fetchProducts} />
+                <div className="flex lg:hidden gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="Name"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm w-24 no-zoom-on-focus tap-target"
+                    aria-label="Customer name"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm w-28 no-zoom-on-focus tap-target"
+                    aria-label="Customer phone"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Customer Info */}
+            <div className="hidden lg:flex gap-2">
+              <input
+                type="text"
+                placeholder="Customer Name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-40 tap-target"
+                aria-label="Customer name"
+              />
+              <input
+                type="tel"
+                placeholder="Phone"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-32 tap-target"
+                aria-label="Customer phone"
+              />
+            </div>
+
+            {/* Keyboard shortcuts hint - desktop only */}
+            <p className="text-xs text-gray-500 hidden lg:block">
+              Alt+Q: Search • Alt+H: Hold • Alt+B: Held Bills • Alt+P: Pay • Alt+C: Clear
             </p>
           </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Customer Name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full lg:w-40 min-h-[44px]"
-              aria-label="Customer name"
-            />
-            <input
-              type="tel"
-              placeholder="Phone"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full lg:w-32 min-h-[44px]"
-              aria-label="Customer phone"
+
+          {/* Category Tabs */}
+          <CategoryTabs
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+          />
+
+          {/* Product Grid */}
+          <div className="flex-1 min-h-0">
+            <ProductGrid
+              products={products}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onProductClick={addToCart}
+              loading={productsLoading}
+              searchInputRef={searchInputRef}
             />
           </div>
         </div>
 
-        {/* Category Tabs */}
-        <CategoryTabs
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-        />
+        {/* Right Side - Cart (Desktop Only) */}
+        <div className="hidden lg:block">
+          <CartPanel
+            items={cart}
+            onUpdateQuantity={updateQuantity}
+            onRemoveItem={removeItem}
+            onUpdateItemDiscount={updateItemDiscount}
+            onClearCart={clearCart}
+            billDiscount={billDiscount}
+            onBillDiscountChange={(type, value) => setBillDiscount({ type, value })}
+            taxPercent={taxPercent}
+            couponCode={couponCode}
+            onCouponChange={setCouponCode}
+            couponApplied={couponApplied}
+            couponDiscount={couponDiscount}
+            onApplyCoupon={applyCoupon}
+            onRemoveCoupon={removeCoupon}
+            onCheckout={() => setShowPaymentModal(true)}
+            onHoldBill={holdBill}
+            checkoutLoading={checkoutLoading}
+          />
+        </div>
 
-        {/* Product Grid */}
-        <div className="flex-1 min-h-0">
-          <ProductGrid
-            products={products}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onProductClick={addToCart}
-            loading={productsLoading}
-            searchInputRef={searchInputRef}
+        {/* Mobile Cart Drawer */}
+        <div className="lg:hidden">
+          <CartPanel
+            items={cart}
+            onUpdateQuantity={updateQuantity}
+            onRemoveItem={removeItem}
+            onUpdateItemDiscount={updateItemDiscount}
+            onClearCart={clearCart}
+            billDiscount={billDiscount}
+            onBillDiscountChange={(type, value) => setBillDiscount({ type, value })}
+            taxPercent={taxPercent}
+            couponCode={couponCode}
+            onCouponChange={setCouponCode}
+            couponApplied={couponApplied}
+            couponDiscount={couponDiscount}
+            onApplyCoupon={applyCoupon}
+            onRemoveCoupon={removeCoupon}
+            onCheckout={() => setShowPaymentModal(true)}
+            onHoldBill={holdBill}
+            checkoutLoading={checkoutLoading}
+            isOpen={showMobileCart}
+            onClose={() => setShowMobileCart(false)}
           />
         </div>
       </div>
 
-      {/* Right Side - Cart (Desktop Only) */}
-      <div className="hidden lg:block">
-        <CartPanel
-          items={cart}
-          onUpdateQuantity={updateQuantity}
-          onRemoveItem={removeItem}
-          onUpdateItemDiscount={updateItemDiscount}
-          onClearCart={clearCart}
-          billDiscount={billDiscount}
-          onBillDiscountChange={(type, value) => setBillDiscount({ type, value })}
-          taxPercent={taxPercent}
-          couponCode={couponCode}
-          onCouponChange={setCouponCode}
-          couponApplied={couponApplied}
-          couponDiscount={couponDiscount}
-          onApplyCoupon={applyCoupon}
-          onRemoveCoupon={removeCoupon}
-          onCheckout={() => setShowPaymentModal(true)}
-          onHoldBill={holdBill}
-          checkoutLoading={checkoutLoading}
-        />
-      </div>
-
-      {/* Mobile Cart */}
-      <div className="lg:hidden">
-        <CartPanel
-          items={cart}
-          onUpdateQuantity={updateQuantity}
-          onRemoveItem={removeItem}
-          onUpdateItemDiscount={updateItemDiscount}
-          onClearCart={clearCart}
-          billDiscount={billDiscount}
-          onBillDiscountChange={(type, value) => setBillDiscount({ type, value })}
-          taxPercent={taxPercent}
-          couponCode={couponCode}
-          onCouponChange={setCouponCode}
-          couponApplied={couponApplied}
-          couponDiscount={couponDiscount}
-          onApplyCoupon={applyCoupon}
-          onRemoveCoupon={removeCoupon}
-          onCheckout={() => setShowPaymentModal(true)}
-          onHoldBill={holdBill}
-          checkoutLoading={checkoutLoading}
-          isOpen={showMobileCart}
-          onClose={() => setShowMobileCart(false)}
-        />
-      </div>
-
-      {/* Mobile Cart Button */}
-      {cart.length > 0 && (
-        <button
-          onClick={() => setShowMobileCart(true)}
-          className="lg:hidden fixed bottom-20 right-4 z-30 bg-blue-600 text-white p-4 rounded-full shadow-2xl hover:bg-blue-700 transition-all active:scale-95 min-h-[56px] min-w-[56px] flex items-center justify-center"
-          aria-label={`View cart with ${cart.length} items`}
-        >
-          <div className="relative">
-            <ShoppingCart className="h-6 w-6" aria-hidden="true" />
-            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-              {cart.length}
-            </span>
-          </div>
-        </button>
-      )}
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav
+        cartItemCount={cart.length}
+        onCartClick={() => setShowMobileCart(true)}
+        onSearchClick={() => searchInputRef.current?.focus()}
+        onHeldBillsClick={() => setShowHeldBills(true)}
+        onMenuClick={() => {
+          // This will trigger the sidebar from POSNav
+          const menuButton = document.querySelector('[aria-label="Toggle navigation menu"]') as HTMLButtonElement
+          menuButton?.click()
+        }}
+      />
 
       {/* Payment Modal */}
       <PaymentModal
@@ -603,6 +701,6 @@ export default function BillingPage() {
         isOpen={showHeldBills}
         onClose={() => setShowHeldBills(false)}
       />
-    </div>
+    </>
   )
 }

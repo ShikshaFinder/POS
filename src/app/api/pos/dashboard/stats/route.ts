@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { format } from 'date-fns'
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,64 +20,111 @@ export async function GET(req: NextRequest) {
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
 
-    // Today's POS transactions
-    const todayTransactions = await prisma.pOSTransaction.findMany({
+    // Get today's invoices (which is what checkout creates)
+    const todayInvoices = await prisma.invoice.findMany({
       where: {
         organizationId,
-        transactionDate: {
+        createdAt: {
           gte: today,
           lt: tomorrow
-        },
-        status: 'COMPLETED'
+        }
       },
-      orderBy: { transactionDate: 'desc' }
+      include: {
+        payments: true,
+        salesOrder: {
+          include: {
+            items: {
+              include: {
+                product: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
     })
 
-    const todaySales = todayTransactions.reduce((sum, t) => sum + t.totalAmount, 0)
-    const todayTransactionCount = todayTransactions.length
+    // Calculate totals
+    const todaySales = todayInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
+    const todayTransactionCount = todayInvoices.length
     const averageTicket = todayTransactionCount > 0 ? todaySales / todayTransactionCount : 0
 
-    // Payment breakdown
+    // Payment breakdown from Payment records
+    const todayPayments = await prisma.payment.findMany({
+      where: {
+        organizationId,
+        paidAt: {
+          gte: today,
+          lt: tomorrow
+        }
+      }
+    })
+
     const paymentBreakdown = {
-      cash: todayTransactions.filter(t => t.paymentMethod === 'CASH').reduce((sum, t) => sum + t.totalAmount, 0),
-      card: todayTransactions.filter(t => t.paymentMethod === 'CARD').reduce((sum, t) => sum + t.totalAmount, 0),
-      upi: todayTransactions.filter(t => t.paymentMethod === 'UPI').reduce((sum, t) => sum + t.totalAmount, 0),
-      wallet: todayTransactions.filter(t => t.paymentMethod === 'WALLET').reduce((sum, t) => sum + t.totalAmount, 0)
+      cash: todayPayments
+        .filter(p => p.method === 'CASH')
+        .reduce((sum, p) => sum + p.amount, 0),
+      card: todayPayments
+        .filter(p => p.method === 'CARD')
+        .reduce((sum, p) => sum + p.amount, 0),
+      upi: todayPayments
+        .filter(p => p.method === 'UPI')
+        .reduce((sum, p) => sum + p.amount, 0),
+      wallet: todayPayments
+        .filter(p => p.method === 'WALLET' || p.method === 'MIXED')
+        .reduce((sum, p) => sum + p.amount, 0)
     }
 
-    // Recent transactions
-    const recentTransactions = todayTransactions.slice(0, 5).map(t => ({
-      receiptNumber: t.receiptNumber,
-      amount: t.totalAmount,
-      time: t.transactionDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-      paymentMethod: t.paymentMethod
-    }))
+    // Recent transactions (from invoices)
+    const recentTransactions = todayInvoices.slice(0, 5).map(inv => {
+      const payment = inv.payments?.[0]
+      return {
+        receiptNumber: inv.invoiceNumber,
+        amount: inv.totalAmount,
+        time: format(new Date(inv.createdAt), 'hh:mm a'),
+        paymentMethod: payment?.method || 'CASH'
+      }
+    })
 
     // Low stock items
     const lowStockItems = await prisma.product.count({
       where: {
         organizationId,
-        AND: [
-          { currentStock: { not: null } },
-          { reorderLevel: { not: null } },
-          { currentStock: { lte: 10 } } // Threshold
-        ]
+        currentStock: { lte: 10 },
+        reorderLevel: { not: null }
       }
     })
 
-    // Total POS customers
-    const totalCustomers = await prisma.pOSCustomer.count({
-      where: { organizationId }
-    })
-
-    // Active session for current user
-    const activeSession = await prisma.pOSSession.findFirst({
-      where: {
+    // Total customers (from Connection with type CUSTOMER)
+    const totalCustomers = await prisma.connection.count({
+      where: { 
         organizationId,
-        cashierId: userId,
-        status: 'OPEN'
+        type: 'CUSTOMER'
       }
     })
+
+    // Try to get active POS session
+    let activeSession = null
+    try {
+      const session = await prisma.pOSSession.findFirst({
+        where: {
+          organizationId,
+          cashierId: userId,
+          status: 'OPEN'
+        }
+      })
+      
+      if (session) {
+        activeSession = {
+          sessionNumber: session.sessionNumber,
+          openedAt: session.openedAt.toISOString(),
+          totalSales: session.totalSales
+        }
+      }
+    } catch (e) {
+      // POSSession table might not exist, ignore
+      console.log('POSSession not available')
+    }
 
     return NextResponse.json({
       todaySales,
@@ -86,11 +134,7 @@ export async function GET(req: NextRequest) {
       totalCustomers,
       paymentBreakdown,
       recentTransactions,
-      activeSession: activeSession ? {
-        sessionNumber: activeSession.sessionNumber,
-        openedAt: activeSession.openedAt.toISOString(),
-        totalSales: activeSession.totalSales
-      } : null
+      activeSession
     })
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
