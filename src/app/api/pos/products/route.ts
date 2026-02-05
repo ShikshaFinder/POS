@@ -116,6 +116,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// POST /api/pos/products - Create a new product
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
