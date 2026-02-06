@@ -174,32 +174,40 @@ export default function ReportsPage() {
                   { key: 'card', label: 'Card', icon: CreditCard, color: 'blue' },
                   { key: 'upi', label: 'UPI', icon: Smartphone, color: 'purple' },
                   { key: 'wallet', label: 'Wallet', icon: Wallet, color: 'orange' }
-                ].map(({ key, label, icon: Icon, color }) => {
-                  const amount = report.paymentBreakdown[key as keyof typeof report.paymentBreakdown]
-                  const percentage = report.summary.totalSales > 0
-                    ? (amount / report.summary.totalSales) * 100
-                    : 0
-                  return (
-                    <div key={key} className="flex items-center gap-3">
-                      <Icon className={`h-5 w-5 text-${color}-600`} />
-                      <div className="flex-1">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium">{label}</span>
-                          <span>₹{amount.toFixed(2)}</span>
+                ]
+                  .map(({ key, label, icon, color }) => ({
+                    key,
+                    label,
+                    icon,
+                    color,
+                    amount: report.paymentBreakdown[key as keyof typeof report.paymentBreakdown]
+                  }))
+                  .sort((a, b) => b.amount - a.amount) // Sort by amount (highest first)
+                  .map(({ key, label, icon: Icon, color, amount }) => {
+                    const percentage = report.summary.totalSales > 0
+                      ? (amount / report.summary.totalSales) * 100
+                      : 0
+                    return (
+                      <div key={key} className="flex items-center gap-3">
+                        <Icon className={`h-5 w-5 text-${color}-600`} />
+                        <div className="flex-1">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="font-medium">{label}</span>
+                            <span>₹{amount.toFixed(2)}</span>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full bg-${color}-500 rounded-full transition-all`}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full bg-${color}-500 rounded-full transition-all`}
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
+                        <span className="text-sm text-gray-500 w-12 text-right">
+                          {percentage.toFixed(0)}%
+                        </span>
                       </div>
-                      <span className="text-sm text-gray-500 w-12 text-right">
-                        {percentage.toFixed(0)}%
-                      </span>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
               </div>
             </div>
 
@@ -230,26 +238,48 @@ export default function ReportsPage() {
 
           {/* Hourly Sales Chart */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Hourly Sales</h3>
-            <div className="flex items-end gap-1 h-40">
-              {report.hourlyBreakdown.map((hour) => (
-                <div
-                  key={hour.hour}
-                  className="flex-1 flex flex-col items-center group"
-                >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Hourly Sales</h3>
+              <div className="text-sm text-gray-500">
+                Peak: {report.hourlyBreakdown.reduce((max, h) => h.sales > max.sales ? h : max, report.hourlyBreakdown[0]).hour}:00
+              </div>
+            </div>
+            <div className="flex items-end gap-1 h-40 border-b border-gray-200 pb-2">
+              {report.hourlyBreakdown.map((hour) => {
+                const heightPercent = maxHourlySales > 0 ? (hour.sales / maxHourlySales) * 100 : 0
+                return (
                   <div
-                    className={cn(
-                      "w-full rounded-t transition-all cursor-pointer",
-                      hour.sales > 0 ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-100"
-                    )}
-                    style={{ height: `${(hour.sales / maxHourlySales) * 100}%`, minHeight: hour.sales > 0 ? '4px' : '2px' }}
-                    title={`${hour.hour}:00 - ₹${hour.sales.toFixed(2)} (${hour.transactions} txns)`}
-                  />
-                  <span className="text-[10px] text-gray-400 mt-1">
-                    {hour.hour.toString().padStart(2, '0')}
-                  </span>
-                </div>
-              ))}
+                    key={hour.hour}
+                    className="flex-1 flex flex-col items-center group relative"
+                  >
+                    {/* Bar */}
+                    <div className="w-full flex flex-col justify-end" style={{ height: '150px' }}>
+                      <div
+                        className={cn(
+                          "w-full rounded-t transition-all cursor-pointer",
+                          hour.sales > 0 ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-100"
+                        )}
+                        style={{ height: `${heightPercent}%`, minHeight: hour.sales > 0 ? '3px' : '2px' }}
+                      >
+                        {/* Tooltip */}
+                        {hour.sales > 0 && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
+                            <div className="bg-gray-900 text-white text-xs rounded px-2 py-1">
+                              <div>{hour.hour}:00-{hour.hour + 1}:00</div>
+                              <div>₹{hour.sales.toLocaleString('en-IN')}</div>
+                              <div className="text-gray-300">{hour.transactions} orders</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Hour label */}
+                    <span className="text-[10px] text-gray-400 mt-1">
+                      {hour.hour}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
