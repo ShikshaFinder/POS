@@ -699,13 +699,27 @@ We appreciate your visit!`
                 <div className="p-2 sm:p-4">
                   <h3 className="font-semibold text-sm sm:text-lg mb-1 truncate">{product.name}</h3>
                   <p className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2 truncate">{product.category}</p>
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                    <span className="text-base sm:text-xl font-bold text-green-600">
-                      ₹{product.unitPrice?.toFixed(2)}
-                    </span>
-                    <span className={`text-xs sm:text-sm ${product.currentStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
-                      {product.currentStock > 0 ? `Stock: ${product.currentStock}` : 'Out of Stock'} {product.unit}
-                    </span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-medium tracking-tight">Price:</span>
+                      <span className="text-sm sm:text-lg font-bold text-green-600">
+                        ₹{(product.unitPrice || 0).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-1 border-t border-gray-50">
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-medium tracking-tight">Stock:</span>
+                      <span className={cn(
+                        "text-xs sm:text-sm font-semibold",
+                        product.currentStock > 0 ? "text-gray-900" : "text-red-500"
+                      )}>
+                        {product.currentStock > 0
+                          ? (product.currentStock > 1000000
+                            ? product.currentStock.toExponential(4)
+                            : product.currentStock.toLocaleString())
+                          : 'Out of Stock'
+                        } {product.unit}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </Card>
