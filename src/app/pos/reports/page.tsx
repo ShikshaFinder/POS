@@ -174,32 +174,40 @@ export default function ReportsPage() {
                   { key: 'card', label: 'Card', icon: CreditCard, color: 'blue' },
                   { key: 'upi', label: 'UPI', icon: Smartphone, color: 'purple' },
                   { key: 'wallet', label: 'Wallet', icon: Wallet, color: 'orange' }
-                ].map(({ key, label, icon: Icon, color }) => {
-                  const amount = report.paymentBreakdown[key as keyof typeof report.paymentBreakdown]
-                  const percentage = report.summary.totalSales > 0
-                    ? (amount / report.summary.totalSales) * 100
-                    : 0
-                  return (
-                    <div key={key} className="flex items-center gap-3">
-                      <Icon className={`h-5 w-5 text-${color}-600`} />
-                      <div className="flex-1">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium">{label}</span>
-                          <span>₹{amount.toFixed(2)}</span>
+                ]
+                  .map(({ key, label, icon, color }) => ({
+                    key,
+                    label,
+                    icon,
+                    color,
+                    amount: report.paymentBreakdown[key as keyof typeof report.paymentBreakdown]
+                  }))
+                  .sort((a, b) => b.amount - a.amount) // Sort by amount (highest first)
+                  .map(({ key, label, icon: Icon, color, amount }) => {
+                    const percentage = report.summary.totalSales > 0
+                      ? (amount / report.summary.totalSales) * 100
+                      : 0
+                    return (
+                      <div key={key} className="flex items-center gap-3">
+                        <Icon className={`h-5 w-5 text-${color}-600`} />
+                        <div className="flex-1">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="font-medium">{label}</span>
+                            <span>₹{amount.toFixed(2)}</span>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full bg-${color}-500 rounded-full transition-all`}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full bg-${color}-500 rounded-full transition-all`}
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
+                        <span className="text-sm text-gray-500 w-12 text-right">
+                          {percentage.toFixed(0)}%
+                        </span>
                       </div>
-                      <span className="text-sm text-gray-500 w-12 text-right">
-                        {percentage.toFixed(0)}%
-                      </span>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
               </div>
             </div>
 
