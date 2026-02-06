@@ -32,7 +32,7 @@ interface DailyReport {
 }
 
 export default function ReportsPage() {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10))
+  const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'))
   const [report, setReport] = useState<DailyReport | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -58,7 +58,7 @@ export default function ReportsPage() {
   const changeDate = (offset: number) => {
     const date = new Date(selectedDate)
     date.setDate(date.getDate() + offset)
-    setSelectedDate(date.toISOString().slice(0, 10))
+    setSelectedDate(date.toLocaleDateString('en-CA'))
   }
 
   const maxHourlySales = report
@@ -93,7 +93,7 @@ export default function ReportsPage() {
           </div>
           <button
             onClick={() => changeDate(1)}
-            disabled={selectedDate === new Date().toISOString().slice(0, 10)}
+            disabled={selectedDate === new Date().toLocaleDateString('en-CA')}
             className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
           >
             <ChevronRight className="h-4 w-4" />
