@@ -33,6 +33,7 @@ export default function CustomersPage() {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    countryCode: '+91',
     email: '',
     address: '',
   })
@@ -57,20 +58,35 @@ export default function CustomersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Enforce 10-digit phone number validation if phone is provided
+    if (formData.phone) {
+      const cleanedPhone = formData.phone.replace(/\D/g, '')
+      if (cleanedPhone.length !== 10) {
+        alert('Please enter a valid 10-digit mobile number')
+        return
+      }
+    }
+
     setLoading(true)
 
     try {
+      const fullPhone = formData.phone ? `${formData.countryCode} ${formData.phone}` : null
+
       const res = await fetch('/api/pos/customers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          phone: fullPhone
+        }),
       })
 
       if (res.ok) {
         setShowDialog(false)
-        setFormData({ name: '', phone: '', email: '', address: '' })
+        setFormData({ name: '', phone: '', countryCode: '+91', email: '', address: '' })
         fetchCustomers()
       } else {
         const error = await res.json()
@@ -94,7 +110,7 @@ export default function CustomersPage() {
           </p>
         </div>
         <Button onClick={() => {
-          setFormData({ name: '', phone: '', email: '', address: '' })
+          setFormData({ name: '', phone: '', countryCode: '+91', email: '', address: '' })
           setShowDialog(true)
         }}>
           <Plus className="h-4 w-4 mr-2" />
@@ -243,13 +259,30 @@ export default function CustomersPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Phone</label>
-              <Input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+91 9876543210"
-              />
+              <label className="text-sm font-medium mb-1 block">Phone (Optional)</label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={formData.countryCode}
+                  onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
+                  className="w-16 bg-gray-50 text-center font-semibold"
+                  placeholder="+91"
+                />
+                <Input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '')
+                    if (val.length <= 10) {
+                      setFormData({ ...formData, phone: val })
+                    }
+                  }}
+                  placeholder="9876543210"
+                  className="flex-1"
+                  maxLength={10}
+                />
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1">If provided, must be exactly 10 digits</p>
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Email</label>
