@@ -21,6 +21,7 @@ interface StockItem {
 
 export default function StockPage() {
   const [stocks, setStocks] = useState<StockItem[]>([])
+  const [allStocks, setAllStocks] = useState<StockItem[]>([]) // For stats calculation
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all')
@@ -39,6 +40,18 @@ export default function StockPage() {
       if (res.ok) {
         const data = await res.json()
         setStocks(data.stocks || [])
+
+        // Also fetch all stocks for stats (without filters) if we don't have them yet or if search/filter changed
+        if (filter === 'all' && !searchQuery) {
+          setAllStocks(data.stocks || [])
+        } else if (allStocks.length === 0) {
+          // Fetch all stocks for stats
+          const allRes = await fetch(`/api/pos/stock`)
+          if (allRes.ok) {
+            const allData = await allRes.json()
+            setAllStocks(allData.stocks || [])
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to fetch stocks:', error)
@@ -94,7 +107,7 @@ export default function StockPage() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Total Items</p>
-              <p className="text-2xl font-semibold text-gray-900">{stocks.length}</p>
+              <p className="text-2xl font-semibold text-gray-900">{allStocks.length}</p>
             </div>
           </div>
         </div>
@@ -106,7 +119,7 @@ export default function StockPage() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Low Stock</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {stocks.filter(s => s.quantity > 0 && s.quantity <= s.product.reorderLevel).length}
+                {allStocks.filter(s => s.quantity > 0 && s.quantity <= s.product.reorderLevel).length}
               </p>
             </div>
           </div>
@@ -119,7 +132,7 @@ export default function StockPage() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Out of Stock</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {stocks.filter(s => s.quantity === 0).length}
+                {allStocks.filter(s => s.quantity === 0).length}
               </p>
             </div>
           </div>

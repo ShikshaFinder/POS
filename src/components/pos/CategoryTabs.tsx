@@ -22,7 +22,7 @@ export default function CategoryTabs({
     const totalProducts = categories.reduce((sum, cat) => sum + cat.productCount, 0)
 
     return (
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar -mx-1 px-1" role="tablist" aria-label="Product categories">
+        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap pb-2" role="tablist" aria-label="Product categories">
             {/* All Tab */}
             <button
                 onClick={() => onCategoryChange(null)}

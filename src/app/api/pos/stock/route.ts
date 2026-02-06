@@ -24,50 +24,83 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search')
 
     try {
-      const stocks = await prisma.inventoryStock.findMany({
+      // Fetch all products with their inventory stocks
+      const products = await prisma.product.findMany({
         where: {
           organizationId,
-          ...(filter === 'out' && {
-            quantity: 0
-          }),
           ...(search && {
-            product: {
-              OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { sku: { contains: search, mode: 'insensitive' } }
-              ]
-            }
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { sku: { contains: search, mode: 'insensitive' } }
+            ]
           })
         },
         include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              sku: true,
-              unit: true,
-              category: true,
-              reorderLevel: true
-            }
-          },
-          storageLocation: {
-            select: {
-              name: true
+          inventoryStocks: {
+            where: {
+              organizationId: organizationId
+            },
+            include: {
+              storageLocation: {
+                select: {
+                  name: true
+                }
+              }
             }
           }
         },
         orderBy: {
-          quantity: 'asc'
+          name: 'asc'
         }
       })
 
-      console.log(`Stock API: Found ${stocks.length} records`)
+      console.log(`Stock API: Found ${products.length} products`)
 
-      // Filter low stock in application code
+      // Transform products to stock format
+      const stocks = products.flatMap(product => {
+        if (product.inventoryStocks.length === 0) {
+          // Product with no InventoryStock records - use currentStock from Product table
+          return [{
+            id: product.id,
+            product: {
+              id: product.id,
+              name: product.name,
+              sku: product.sku || 'N/A',
+              unit: product.unit || 'PIECE',
+              category: product.category || 'UNCATEGORIZED',
+              reorderLevel: product.reorderLevel || 0
+            },
+            quantity: product.currentStock || 0,
+            storageLocation: {
+              name: 'Default Storage'
+            }
+          }]
+        }
+        // Product with InventoryStock records - create entry for each storage location
+        return product.inventoryStocks.map(stock => ({
+          id: stock.id,
+          product: {
+            id: product.id,
+            name: product.name,
+            sku: product.sku || 'N/A',
+            unit: product.unit || 'PIECE',
+            category: product.category || 'UNCATEGORIZED',
+            reorderLevel: product.reorderLevel || 0
+          },
+          quantity: stock.quantity,
+          storageLocation: stock.storageLocation
+        }))
+      })
+
+      console.log(`Stock API: Transformed to ${stocks.length} stock records`)
+
+      // Apply filters
       let filteredStocks = stocks
-      if (filter === 'low') {
+      if (filter === 'out') {
+        filteredStocks = stocks.filter(stock => stock.quantity === 0)
+      } else if (filter === 'low') {
         filteredStocks = stocks.filter(stock =>
-          stock.product.reorderLevel && stock.quantity <= stock.product.reorderLevel
+          stock.quantity > 0 && stock.quantity <= stock.product.reorderLevel
         )
       }
 
