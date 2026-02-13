@@ -303,6 +303,7 @@ export default function ProductsPage() {
                 <label className="text-sm font-medium mb-1 block">Unit Price *</label>
                 <Input
                   type="number"
+                  min="0"
                   step="0.01"
                   value={formData.unitPrice}
                   onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}

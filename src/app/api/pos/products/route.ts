@@ -245,6 +245,11 @@ export async function PUT(req: NextRequest) {
       category,
     } = body
 
+    // Validate unit price is not negative
+    if (unitPrice && parseFloat(unitPrice) < 0) {
+      return NextResponse.json({ error: 'Unit price cannot be negative' }, { status: 400 })
+    }
+
     // Validate stock is not negative
     if (currentStock && parseFloat(currentStock) < 0) {
       return NextResponse.json({ error: 'Stock cannot be negative' }, { status: 400 })
