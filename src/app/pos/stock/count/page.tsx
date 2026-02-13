@@ -14,9 +14,7 @@ interface Product {
 
 interface POSStock {
     id: string
-    productId: string
-    currentStock: number
-    minimumStock: number
+    quantity: number
     product: Product
 }
 
@@ -44,15 +42,33 @@ export default function StockCountPage() {
             const res = await fetch('/api/pos/stock')
             if (res.ok) {
                 const data = await res.json()
-                const posStocks = data.stocks || []
-                setStocks(posStocks)
+                const rawStocks = data.stocks || []
+
+                // Aggregate stocks by product ID
+                const aggregatedMap = new Map<string, POSStock>()
+
+                rawStocks.forEach((stock: POSStock) => {
+                    if (!stock.product?.id) return
+
+                    if (aggregatedMap.has(stock.product.id)) {
+                        const existing = aggregatedMap.get(stock.product.id)!
+                        existing.quantity += stock.quantity
+                    } else {
+                        // Create a new object to avoid issues
+                        aggregatedMap.set(stock.product.id, { ...stock })
+                    }
+                })
+
+                const aggregatedStocks = Array.from(aggregatedMap.values())
+                setStocks(aggregatedStocks)
 
                 // Initialize entries
                 const initial: { [key: string]: SnapshotEntry } = {}
-                posStocks.forEach((stock: POSStock) => {
-                    initial[stock.productId] = {
-                        productId: stock.productId,
-                        systemStock: stock.currentStock,
+                aggregatedStocks.forEach((stock: POSStock) => {
+                    if (!stock.product?.id) return
+                    initial[stock.product.id] = {
+                        productId: stock.product.id,
+                        systemStock: stock.quantity || 0,
                         physicalStock: null,
                         variance: null,
                         varianceReason: ''
@@ -120,7 +136,8 @@ export default function StockCountPage() {
                 setMessage({ type: 'success', text: `Saved ${data.snapshots.length} stock counts!` })
             } else {
                 const data = await res.json()
-                setMessage({ type: 'error', text: data.error || 'Failed to save' })
+                const errorText = data.details ? `${data.error}: ${data.details}` : (data.error || 'Failed to save')
+                setMessage({ type: 'error', text: errorText })
             }
         } catch (error) {
             setMessage({ type: 'error', text: 'Failed to save stock counts' })
@@ -180,7 +197,10 @@ export default function StockCountPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                         {stocks.map(stock => {
-                            const entry = entries[stock.productId]
+                            const productId = stock.product?.id
+                            if (!productId) return null
+
+                            const entry = entries[productId]
                             const hasVariance = entry?.variance !== null && entry.variance !== 0
 
                             return (
@@ -190,7 +210,7 @@ export default function StockCountPage() {
                                         <div className="text-sm text-gray-500">{stock.product.sku}</div>
                                     </td>
                                     <td className="px-6 py-4 text-gray-900">
-                                        {stock.currentStock} {stock.product.unit}
+                                        {stock.quantity} {stock.product.unit}
                                     </td>
                                     <td className="px-6 py-4">
                                         <input
@@ -199,17 +219,17 @@ export default function StockCountPage() {
                                             step="0.1"
                                             placeholder="Enter count"
                                             value={entry?.physicalStock ?? ''}
-                                            onChange={(e) => updateEntry(stock.productId, parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => updateEntry(productId, parseFloat(e.target.value) || 0)}
                                             className="w-28 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                                         />
                                     </td>
                                     <td className="px-6 py-4">
                                         {entry?.variance !== null && (
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${entry.variance === 0
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : entry.variance > 0
-                                                        ? 'bg-blue-100 text-blue-800'
-                                                        : 'bg-red-100 text-red-800'
+                                                ? 'bg-green-100 text-green-800'
+                                                : entry.variance > 0
+                                                    ? 'bg-blue-100 text-blue-800'
+                                                    : 'bg-red-100 text-red-800'
                                                 }`}>
                                                 {entry.variance > 0 ? '+' : ''}{entry.variance}
                                             </span>
@@ -221,7 +241,7 @@ export default function StockCountPage() {
                                                 type="text"
                                                 placeholder="Reason for variance"
                                                 value={entry?.varianceReason || ''}
-                                                onChange={(e) => updateReason(stock.productId, e.target.value)}
+                                                onChange={(e) => updateReason(productId, e.target.value)}
                                                 className="w-48 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                                             />
                                         )}
