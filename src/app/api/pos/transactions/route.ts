@@ -115,8 +115,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Calculate subtotal
+    // Calculate subtotal and tax (per item)
     let subtotal = 0
+    let taxAmount = 0
+
+    const toNonNegativeNumber = (value: unknown, fallback = 0) => {
+      const parsed = typeof value === 'number' ? value : Number(value)
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+    }
+
     const processedItems: {
       productId: string
       productName: string
@@ -157,7 +164,10 @@ export async function POST(req: NextRequest) {
 
       const itemSubtotal = product.unitPrice * item.quantity
       const itemDiscount = item.discountAmount || 0
-      const itemTax = ((itemSubtotal - itemDiscount) * taxPercent) / 100
+
+      const productTaxRate = toNonNegativeNumber((product as any).gstRate, taxPercent)
+      const itemTaxRate = toNonNegativeNumber(item.taxRate ?? item.gstRate, productTaxRate)
+      const itemTax = ((itemSubtotal - itemDiscount) * itemTaxRate) / 100
       const itemTotal = itemSubtotal - itemDiscount + itemTax
 
       processedItems.push({
@@ -167,11 +177,12 @@ export async function POST(req: NextRequest) {
         quantity: item.quantity,
         unitPrice: product.unitPrice,
         discountAmount: itemDiscount,
-        taxRate: taxPercent,
+        taxRate: itemTaxRate,
         total: itemTotal,
       })
 
       subtotal += itemSubtotal
+      taxAmount += itemTax
     }
 
     // Calculate totals
@@ -179,7 +190,6 @@ export async function POST(req: NextRequest) {
       ? (subtotal * discountPercent) / 100
       : discountAmount
     const afterDiscount = subtotal - finalDiscountAmount
-    const taxAmount = (afterDiscount * taxPercent) / 100
     const totalAmount = afterDiscount + taxAmount
     const changeGiven = amountPaid - totalAmount
 

@@ -18,6 +18,7 @@ interface Product {
   name: string
   sku: string | null
   unitPrice: number
+  gstRate?: number
   currentStock: number
   unit: string
   category: string
@@ -189,6 +190,7 @@ export default function CheckoutPage() {
               name: product.name,
               sku: product.sku,
               unitPrice: product.unitPrice || 0,
+              gstRate: product.gstRate ?? 0,
               currentStock: product.currentStock || 0,
               unit: product.unit,
               category: product.category,
@@ -210,7 +212,11 @@ export default function CheckoutPage() {
       const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
-        setProducts(data.products)
+        setProducts((data.products || []).map((product: any) => ({
+          ...product,
+          unitPrice: product.unitPrice || 0,
+          gstRate: product.gstRate ?? 0,
+        })))
       }
     } catch (error) {
       console.error('Failed to fetch products:', error)
@@ -228,6 +234,7 @@ export default function CheckoutPage() {
               name: product.name,
               sku: product.sku,
               unitPrice: product.unitPrice || 0,
+              gstRate: product.gstRate ?? 0,
               currentStock: product.currentStock || 0,
               unit: product.unit,
               category: product.category,
@@ -310,13 +317,22 @@ export default function CheckoutPage() {
     return cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0)
   }
 
-  const calculateTax = (subtotal: number) => {
-    return subtotal * 0.05 // 5% tax
+  const getItemTaxRate = (item: CartItem) => {
+    const rate = Number(item.gstRate)
+    return Number.isFinite(rate) && rate >= 0 ? rate : 0
+  }
+
+  const calculateTax = () => {
+    return cart.reduce((sum, item) => {
+      const itemSubtotal = item.unitPrice * item.quantity
+      const itemTax = itemSubtotal * (getItemTaxRate(item) / 100)
+      return sum + itemTax
+    }, 0)
   }
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal()
-    const tax = calculateTax(subtotal)
+    const tax = calculateTax()
     return subtotal + tax
   }
 
@@ -346,7 +362,7 @@ export default function CheckoutPage() {
 
     try {
       const subtotal = calculateSubtotal()
-      const taxAmount = calculateTax(subtotal)
+      const taxAmount = calculateTax()
 
       // Prepare transaction data for offline-first sync
       const transactionData = {
@@ -354,6 +370,7 @@ export default function CheckoutPage() {
           productId: item.id,
           quantity: item.quantity,
           price: item.unitPrice,
+          taxRate: getItemTaxRate(item),
         })),
         totals: {
           subtotal,
@@ -372,7 +389,6 @@ export default function CheckoutPage() {
         } : undefined,
         customerName: customer?.name,
         customerPhone: customer?.phone,
-        taxPercent: 5,
         deliveryDate: deliveryDate || undefined,
       }
 
@@ -950,8 +966,8 @@ We appreciate your visit!`
               <span>₹{calculateSubtotal().toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-xs sm:text-sm">
-              <span className="text-gray-600">Tax (5%):</span>
-              <span>₹{calculateTax(calculateSubtotal()).toFixed(2)}</span>
+              <span className="text-gray-600">Tax (GST):</span>
+              <span>₹{calculateTax().toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm sm:text-base font-bold border-t pt-1">
               <span>Total:</span>

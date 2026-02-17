@@ -141,7 +141,7 @@ class ProductSyncService {
         unit: p.unit,
         category: p.category,
         categoryId: p.categoryId,
-        gstRate: p.gstRate || 0,
+        gstRate: p.gstRate ?? 0,
         imageUrl: p.imageUrl,
         hasLocalImage: false, // Will update after caching images
         updatedAt: now

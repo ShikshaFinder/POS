@@ -532,7 +532,7 @@ export default function CartPanel({
                         )}
                         {taxAmount > 0 && (
                             <div className="flex justify-between text-gray-600">
-                                <span>Tax ({taxPercent}%)</span>
+                                <span>{taxPercent > 0 ? `Tax (${taxPercent}%)` : 'Tax (GST)'}</span>
                                 <span>+₹{taxAmount.toFixed(2)}</span>
                             </div>
                         )}

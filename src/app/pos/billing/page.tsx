@@ -221,11 +221,27 @@ export default function BillingPage() {
       ? billDiscount.value
       : (subtotal - lineDiscountTotal) * (billDiscount.value / 100)
     const afterDiscount = subtotal - lineDiscountTotal - billDiscountAmount - couponDiscount
-    const taxAmount = afterDiscount * (taxPercent / 100)
+
+    const getItemTaxRate = (item: CartItem) => {
+      const rate = Number(item.gstRate)
+      return Number.isFinite(rate) && rate >= 0 ? rate : 0
+    }
+
+    const totalLineAmounts = subtotal - lineDiscountTotal
+    const globalDiscount = billDiscountAmount + couponDiscount
+    const discountFactor = totalLineAmounts > 0
+      ? Math.max(0, 1 - (globalDiscount / totalLineAmounts))
+      : 1
+
+    const taxAmount = cart.reduce((sum, item) => {
+      const itemNetValue = item.total * discountFactor
+      return sum + (itemNetValue * (getItemTaxRate(item) / 100))
+    }, 0)
+
     const total = afterDiscount + taxAmount
 
     return { subtotal, lineDiscountTotal, billDiscountAmount, taxAmount, total }
-  }, [cart, billDiscount, couponDiscount, taxPercent])
+  }, [cart, billDiscount, couponDiscount])
 
   // Add product to cart
   const addToCart = useCallback((product: Product) => {
@@ -429,7 +445,8 @@ export default function BillingPage() {
           quantity: item.quantity,
           price: item.unitPrice,
           discount: item.discount,
-          discountType: item.discountType
+          discountType: item.discountType,
+          taxRate: item.gstRate ?? 0
         })),
         totals: {
           subtotal: totals.subtotal,
