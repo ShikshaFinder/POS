@@ -187,7 +187,7 @@ export default function CartPanel({
     const cartContent = (
         <>
             {/* Header */}
-            <div className="p-4 border-b border-gray-200 flex-shrink-0">
+            <div className="p-4 border-b border-gray-200 shrink-0">
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                         <ShoppingCart className="h-5 w-5" aria-hidden="true" />
@@ -197,7 +197,7 @@ export default function CartPanel({
                         {items.length > 0 && (
                             <button
                                 onClick={onClearCart}
-                                className="text-sm text-red-600 hover:text-red-700 font-medium min-h-[44px] px-3"
+                                className="text-sm text-red-600 hover:text-red-700 font-medium min-h-11 px-3"
                                 aria-label="Clear cart"
                             >
                                 Clear
@@ -397,7 +397,7 @@ export default function CartPanel({
                                             type="number"
                                             placeholder="Amount"
                                             defaultValue={item.discountValue}
-                                            className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm min-h-[44px]"
+                                            className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm min-h-11"
                                             onBlur={(e) => {
                                                 const val = parseFloat(e.target.value) || 0
                                                 onUpdateItemDiscount(item.id, item.discountType, val)
@@ -416,7 +416,7 @@ export default function CartPanel({
                                         <select
                                             value={item.discountType}
                                             onChange={(e) => onUpdateItemDiscount(item.id, e.target.value as 'flat' | 'percent', item.discountValue)}
-                                            className="px-2 py-1.5 border border-gray-300 rounded text-sm min-h-[44px]"
+                                            className="px-2 py-1.5 border border-gray-300 rounded text-sm min-h-11"
                                             aria-label="Discount type"
                                         >
                                             <option value="flat">₹</option>
@@ -426,7 +426,7 @@ export default function CartPanel({
                                 ) : (
                                     <button
                                         onClick={() => setShowDiscountInput(item.id)}
-                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 min-h-[44px]"
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 min-h-11"
                                         aria-label="Add discount to item"
                                     >
                                         <Tag className="h-3 w-3" aria-hidden="true" />
@@ -441,17 +441,17 @@ export default function CartPanel({
 
             {/* Footer - Bill Summary */}
             {items.length > 0 && (
-                <div className="border-t border-gray-200 p-4 space-y-4 flex-shrink-0 bg-white">
+                <div className="border-t border-gray-200 p-4 space-y-4 shrink-0 bg-white">
                     {/* Bill Discount */}
                     <div className="flex items-center gap-2">
-                        <label className="text-xs text-gray-600 w-16 flex-shrink-0" htmlFor="bill-discount-type">
+                        <label className="text-xs text-gray-600 w-16 shrink-0" htmlFor="bill-discount-type">
                             Discount
                         </label>
                         <select
                             id="bill-discount-type"
                             value={billDiscount.type}
                             onChange={(e) => onBillDiscountChange(e.target.value as 'flat' | 'percent', billDiscount.value)}
-                            className="text-xs border border-gray-300 rounded px-2 py-1.5 min-h-[44px]"
+                            className="text-xs border border-gray-300 rounded px-2 py-1.5 min-h-11"
                             aria-label="Discount type"
                         >
                             <option value="flat">₹ Flat</option>
@@ -462,7 +462,7 @@ export default function CartPanel({
                             value={billDiscount.value || ''}
                             onChange={(e) => onBillDiscountChange(billDiscount.type, parseFloat(e.target.value) || 0)}
                             placeholder="0"
-                            className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 min-h-[44px]"
+                            className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 min-h-11"
                             min="0"
                             aria-label="Discount value"
                         />
@@ -470,7 +470,7 @@ export default function CartPanel({
 
                     {/* Coupon */}
                     <div className="flex items-center gap-2">
-                        <label className="text-xs text-gray-600 w-16 flex-shrink-0">Coupon</label>
+                        <label className="text-xs text-gray-600 w-16 shrink-0">Coupon</label>
                         {couponApplied ? (
                             <div className="flex-1 flex items-center gap-2">
                                 <span className="flex-1 text-xs bg-green-50 text-green-700 px-2 py-1.5 rounded border border-green-200">
@@ -478,7 +478,7 @@ export default function CartPanel({
                                 </span>
                                 <button
                                     onClick={onRemoveCoupon}
-                                    className="text-xs text-red-600 hover:text-red-700 min-h-[44px] px-3"
+                                    className="text-xs text-red-600 hover:text-red-700 min-h-11 px-3"
                                     aria-label="Remove coupon"
                                 >
                                     Remove
@@ -491,13 +491,13 @@ export default function CartPanel({
                                     value={couponCode}
                                     onChange={(e) => onCouponChange(e.target.value.toUpperCase())}
                                     placeholder="Enter code"
-                                    className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 min-h-[44px]"
+                                    className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 min-h-11"
                                     aria-label="Coupon code"
                                 />
                                 <button
                                     onClick={onApplyCoupon}
                                     disabled={!couponCode}
-                                    className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded disabled:bg-gray-300 min-h-[44px]"
+                                    className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded disabled:bg-gray-300 min-h-11"
                                     aria-label="Apply coupon"
                                 >
                                     Apply
@@ -546,7 +546,7 @@ export default function CartPanel({
                     <div className="flex gap-2">
                         <button
                             onClick={onHoldBill}
-                            className="flex-1 bg-amber-100 text-amber-700 py-3 rounded-lg font-medium hover:bg-amber-200 transition-colors text-sm min-h-[48px]"
+                            className="flex-1 bg-amber-100 text-amber-700 py-3 rounded-lg font-medium hover:bg-amber-200 transition-colors text-sm min-h-12"
                             aria-label="Hold bill for later (Press F5)"
                         >
                             <span className="hidden sm:inline">Hold (F5)</span>
@@ -555,7 +555,7 @@ export default function CartPanel({
                         <button
                             onClick={onCheckout}
                             disabled={checkoutLoading}
-                            className="flex-[2] bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors min-h-[48px]"
+                            className="flex-2 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors min-h-12"
                             aria-label="Proceed to payment (Press F12)"
                         >
                             {checkoutLoading ? 'Processing...' : (
