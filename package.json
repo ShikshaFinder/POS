@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "prisma generate && node scripts/fix-prisma-default.js && next build --webpack",
     "start": "next start",
-    "postinstall": "prisma generate && node scripts/fix-prisma-default.js"
+    "postinstall": "prisma generate && node scripts/fix-prisma-default.js",
+    "prisma:validate": "prisma validate",
+    "prisma:generate": "prisma generate",
+    "prisma:dbpush:safe": "prisma db push --skip-generate",
+    "prisma:deploy:safe": "npm run prisma:validate && npm run prisma:dbpush:safe && npm run prisma:generate"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
