@@ -1,10 +1,12 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Bell, Package, FileText, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 export default function NotificationsPage() {
+    const router = useRouter()
     const [notifications, setNotifications] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -37,6 +39,27 @@ export default function NotificationsPage() {
         } catch (error) {
             console.error('Failed to mark notification as read:', error)
             fetchNotifications()
+        }
+    }
+
+    const handleNotificationClick = async (notification: any) => {
+        // 1. Mark as read
+        if (!notification.isRead) {
+            await handleMarkAsRead(notification.id)
+        }
+
+        // 2. Navigate based on type
+        if (notification.posOrderId) {
+            router.push(`/pos/orders?id=${notification.posOrderId}`)
+        } else if (notification.posInvoiceId) {
+            const isRetailSale = notification.title?.includes('New Sale') || notification.body?.includes('Invoice INV-');
+            if (isRetailSale) {
+                router.push(`/pos/receipts?id=${notification.posInvoiceId}`)
+            } else {
+                router.push(`/pos/invoices?id=${notification.posInvoiceId}`)
+            }
+        } else if (notification.posAlertId) {
+            router.push(`/pos/stock?filter=low`)
         }
     }
 
@@ -97,8 +120,10 @@ export default function NotificationsPage() {
                         {notifications.map((notification) => (
                             <div
                                 key={notification.id}
-                                onClick={() => handleMarkAsRead(notification.id)}
-                                className={`p-5 hover:bg-gray-50 transition-colors flex gap-4 cursor-pointer group ${!notification.isRead ? 'bg-blue-50/20' : ''}`}
+                                onClick={() => handleNotificationClick(notification)}
+                                className={`p-4 flex gap-4 transition-colors cursor-pointer border-l-4 hover:bg-gray-50
+                                    ${notification.isRead ? 'border-transparent bg-white' : 'border-blue-500 bg-blue-50/10'}
+                                `}
                             >
                                 <div className={`p-2.5 rounded-xl flex-shrink-0 self-start transition-transform group-hover:scale-110 ${getIconContainerClass(notification)}`}>
                                     {getIcon(notification)}

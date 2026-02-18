@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import {
@@ -42,6 +43,8 @@ interface ReceiptData {
 export default function ReceiptsPage() {
   const [receipts, setReceipts] = useState<ReceiptData[]>([])
   const [loading, setLoading] = useState(true)
+  const searchParams = useSearchParams()
+  const receiptIdParam = searchParams.get('id')
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -55,6 +58,26 @@ export default function ReceiptsPage() {
 
   const fetchReceipts = useCallback(async () => {
     setLoading(true)
+    // If we have an ID param and we haven't loaded yet, try to load just that receipt
+    if (receiptIdParam && receipts.length === 0 && !searchQuery && !dateFrom && !dateTo) {
+      try {
+        const res = await fetch(`/api/pos/receipts?id=${receiptIdParam}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.receipt) {
+            setReceipts([data.receipt])
+            setSelectedReceipt(data.receipt)
+            setShowPreview(true)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch specific receipt:', error)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     try {
       const params = new URLSearchParams()
       params.append('page', String(page))
@@ -74,7 +97,7 @@ export default function ReceiptsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, searchQuery, dateFrom, dateTo])
+  }, [page, searchQuery, dateFrom, dateTo, receiptIdParam])
 
   useEffect(() => {
     fetchReceipts()
@@ -147,7 +170,7 @@ export default function ReceiptsPage() {
       '--------------------------------',
       'ITEMS:',
       '--------------------------------',
-      ...receipt.items.map(item => 
+      ...receipt.items.map(item =>
         `${item.productName}\n  ${item.quantity} x ₹${item.unitPrice.toFixed(2)} = ₹${item.total.toFixed(2)}`
       ),
       '',
@@ -181,7 +204,7 @@ export default function ReceiptsPage() {
 
   const handleShare = async (receipt: ReceiptData) => {
     const text = `Receipt #${receipt.receiptNumber}\nTotal: ₹${receipt.totalAmount.toFixed(2)}\nDate: ${format(new Date(receipt.transactionDate), 'dd MMM yyyy, HH:mm')}`
-    
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -208,8 +231,8 @@ export default function ReceiptsPage() {
       const res = await fetch('/api/pos/send-receipt-whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          receiptId: receipt.id, 
+        body: JSON.stringify({
+          receiptId: receipt.id,
           phone: phone.replace(/\D/g, '')
         })
       })
@@ -582,9 +605,9 @@ export default function ReceiptsPage() {
           </div>
 
           {/* Backdrop click to close */}
-          <div 
-            className="absolute inset-0 -z-10" 
-            onClick={() => setShowPreview(false)} 
+          <div
+            className="absolute inset-0 -z-10"
+            onClick={() => setShowPreview(false)}
           />
         </div>
       )}
