@@ -542,7 +542,7 @@ export default function ReceiptsPage() {
 
       {/* Receipt Preview Modal - Full screen on mobile */}
       {showPreview && selectedReceipt && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center" style={{ zIndex: 100 }}>
           <div className="bg-white w-full sm:w-auto sm:max-w-md sm:mx-4 sm:rounded-xl rounded-t-xl max-h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0">
