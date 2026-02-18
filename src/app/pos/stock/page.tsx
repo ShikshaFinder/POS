@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Package, AlertTriangle, TrendingDown, Search, ClipboardCheck } from 'lucide-react'
 
 interface StockItem {
@@ -24,7 +25,15 @@ export default function StockPage() {
   const [allStocks, setAllStocks] = useState<StockItem[]>([]) // For stats calculation
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const searchParams = useSearchParams()
+  const filterParam = searchParams.get('filter') as 'all' | 'low' | 'out' | null
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all')
+
+  useEffect(() => {
+    if (filterParam && ['all', 'low', 'out'].includes(filterParam)) {
+      setFilter(filterParam)
+    }
+  }, [filterParam])
 
   useEffect(() => {
     fetchStocks()
@@ -73,24 +82,24 @@ export default function StockPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Stock Management</h1>
           <p className="mt-1 text-sm text-gray-500">
             Monitor and manage your inventory
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 w-full md:w-auto">
           <a
             href="/pos/stock/receive"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="flex-1 md:flex-none justify-center inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
           >
             <Package className="h-4 w-4" />
-            Receive Stock
+            Receive
           </a>
           <a
             href="/pos/stock/count"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex-1 md:flex-none justify-center inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <ClipboardCheck className="h-4 w-4" />
             Daily Count
@@ -182,8 +191,57 @@ export default function StockPage() {
         </div>
       </div>
 
-      {/* Stock Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Mobile Stock Cards */}
+      <div className="md:hidden space-y-4 pb-32">
+        {stocks.map((stock) => {
+          const status = getStockStatus(stock.quantity, stock.product.reorderLevel)
+          return (
+            <div key={stock.id} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm space-y-3">
+              <div className="flex justify-between items-start gap-4">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium text-gray-900 truncate">{stock.product.name}</h3>
+                  <p className="text-sm text-gray-500 break-all">{stock.product.sku}</p>
+                </div>
+                <span className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
+                  {status.label}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm mt-2">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider">Category</p>
+                  <span className="inline-flex mt-1 items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
+                    {stock.product.category}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider">Location</p>
+                  <p className="font-medium text-gray-900 mt-1 truncate">{stock.storageLocation.name}</p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex justify-between items-center mt-2">
+                <div className="text-xs text-gray-500">
+                  Reorder Level: <span className="font-medium">{stock.product.reorderLevel}</span>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-gray-900">
+                    {stock.quantity} <span className="text-sm font-normal text-gray-500">{stock.product.unit}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+        {stocks.length === 0 && !loading && (
+          <div className="text-center py-8 text-gray-500">
+            No stock items found
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Stock Table */}
+      <div className="hidden md:block bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

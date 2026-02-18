@@ -1,3 +1,4 @@
+
 import NextAuth from "next-auth";
 
 declare module "next-auth" {
@@ -7,7 +8,17 @@ declare module "next-auth" {
       name?: string | null;
       email?: string | null;
       currentOrganizationId?: string;
+      organizationName?: string;
       role?: string;
+      profile?: {
+        phone?: string | null;
+        address?: string | null;
+        postalCode?: string | null;
+        city?: string | null;
+        country?: string | null;
+        bio?: string | null;
+        website?: string | null;
+      };
     };
   }
 
@@ -17,7 +28,34 @@ declare module "next-auth" {
     email?: string | null;
     emailVerified?: Date | null;
     currentOrganizationId?: string;
+    organizationName?: string;
     role?: string;
+    profile?: {
+      phone?: string | null;
+      address?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
+      bio?: string | null;
+      website?: string | null;
+    };
   }
 }
 
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    currentOrganizationId?: string;
+    organizationName?: string;
+    role?: string;
+    profile?: {
+      phone?: string | null;
+      address?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
+      bio?: string | null;
+      website?: string | null;
+    };
+  }
+}

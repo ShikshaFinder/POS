@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { sendInvoiceNotification } from '@/lib/whatsapp-service'
+import { authOptions } from '../../../../lib/auth'
+import { prisma } from '../../../../lib/prisma'
+import { sendInvoiceNotification } from '../../../../lib/whatsapp-service'
 
 export async function POST(req: NextRequest) {
   try {
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
         data: {
           organizationId,
           orderRef,
-          connectionId: connection.id,
+          connectionId: connection!.id,
           stage: 'COMPLETED',
           deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
           items: {
@@ -202,14 +202,39 @@ export async function POST(req: NextRequest) {
 
       // Update stock and create inventory transaction for each item (simple, sequential)
       for (const item of processedItems) {
-        await tx.product.update({
+        const updatedProduct = await tx.product.update({
           where: { id: item.productId },
           data: {
             currentStock: {
               decrement: item.quantity
             }
+          },
+          select: {
+            id: true,
+            name: true,
+            currentStock: true,
+            reorderLevel: true
           }
         });
+
+        // 🔔 Create notification if stock falls below reorder level
+        if (updatedProduct.currentStock <= (updatedProduct.reorderLevel || 0)) {
+          const { createNotification } = await import('../../../../lib/notifications');
+          const sessionEmail = (session.user as any).email;
+          const userId = (session.user as any).id || (sessionEmail ? (await tx.user.findUnique({
+            where: { email: sessionEmail },
+            select: { id: true }
+          }))?.id : undefined);
+
+          await createNotification({
+            organizationId,
+            userId: userId as string,
+            title: 'Low Stock Alert',
+            body: `${updatedProduct.name} is running low (${updatedProduct.currentStock} units left). Reorder level is ${updatedProduct.reorderLevel}.`,
+            posAlertId: updatedProduct.id
+          });
+        }
+
         // Create inventory transaction if stock exists
         const stock = await tx.inventoryStock.findFirst({
           where: {
@@ -232,8 +257,44 @@ export async function POST(req: NextRequest) {
       }
       return { salesOrder, invoice };
     }, {
-      timeout: 30000, // 30 seconds timeout for large orders
+      timeout: 30000,
     });
+
+    // 🔔 Create notification for successful sale
+    try {
+      const fs = await import('fs');
+      const logFilePath = 'C:\\Users\\ashis\\codes\\POS\\notif-debug.log';
+      let userId = (session.user as any).id;
+
+      const sessionEmail = (session.user as any).email;
+      if (!userId && sessionEmail) {
+        fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] [Checkout] UserId missing, searching by email: ${sessionEmail}\n`);
+        const user = await prisma.user.findUnique({
+          where: { email: sessionEmail },
+          select: { id: true }
+        });
+        if (user) {
+          userId = user.id;
+          fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] [Checkout] Found userId from DB: ${userId}\n`);
+        }
+      }
+
+      const logMsg = `[Checkout] Triggering notification. Org: ${organizationId}, User: ${userId}\n`;
+      fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] ${logMsg}`);
+
+      const { createNotification } = await import('../../../../lib/notifications');
+      const nf = await createNotification({
+        organizationId,
+        userId: userId as string,
+        title: 'New Sale Completed',
+        body: `Invoice ${result.invoice.invoiceNumber} for ${customerName || 'Walk-in Customer'} has been processed. Total: ₹${totalAmount}`,
+        posInvoiceId: result.invoice.id
+      });
+      fs.appendFileSync('C:\\Users\\ashis\\codes\\POS\\notif-debug.log', `[${new Date().toISOString()}] [Checkout] Result: ${nf ? 'SUCCESS' : 'FAILED'}\n`);
+    } catch (e: any) {
+      const fs = await import('fs');
+      fs.appendFileSync('C:\\Users\\ashis\\codes\\POS\\notif-debug.log', `[${new Date().toISOString()}] [Checkout] TRIGGER ERROR: ${e.message}\n`);
+    }
 
     // 🔔 Send WhatsApp notification with PDF invoice (async - non-blocking)
     if (customerPhone) {
@@ -249,8 +310,8 @@ export async function POST(req: NextRequest) {
 
         try {
           // Dynamic import to avoid build issues if modules missing
-          const { generateInvoiceHTML, buildInvoiceData } = await import('@/lib/invoice-generator');
-          const { uploadInvoicePDF, isAzureStorageConfigured } = await import('@/lib/azure-blob');
+          const { generateInvoiceHTML, buildInvoiceData } = await import('../../../../lib/invoice-generator');
+          const { uploadInvoicePDF, isAzureStorageConfigured } = await import('../../../../lib/azure-blob');
 
           if (isAzureStorageConfigured()) {
             // Build invoice data
@@ -261,7 +322,7 @@ export async function POST(req: NextRequest) {
                 qty: item.qty,
                 price: item.price
               })),
-              posLocation,
+              posLocation: posLocation as any,
               customer: { name: customerName, phone: customerPhone }
             });
 

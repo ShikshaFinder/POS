@@ -16,10 +16,11 @@ export default function ProfilePage() {
     const [profileData, setProfileData] = useState({
         name: session?.user?.name || '',
         email: session?.user?.email || '',
-        phone: '+1 (555) 000-0000',
-        location: 'New York, USA',
-        website: 'flavipos.com',
-        bio: 'Senior Store Manager with 5+ years of experience in retail operations and inventory management.',
+        phone: (session?.user as any)?.profile?.phone || '',
+        location: (session?.user as any)?.profile?.address || '',
+        postalCode: (session?.user as any)?.profile?.postalCode || '',
+        website: (session?.user as any)?.profile?.website || '',
+        bio: (session?.user as any)?.profile?.bio || '',
     })
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -27,15 +28,37 @@ export default function ProfilePage() {
         setProfileData(prev => ({ ...prev, [name]: value }))
     }
 
-    const handleSave = () => {
-        setIsEditing(false)
-        toast.success('Profile updated successfully')
-        // Backend save logic would go here
+    const handleSave = async () => {
+        try {
+            const res = await fetch('/api/user/profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(profileData)
+            })
+
+            if (!res.ok) throw new Error('Failed to update profile')
+
+            setIsEditing(false)
+            toast.success('Profile updated successfully')
+            // Option: Reload session to reflect changes immediately
+            // window.location.reload()
+        } catch (error) {
+            toast.error('Failed to update profile')
+            console.error(error)
+        }
     }
 
     const handleCancel = () => {
         setIsEditing(false)
-        // Reset logic could go here
+        setProfileData({
+            name: session?.user?.name || '',
+            email: session?.user?.email || '',
+            phone: (session?.user as any)?.profile?.phone || '',
+            location: (session?.user as any)?.profile?.address || '',
+            postalCode: (session?.user as any)?.profile?.postalCode || '',
+            website: (session?.user as any)?.profile?.website || '',
+            bio: (session?.user as any)?.profile?.bio || '',
+        })
     }
 
     const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,7 +87,7 @@ export default function ProfilePage() {
                 {/* Cover Image */}
                 <div className="h-48 w-full bg-gradient-to-r from-slate-800 to-slate-900 rounded-b-3xl shadow-md overflow-hidden relative">
                     <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
-                    <div className="absolute bottom-4 right-8 text-white/50 text-xs font-medium tracking-widest uppercase">Flavi POS Member</div>
+                    <div className="absolute bottom-4 right-8 text-white/50 text-xs font-medium tracking-widest uppercase">{(session?.user as any)?.organizationName || 'Flavi POS'} Member</div>
                 </div>
 
                 {/* Profile Avatar Card */}
@@ -160,56 +183,80 @@ export default function ProfilePage() {
                                 <span className="text-sm font-medium truncate">{profileData.email}</span>
                             </div>
 
-                            <div className="flex items-center gap-4 text-slate-600 group">
-                                <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                                    <Phone className="h-5 w-5" />
+                            {(isEditing || profileData.phone) && (
+                                <div className="flex items-center gap-4 text-slate-600 group">
+                                    <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                        <Phone className="h-5 w-5" />
+                                    </div>
+                                    {isEditing ? (
+                                        <input
+                                            type="tel"
+                                            name="phone"
+                                            value={profileData.phone}
+                                            onChange={handleChange}
+                                            placeholder="Phone Number"
+                                            className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
+                                        />
+                                    ) : (
+                                        <span className="text-sm font-medium">{profileData.phone}</span>
+                                    )}
                                 </div>
-                                {isEditing ? (
-                                    <input
-                                        type="tel"
-                                        name="phone"
-                                        value={profileData.phone}
-                                        onChange={handleChange}
-                                        className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
-                                    />
-                                ) : (
-                                    <span className="text-sm font-medium">{profileData.phone}</span>
-                                )}
-                            </div>
+                            )}
 
-                            <div className="flex items-center gap-4 text-slate-600 group">
-                                <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                                    <MapPin className="h-5 w-5" />
+                            {(isEditing || profileData.location || profileData.postalCode) && (
+                                <div className="flex items-center gap-4 text-slate-600 group">
+                                    <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                        <MapPin className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        {isEditing ? (
+                                            <div className="flex flex-col gap-2">
+                                                <input
+                                                    type="text"
+                                                    name="location"
+                                                    value={profileData.location}
+                                                    onChange={handleChange}
+                                                    placeholder="Address / Location"
+                                                    className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    name="postalCode"
+                                                    value={profileData.postalCode}
+                                                    onChange={handleChange}
+                                                    placeholder="Postal Code"
+                                                    className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col">
+                                                {profileData.location && <span className="text-sm font-medium">{profileData.location}</span>}
+                                                {profileData.postalCode && <span className="text-xs text-slate-500">{profileData.postalCode}</span>}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                {isEditing ? (
-                                    <input
-                                        type="text"
-                                        name="location"
-                                        value={profileData.location}
-                                        onChange={handleChange}
-                                        className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
-                                    />
-                                ) : (
-                                    <span className="text-sm font-medium">{profileData.location}</span>
-                                )}
-                            </div>
+                            )}
 
-                            <div className="flex items-center gap-4 text-slate-600 group">
-                                <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                                    <Globe className="h-5 w-5" />
+                            {(isEditing || profileData.website) && (
+                                <div className="flex items-center gap-4 text-slate-600 group">
+                                    <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                        <Globe className="h-5 w-5" />
+                                    </div>
+                                    {isEditing ? (
+                                        <input
+                                            type="text"
+                                            name="website"
+                                            value={profileData.website}
+                                            onChange={handleChange}
+                                            placeholder="Website"
+                                            className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
+                                        />
+                                    ) : (
+                                        <span className="text-sm font-medium text-blue-600 hover:underline cursor-pointer">{profileData.website}</span>
+                                    )}
                                 </div>
-                                {isEditing ? (
-                                    <input
-                                        type="text"
-                                        name="website"
-                                        value={profileData.website}
-                                        onChange={handleChange}
-                                        className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
-                                    />
-                                ) : (
-                                    <span className="text-sm font-medium text-blue-600 hover:underline cursor-pointer">{profileData.website}</span>
-                                )}
-                            </div>
+                            )}
 
                             <div className="flex items-center gap-4 text-slate-600 group">
                                 <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
@@ -309,6 +356,16 @@ export default function ProfilePage() {
                                     type="text"
                                     disabled
                                     value="Sales & Inventory"
+                                    className="w-full bg-slate-50 text-slate-500 font-medium px-4 py-3 rounded-xl border border-slate-200 cursor-not-allowed"
+                                />
+                            </div>
+
+                            <div className="group">
+                                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Organization</label>
+                                <input
+                                    type="text"
+                                    disabled
+                                    value={(session?.user as any)?.organizationName || 'Flavi POS'}
                                     className="w-full bg-slate-50 text-slate-500 font-medium px-4 py-3 rounded-xl border border-slate-200 cursor-not-allowed"
                                 />
                             </div>

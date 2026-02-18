@@ -12,46 +12,60 @@ export async function GET(req: NextRequest) {
 
         const organizationId = (session.user as any).currentOrganizationId
 
-        // Get product categories with product counts
+        // 1. Get all product categories
         const categories = await prisma.productCategory.findMany({
             where: { organizationId },
             select: {
                 id: true,
                 name: true,
-                _count: {
-                    select: { products: true }
-                }
             },
             orderBy: { name: 'asc' }
         })
 
-        // Also get unique category names from the legacy category field on all products
-        const legacyCategories = await prisma.product.groupBy({
-            by: ['category'],
-            where: {
-                organizationId
-            },
-            _count: { id: true }
+        // 2. Get all unique legacy category names from products
+        const products = await prisma.product.findMany({
+            where: { organizationId },
+            select: {
+                id: true,
+                category: true,
+                categoryId: true
+            }
         })
 
-        // Get category names from ProductCategory to filter out duplicates
-        const productCategoryNames = new Set(categories.map(c => c.name.toLowerCase()))
+        // 3. Map to store counts
+        const categoryCounts = new Map<string, number>()
+        const legacyCounts = new Map<string, number>()
 
-        // Transform data - combine ProductCategory entries with legacy product.category values
+        // 4. Calculate counts
+        products.forEach(product => {
+            if (product.categoryId) {
+                // Count by explicit link
+                categoryCounts.set(product.categoryId, (categoryCounts.get(product.categoryId) || 0) + 1)
+            } else if (product.category) {
+                // If not linked, check if the string matches a ProductCategory name
+                const matchingCategory = categories.find(c => c.name.toLowerCase() === product.category!.toLowerCase())
+                if (matchingCategory) {
+                    categoryCounts.set(matchingCategory.id, (categoryCounts.get(matchingCategory.id) || 0) + 1)
+                } else {
+                    // It's a true legacy category (no matching ProductCategory)
+                    legacyCounts.set(product.category, (legacyCounts.get(product.category) || 0) + 1)
+                }
+            }
+        })
+
+        // 5. Transform data - combine ProductCategory entries with true legacy counts
         const transformedCategories = [
             ...categories.map((cat) => ({
                 id: cat.id,
                 name: cat.name,
-                productCount: cat._count.products
+                productCount: categoryCounts.get(cat.id) || 0
             })),
-            // Add legacy categories that don't exist in ProductCategory
-            ...legacyCategories
-                .filter((cat) => cat.category && !productCategoryNames.has(cat.category.toLowerCase()))
-                .map((cat) => ({
-                    id: `legacy_${cat.category}`,
-                    name: cat.category!,
-                    productCount: cat._count.id
-                }))
+            // Add legacy categories that don't match any ProductCategory name
+            ...Array.from(legacyCounts.entries()).map(([name, count]) => ({
+                id: `legacy_${name}`,
+                name: name,
+                productCount: count
+            }))
         ]
 
         return NextResponse.json({ categories: transformedCategories })

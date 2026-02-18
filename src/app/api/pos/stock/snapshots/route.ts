@@ -11,15 +11,28 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = (session.user as any).id
+        let userId = (session.user as any).id
+        const userEmail = session.user.email
 
-        // Get user's POS location
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                ownedPOSLocations: { take: 1 }
-            }
-        })
+        let user
+        if (userId) {
+            // Get user's POS location by ID
+            user = await prisma.user.findUnique({
+                where: { id: userId },
+                include: {
+                    ownedPOSLocations: { take: 1 }
+                }
+            })
+        } else if (userEmail) {
+            // Fallback: Get user by email if ID is missing in session
+            user = await prisma.user.findUnique({
+                where: { email: userEmail },
+                include: {
+                    ownedPOSLocations: { take: 1 }
+                }
+            })
+            if (user) userId = user.id
+        }
 
         if (!user?.ownedPOSLocations?.[0]) {
             return NextResponse.json({ error: 'No POS location assigned' }, { status: 404 })
@@ -79,15 +92,28 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = (session.user as any).id
+        let userId = (session.user as any).id
+        const userEmail = session.user.email
 
-        // Get user's POS location
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                ownedPOSLocations: { take: 1 }
-            }
-        })
+        let user
+        if (userId) {
+            // Get user's POS location by ID
+            user = await prisma.user.findUnique({
+                where: { id: userId },
+                include: {
+                    ownedPOSLocations: { take: 1 }
+                }
+            })
+        } else if (userEmail) {
+            // Fallback: Get user by email if ID is missing in session
+            user = await prisma.user.findUnique({
+                where: { email: userEmail },
+                include: {
+                    ownedPOSLocations: { take: 1 }
+                }
+            })
+            if (user) userId = user.id
+        }
 
         if (!user?.ownedPOSLocations?.[0]) {
             return NextResponse.json({ error: 'No POS location assigned' }, { status: 404 })
@@ -184,6 +210,11 @@ export async function POST(req: NextRequest) {
         })
     } catch (error) {
         console.error('Error creating snapshots:', error)
-        return NextResponse.json({ error: 'Failed to create snapshots' }, { status: 500 })
+        // Log detailed error
+        if (error instanceof Error) {
+            console.error('Error stack:', error.stack)
+            console.error('Error message:', error.message)
+        }
+        return NextResponse.json({ error: 'Failed to create snapshots', details: String(error) }, { status: 500 })
     }
 }

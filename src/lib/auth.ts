@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { NextAuthOptions, User } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
+import { prisma } from './prisma'
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -92,12 +92,34 @@ export const authOptions: NextAuthOptions = {
           m => m.organizationId === currentOrgId
         );
 
+        // Logic to pick the BEST organization name
+        let organizationName = "Flavi POS";
+
+        if (currentMembership?.organization) {
+          organizationName = currentMembership.organization.name;
+        } else if (defaultOrg && currentOrgId === user.defaultOrganizationId) {
+          organizationName = defaultOrg.name;
+        } else if (user.memberships.length > 0) {
+          // Fallback to the first available membership's organization name
+          organizationName = user.memberships[0].organization.name;
+        }
+
         return {
           id: user.id,
           email: user.email,
           name: user.profile?.fullName || email,
           currentOrganizationId: currentOrgId,
+          organizationName: organizationName,
           role: currentMembership?.role || "STAFF",
+          profile: {
+            phone: user.profile?.phone,
+            address: user.profile?.address,
+            postalCode: user.profile?.postalCode,
+            city: user.profile?.city,
+            country: user.profile?.country,
+            bio: user.profile?.bio,
+            website: null // Schema doesn't have website yet
+          }
         } as User;
       },
     }),
@@ -107,15 +129,19 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.currentOrganizationId = (user as any).currentOrganizationId;
+        token.organizationName = (user as any).organizationName;
         token.role = (user as any).role;
+        token.profile = (user as any).profile;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id as string;
+        (session.user as any).id = (token.id || token.sub) as string;
         (session.user as any).currentOrganizationId = token.currentOrganizationId as string;
+        (session.user as any).organizationName = token.organizationName as string;
         (session.user as any).role = token.role as string;
+        (session.user as any).profile = token.profile;
       }
       return session;
     },

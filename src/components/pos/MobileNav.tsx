@@ -20,7 +20,7 @@ export function MobileNav({ onMenuClick, isMenuOpen }: MobileNavProps) {
     ]
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden safe-bottom bg-white border-t border-gray-200 shadow-[0_-1px_3px_rgba(0,0,0,0.1)]">
+        <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden safe-bottom bg-white border-t border-gray-200 shadow-[0_-1px_3px_rgba(0,0,0,0.1)]">
             <div className="flex items-center justify-around h-16 pb-[env(safe-area-inset-bottom)]">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href
