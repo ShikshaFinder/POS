@@ -18,6 +18,7 @@ export default function ProfilePage() {
         email: session?.user?.email || '',
         phone: (session?.user as any)?.profile?.phone || '',
         location: (session?.user as any)?.profile?.address || '',
+        postalCode: (session?.user as any)?.profile?.postalCode || '',
         website: (session?.user as any)?.profile?.website || '',
         bio: (session?.user as any)?.profile?.bio || '',
     })
@@ -54,6 +55,7 @@ export default function ProfilePage() {
             email: session?.user?.email || '',
             phone: (session?.user as any)?.profile?.phone || '',
             location: (session?.user as any)?.profile?.address || '',
+            postalCode: (session?.user as any)?.profile?.postalCode || '',
             website: (session?.user as any)?.profile?.website || '',
             bio: (session?.user as any)?.profile?.bio || '',
         })
@@ -181,56 +183,80 @@ export default function ProfilePage() {
                                 <span className="text-sm font-medium truncate">{profileData.email}</span>
                             </div>
 
-                            <div className="flex items-center gap-4 text-slate-600 group">
-                                <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                                    <Phone className="h-5 w-5" />
+                            {(isEditing || profileData.phone) && (
+                                <div className="flex items-center gap-4 text-slate-600 group">
+                                    <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                        <Phone className="h-5 w-5" />
+                                    </div>
+                                    {isEditing ? (
+                                        <input
+                                            type="tel"
+                                            name="phone"
+                                            value={profileData.phone}
+                                            onChange={handleChange}
+                                            placeholder="Phone Number"
+                                            className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
+                                        />
+                                    ) : (
+                                        <span className="text-sm font-medium">{profileData.phone}</span>
+                                    )}
                                 </div>
-                                {isEditing ? (
-                                    <input
-                                        type="tel"
-                                        name="phone"
-                                        value={profileData.phone}
-                                        onChange={handleChange}
-                                        className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
-                                    />
-                                ) : (
-                                    <span className="text-sm font-medium">{profileData.phone}</span>
-                                )}
-                            </div>
+                            )}
 
-                            <div className="flex items-center gap-4 text-slate-600 group">
-                                <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                                    <MapPin className="h-5 w-5" />
+                            {(isEditing || profileData.location || profileData.postalCode) && (
+                                <div className="flex items-center gap-4 text-slate-600 group">
+                                    <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                        <MapPin className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        {isEditing ? (
+                                            <div className="flex flex-col gap-2">
+                                                <input
+                                                    type="text"
+                                                    name="location"
+                                                    value={profileData.location}
+                                                    onChange={handleChange}
+                                                    placeholder="Address / Location"
+                                                    className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    name="postalCode"
+                                                    value={profileData.postalCode}
+                                                    onChange={handleChange}
+                                                    placeholder="Postal Code"
+                                                    className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col">
+                                                {profileData.location && <span className="text-sm font-medium">{profileData.location}</span>}
+                                                {profileData.postalCode && <span className="text-xs text-slate-500">{profileData.postalCode}</span>}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                {isEditing ? (
-                                    <input
-                                        type="text"
-                                        name="location"
-                                        value={profileData.location}
-                                        onChange={handleChange}
-                                        className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
-                                    />
-                                ) : (
-                                    <span className="text-sm font-medium">{profileData.location}</span>
-                                )}
-                            </div>
+                            )}
 
-                            <div className="flex items-center gap-4 text-slate-600 group">
-                                <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                                    <Globe className="h-5 w-5" />
+                            {(isEditing || profileData.website) && (
+                                <div className="flex items-center gap-4 text-slate-600 group">
+                                    <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                        <Globe className="h-5 w-5" />
+                                    </div>
+                                    {isEditing ? (
+                                        <input
+                                            type="text"
+                                            name="website"
+                                            value={profileData.website}
+                                            onChange={handleChange}
+                                            placeholder="Website"
+                                            className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
+                                        />
+                                    ) : (
+                                        <span className="text-sm font-medium text-blue-600 hover:underline cursor-pointer">{profileData.website}</span>
+                                    )}
                                 </div>
-                                {isEditing ? (
-                                    <input
-                                        type="text"
-                                        name="website"
-                                        value={profileData.website}
-                                        onChange={handleChange}
-                                        className="w-full text-sm font-medium border-b border-slate-300 focus:border-blue-500 outline-none pb-0.5 bg-transparent"
-                                    />
-                                ) : (
-                                    <span className="text-sm font-medium text-blue-600 hover:underline cursor-pointer">{profileData.website}</span>
-                                )}
-                            </div>
+                            )}
 
                             <div className="flex items-center gap-4 text-slate-600 group">
                                 <div className="p-2.5 bg-slate-50 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">

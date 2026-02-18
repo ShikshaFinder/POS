@@ -13,7 +13,19 @@ export async function PUT(req: NextRequest) {
         }
 
         const data = await req.json()
-        const { phone, location, bio, website, name } = data
+        const { phone, location, bio, website, name, postalCode } = data
+
+        console.log('Received profile update data:', data);
+
+        // Debug logging to file
+        const fs = require('fs');
+        const path = require('path');
+        const debugPath = path.join(process.cwd(), 'debug-profile-update.json');
+        fs.writeFileSync(debugPath, JSON.stringify({
+            timestamp: new Date().toISOString(),
+            sessionUser: session.user,
+            receivedData: data
+        }, null, 2));
 
         // Update User name directly
         await prisma.user.update({
@@ -31,26 +43,33 @@ export async function PUT(req: NextRequest) {
 
         if (!user) throw new Error("User not found")
 
-        await prisma.userProfile.upsert({
+        const updateResult = await prisma.userProfile.upsert({
             where: { userId: user.id },
             create: {
                 userId: user.id,
                 fullName: name || session.user.name || 'User',
                 phone: phone,
                 address: location,
+                postalCode: postalCode,
                 bio: bio,
-                // website is not in schema currently, we can add it or ignore it. 
-                // schema has: fullName, phone, address, city, state, postalCode, country, roleTitle, bio
             },
             update: {
                 fullName: name,
                 phone: phone,
                 address: location,
+                postalCode: postalCode,
                 bio: bio
             }
         })
 
-        return NextResponse.json({ success: true })
+        // Log result
+        const resultPath = path.join(process.cwd(), 'debug-profile-result.json');
+        fs.writeFileSync(resultPath, JSON.stringify({
+            timestamp: new Date().toISOString(),
+            result: updateResult
+        }, null, 2));
+
+        return NextResponse.json({ success: true, profile: updateResult })
     } catch (error: any) {
         console.error('Error updating profile:', error)
         return NextResponse.json({ error: error.message }, { status: 500 })

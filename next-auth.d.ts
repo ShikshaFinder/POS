@@ -1,3 +1,4 @@
+
 import NextAuth from "next-auth";
 
 declare module "next-auth" {
@@ -12,6 +13,7 @@ declare module "next-auth" {
       profile?: {
         phone?: string | null;
         address?: string | null;
+        postalCode?: string | null;
         city?: string | null;
         country?: string | null;
         bio?: string | null;
@@ -25,13 +27,13 @@ declare module "next-auth" {
     name?: string | null;
     email?: string | null;
     emailVerified?: Date | null;
-    emailVerified?: Date | null;
     currentOrganizationId?: string;
     organizationName?: string;
     role?: string;
     profile?: {
       phone?: string | null;
       address?: string | null;
+      postalCode?: string | null;
       city?: string | null;
       country?: string | null;
       bio?: string | null;
@@ -49,6 +51,7 @@ declare module "next-auth/jwt" {
     profile?: {
       phone?: string | null;
       address?: string | null;
+      postalCode?: string | null;
       city?: string | null;
       country?: string | null;
       bio?: string | null;
@@ -56,4 +59,3 @@ declare module "next-auth/jwt" {
     };
   }
 }
-

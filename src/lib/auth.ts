@@ -114,6 +114,7 @@ export const authOptions: NextAuthOptions = {
           profile: {
             phone: user.profile?.phone,
             address: user.profile?.address,
+            postalCode: user.profile?.postalCode,
             city: user.profile?.city,
             country: user.profile?.country,
             bio: user.profile?.bio,
