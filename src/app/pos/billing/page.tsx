@@ -12,7 +12,7 @@ import { MobileBottomNav } from '@/components/pos/MobileBottomNav'
 import ProductSyncButton from '@/components/pos/ProductSyncButton'
 import { syncManager } from '@/lib/syncManager'
 import { productSyncService } from '@/lib/productSyncService'
-import { getCachedImageUrl } from '@/lib/imageCache'
+import { useOfflineProducts } from '@/hooks/useOfflineProducts'
 
 interface Category {
   id: string
@@ -22,11 +22,21 @@ interface Category {
 
 export default function BillingPage() {
   // Products state
-  const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [productsLoading, setProductsLoading] = useState(true)
+  const [categories, setCategories] = useState<Category[]>([])
+
+  // Use the offline-first products hook
+  const {
+    products,
+    loading: productsLoading,
+    isUsingCache,
+    refetch: fetchProducts,
+  } = useOfflineProducts({
+    search: searchQuery,
+    categoryId: selectedCategory,
+    autoSync: true,
+  })
 
   // Cart state
   const [cart, setCart] = useState<CartItem[]>([])
@@ -53,101 +63,6 @@ export default function BillingPage() {
 
   // Refs for keyboard shortcuts
   const searchInputRef = useRef<HTMLInputElement>(null)
-
-  // State for offline mode
-  const [isUsingCache, setIsUsingCache] = useState(false)
-
-  // Fetch products - tries cached first, then falls back to network
-  const fetchProducts = useCallback(async () => {
-    try {
-      setProductsLoading(true)
-
-      // Try to get from cache first
-      const hasCachedData = await productSyncService.hasCachedData()
-
-      if (hasCachedData) {
-        // Use cached products
-        const categoryId = selectedCategory && !selectedCategory.startsWith('legacy_')
-          ? selectedCategory
-          : undefined
-
-        let cachedProducts = await productSyncService.getProducts({
-          search: searchQuery || undefined,
-          categoryId
-        })
-
-        // Handle legacy category filtering
-        if (selectedCategory?.startsWith('legacy_')) {
-          const legacyCat = selectedCategory.replace('legacy_', '')
-          cachedProducts = cachedProducts.filter(p => p.category === legacyCat)
-        }
-
-        // Load cached image URLs for products
-        const productsWithImages = await Promise.all(
-          cachedProducts.map(async (product) => {
-            const cachedImageUrl = product.hasLocalImage
-              ? await getCachedImageUrl(product.id)
-              : null
-            return {
-              ...product,
-              cachedImageUrl
-            } as Product
-          })
-        )
-
-        setProducts(productsWithImages)
-        setIsUsingCache(true)
-        return
-      }
-
-      // Fall back to network if no cached data
-      setIsUsingCache(false)
-      const params = new URLSearchParams()
-      if (searchQuery) params.append('search', searchQuery)
-      if (selectedCategory && !selectedCategory.startsWith('legacy_')) {
-        params.append('categoryId', selectedCategory)
-      }
-
-      const res = await fetch(`/api/pos/products?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        let filteredProducts = data.products || []
-
-        // Handle legacy category filtering
-        if (selectedCategory?.startsWith('legacy_')) {
-          const legacyCat = selectedCategory.replace('legacy_', '')
-          filteredProducts = filteredProducts.filter((p: Product) => p.category === legacyCat)
-        }
-
-        setProducts(filteredProducts)
-      }
-    } catch (error) {
-      console.error('Failed to fetch products:', error)
-      // Try cache on network failure
-      const hasCachedData = await productSyncService.hasCachedData()
-      if (hasCachedData) {
-        const cachedProducts = await productSyncService.getProducts()
-        const productsWithImages = await Promise.all(
-          cachedProducts.map(async (product) => {
-            const cachedImageUrl = product.hasLocalImage
-              ? await getCachedImageUrl(product.id)
-              : null
-            return {
-              ...product,
-              cachedImageUrl
-            } as Product
-          })
-        )
-        setProducts(productsWithImages)
-        setIsUsingCache(true)
-        toast.info('Using offline product data')
-      } else {
-        toast.error('Failed to load products')
-      }
-    } finally {
-      setProductsLoading(false)
-    }
-  }, [searchQuery, selectedCategory])
 
   // Fetch categories - tries cached first, then falls back to network
   const fetchCategories = useCallback(async () => {
@@ -203,10 +118,6 @@ export default function BillingPage() {
       console.error('Failed to fetch held bills:', error)
     }
   }, [])
-
-  useEffect(() => {
-    fetchProducts()
-  }, [fetchProducts])
 
   useEffect(() => {
     fetchCategories()
