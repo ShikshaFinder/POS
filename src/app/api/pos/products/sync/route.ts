@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
       gstRate: 0, // Default GST rate
       imageUrl: product.images?.[0]?.url || null,
       description: product.description || null,
-      barcode: product.alias || null,
+      barcode: product.alias || null, // DB field 'alias' maps to 'barcode' for POS display
       packSize: product.packSize || null,
       subCategory: product.subCategory || null
     }))
