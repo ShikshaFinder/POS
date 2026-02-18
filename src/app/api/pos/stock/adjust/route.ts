@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { authOptions } from '../../../../../lib/auth'
+import { prisma } from '../../../../../lib/prisma'
 
 // POST - Manually adjust stock (with reason)
 export async function POST(req: NextRequest) {
@@ -89,10 +89,43 @@ export async function POST(req: NextRequest) {
             },
             include: {
                 product: {
-                    select: { name: true, sku: true, unit: true }
+                    select: { name: true, sku: true, unit: true, reorderLevel: true }
                 }
             }
         })
+
+        // 🔔 Create notification if stock falls below reorder level
+        if (newStock <= (updatedStock.product.reorderLevel || 0)) {
+            try {
+                const fs = await import('fs');
+                const logFilePath = 'C:\\Users\\ashis\\codes\\POS\\notif-debug.log';
+                let currentUserId = userId;
+
+                if (!currentUserId && (session.user as any).email) {
+                    const userRecord = await prisma.user.findUnique({
+                        where: { email: (session.user as any).email },
+                        select: { id: true }
+                    });
+                    if (userRecord) {
+                        currentUserId = userRecord.id;
+                    }
+                }
+
+                fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] [StockAdjust] Triggering low stock for: ${updatedStock.product.name}. Org: ${organizationId}, User: ${currentUserId}\n`);
+
+                const { createNotification } = await import('../../../../../lib/notifications');
+                await createNotification({
+                    organizationId,
+                    userId: currentUserId as string,
+                    title: 'Low Stock Alert (Manual Adjustment)',
+                    body: `${updatedStock.product.name} is low (${newStock} left). Reorder level is ${updatedStock.product.reorderLevel}.`,
+                    posAlertId: productId
+                });
+            } catch (err: any) {
+                const fs = await import('fs');
+                fs.appendFileSync('C:\\Users\\ashis\\codes\\POS\\notif-debug.log', `[${new Date().toISOString()}] [StockAdjust] NOTIF ERROR: ${err.message}\n`);
+            }
+        }
 
         // Create approval request for significant adjustments (optional)
         const adjustmentAmount = Math.abs(newStock - oldStock)

@@ -43,3 +43,10 @@ next-env.d.ts
 # prisma generated client (recreated via `npx prisma generate`)
 /src/generated/prisma
 /src/generated/prisma_v2
+
+# diagnostics and logs
+check-prisma.js
+mongo-diag.js
+notif-debug.log
+test-local-api.js
+test-notif-creation.js

@@ -1,4 +1,4 @@
-import { PrismaClient } from "@/generated/prisma_v2";
+import { PrismaClient } from "../generated/prisma_v2";
 
 // Extend the global scope so TypeScript knows about `globalThis.prisma`
 declare global {
