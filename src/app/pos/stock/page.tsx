@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Package, AlertTriangle, TrendingDown, Search, ClipboardCheck } from 'lucide-react'
 
 interface StockItem {
@@ -24,7 +25,15 @@ export default function StockPage() {
   const [allStocks, setAllStocks] = useState<StockItem[]>([]) // For stats calculation
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const searchParams = useSearchParams()
+  const filterParam = searchParams.get('filter') as 'all' | 'low' | 'out' | null
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all')
+
+  useEffect(() => {
+    if (filterParam && ['all', 'low', 'out'].includes(filterParam)) {
+      setFilter(filterParam)
+    }
+  }, [filterParam])
 
   useEffect(() => {
     fetchStocks()
