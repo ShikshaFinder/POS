@@ -35,6 +35,10 @@ export default function SettingsPage() {
             <label className="text-sm font-medium text-gray-700">Role</label>
             <p className="mt-1 text-sm text-gray-900">{(session?.user as any)?.role || 'Staff'}</p>
           </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Organization</label>
+            <p className="mt-1 text-sm text-gray-900">{(session?.user as any)?.organizationName || 'Flavi POS'}</p>
+          </div>
         </div>
       </div>
 
@@ -97,7 +101,7 @@ export default function SettingsPage() {
           <div>
             <h3 className="text-sm font-medium text-blue-900">Configuration Notice</h3>
             <p className="text-xs text-blue-700 mt-1">
-              Advanced settings like printer configuration, barcode scanner setup, and offline mode 
+              Advanced settings like printer configuration, barcode scanner setup, and offline mode
               will be available in future updates. Contact your administrator for custom configuration.
             </p>
           </div>

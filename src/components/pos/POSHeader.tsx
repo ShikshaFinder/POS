@@ -88,7 +88,7 @@ export function POSHeader() {
         <div className="md:hidden flex items-center gap-2">
           <img src="/flavi-logo.png" alt="Flavi POS" className="h-8 w-8 rounded-lg object-contain" />
           <div>
-            <h1 className="text-sm font-bold text-gray-900 leading-tight">Flavi POS</h1>
+            <h1 className="text-sm font-bold text-gray-900 leading-tight">{(session?.user as any)?.organizationName || 'Flavi POS'}</h1>
             <p className="text-[10px] text-gray-500 leading-tight">Store Manager</p>
           </div>
         </div>
