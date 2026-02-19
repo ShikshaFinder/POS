@@ -42,6 +42,11 @@ export interface CachedProduct {
   imageUrl: string | null // Original remote URL
   hasLocalImage: boolean // Whether image is cached locally
   updatedAt: number // Timestamp when cached
+  // Additional product detail fields for offline use
+  description: string | null
+  barcode: string | null // Alias/barcode for quick search
+  packSize: string | null // e.g., "200 ml", "1 L"
+  subCategory: string | null
 }
 
 export interface CachedCategory {
@@ -308,7 +313,8 @@ class IndexedDBManager {
     const lowerQuery = query.toLowerCase()
     return allProducts.filter(p => 
       p.name.toLowerCase().includes(lowerQuery) ||
-      (p.sku && p.sku.toLowerCase().includes(lowerQuery))
+      (p.sku && p.sku.toLowerCase().includes(lowerQuery)) ||
+      (p.barcode && p.barcode.toLowerCase().includes(lowerQuery))
     )
   }
 

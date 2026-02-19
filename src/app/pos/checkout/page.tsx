@@ -18,6 +18,7 @@ interface Product {
   name: string
   sku: string | null
   unitPrice: number
+  gstRate?: number
   currentStock: number
   unit: string
   category: string
@@ -189,6 +190,7 @@ export default function CheckoutPage() {
               name: product.name,
               sku: product.sku,
               unitPrice: product.unitPrice || 0,
+              gstRate: product.gstRate ?? 0,
               currentStock: product.currentStock || 0,
               unit: product.unit,
               category: product.category,
@@ -210,7 +212,11 @@ export default function CheckoutPage() {
       const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
-        setProducts(data.products)
+        setProducts((data.products || []).map((product: any) => ({
+          ...product,
+          unitPrice: product.unitPrice || 0,
+          gstRate: product.gstRate ?? 0,
+        })))
       }
     } catch (error) {
       console.error('Failed to fetch products:', error)
@@ -228,6 +234,7 @@ export default function CheckoutPage() {
               name: product.name,
               sku: product.sku,
               unitPrice: product.unitPrice || 0,
+              gstRate: product.gstRate ?? 0,
               currentStock: product.currentStock || 0,
               unit: product.unit,
               category: product.category,
@@ -310,13 +317,22 @@ export default function CheckoutPage() {
     return cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0)
   }
 
-  const calculateTax = (subtotal: number) => {
-    return subtotal * 0.05 // 5% tax
+  const getItemTaxRate = (item: CartItem) => {
+    const rate = Number(item.gstRate)
+    return Number.isFinite(rate) && rate >= 0 ? rate : 0
+  }
+
+  const calculateTax = () => {
+    return cart.reduce((sum, item) => {
+      const itemSubtotal = item.unitPrice * item.quantity
+      const itemTax = itemSubtotal * (getItemTaxRate(item) / 100)
+      return sum + itemTax
+    }, 0)
   }
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal()
-    const tax = calculateTax(subtotal)
+    const tax = calculateTax()
     return subtotal + tax
   }
 
@@ -346,7 +362,7 @@ export default function CheckoutPage() {
 
     try {
       const subtotal = calculateSubtotal()
-      const taxAmount = calculateTax(subtotal)
+      const taxAmount = calculateTax()
 
       // Prepare transaction data for offline-first sync
       const transactionData = {
@@ -354,6 +370,7 @@ export default function CheckoutPage() {
           productId: item.id,
           quantity: item.quantity,
           price: item.unitPrice,
+          taxRate: getItemTaxRate(item),
         })),
         totals: {
           subtotal,
@@ -372,7 +389,6 @@ export default function CheckoutPage() {
         } : undefined,
         customerName: customer?.name,
         customerPhone: customer?.phone,
-        taxPercent: 5,
         deliveryDate: deliveryDate || undefined,
       }
 
@@ -617,7 +633,7 @@ We appreciate your visit!`
               <button
                 onClick={() => setSelectedCategory(null)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all shrink-0",
                   selectedCategory === null
                     ? "bg-blue-600 text-white shadow-md"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300"
@@ -640,7 +656,7 @@ We appreciate your visit!`
                   key={category.id}
                   onClick={() => setSelectedCategory(category.name)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all shrink-0",
                     selectedCategory === category.name
                       ? "bg-blue-600 text-white shadow-md"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300"
@@ -671,7 +687,7 @@ We appreciate your visit!`
               <Card
                 className="group hover:shadow-lg transition-all overflow-hidden h-full"
               >
-                <div className="relative h-24 sm:h-32 w-full bg-gradient-to-br from-gray-50 to-gray-100">
+                <div className="relative h-24 sm:h-32 w-full bg-linear-to-br from-gray-50 to-gray-100">
                   {(product.cachedImageUrl || product.imageUrl) ? (
                     <Image
                       src={product.cachedImageUrl || product.imageUrl!}
@@ -797,7 +813,7 @@ We appreciate your visit!`
       {/* Right side - Cart */}
       <div className={`
         fixed inset-x-0 top-0 bottom-16 z-50 bg-gray-50 flex flex-col
-        lg:static lg:inset-auto lg:bottom-auto lg:w-96 lg:min-w-[320px] lg:max-w-md lg:border-l lg:z-auto lg:flex-shrink-0 lg:h-screen lg:max-h-screen lg:overflow-hidden
+        lg:static lg:inset-auto lg:bottom-auto lg:w-96 lg:min-w-[320px] lg:max-w-md lg:border-l lg:z-auto lg:shrink-0 lg:h-screen lg:max-h-screen lg:overflow-hidden
         transform transition-transform duration-300 ease-in-out
         ${showMobileCart ? 'translate-x-0' : 'translate-x-full'}
         lg:translate-x-0 lg:visible lg:pointer-events-auto
@@ -862,7 +878,7 @@ We appreciate your visit!`
         {cart.length > 0 && (
           <div className="px-2 sm:px-3 lg:px-2 pb-2">
             <Button
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-200 font-semibold"
+              className="w-full bg-linear-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-200 font-semibold"
               size="sm"
               onClick={handleCheckout}
               disabled={loading}
@@ -942,7 +958,7 @@ We appreciate your visit!`
         </div>
 
         {/* Payment Section - Fixed at bottom */}
-        <div className="flex-shrink-0 border-t bg-white p-2 sm:p-3 lg:p-2 pb-3 lg:pb-2 space-y-1.5 sm:space-y-2 lg:space-y-1.5">
+        <div className="shrink-0 border-t bg-white p-2 sm:p-3 lg:p-2 pb-3 lg:pb-2 space-y-1.5 sm:space-y-2 lg:space-y-1.5">
           {/* Totals */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs sm:text-sm">
@@ -950,8 +966,8 @@ We appreciate your visit!`
               <span>₹{calculateSubtotal().toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-xs sm:text-sm">
-              <span className="text-gray-600">Tax (5%):</span>
-              <span>₹{calculateTax(calculateSubtotal()).toFixed(2)}</span>
+              <span className="text-gray-600">Tax (GST):</span>
+              <span>₹{calculateTax().toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm sm:text-base font-bold border-t pt-1">
               <span>Total:</span>
@@ -1012,7 +1028,7 @@ We appreciate your visit!`
 
           {/* Quick Billing Button */}
           <Button
-            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-200 font-bold text-base"
+            className="w-full bg-linear-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-200 font-bold text-base"
             size="lg"
             onClick={handleCheckout}
             disabled={loading || cart.length === 0}

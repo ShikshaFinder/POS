@@ -179,7 +179,7 @@ export default function ProductGrid({
 
                                     {/* Product Info */}
                                     <div className="p-2 sm:p-3 space-y-1">
-                                        <h3 className="font-medium text-xs sm:text-sm text-gray-900 line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">
+                                        <h3 className="font-medium text-xs sm:text-sm text-gray-900 line-clamp-2 min-h-8 sm:min-h-10">
                                             {product.name}
                                         </h3>
 
@@ -236,7 +236,7 @@ export default function ProductGrid({
                                     }}
                                 >
                                     {/* Product Image - Use cached image if available */}
-                                    <div className="relative w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
+                                    <div className="relative w-20 h-20 shrink-0 bg-gray-100 rounded-lg overflow-hidden">
                                         {(product.cachedImageUrl || product.imageUrl) ? (
                                             <Image
                                                 src={product.cachedImageUrl || product.imageUrl!}

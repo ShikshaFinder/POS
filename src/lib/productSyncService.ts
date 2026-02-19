@@ -141,10 +141,14 @@ class ProductSyncService {
         unit: p.unit,
         category: p.category,
         categoryId: p.categoryId,
-        gstRate: p.gstRate || 0,
+        gstRate: p.gstRate ?? 0,
         imageUrl: p.imageUrl,
         hasLocalImage: false, // Will update after caching images
-        updatedAt: now
+        updatedAt: now,
+        description: p.description ?? null,
+        barcode: p.barcode ?? null,
+        packSize: p.packSize ?? null,
+        subCategory: p.subCategory ?? null
       }))
 
       // Save products to IndexedDB

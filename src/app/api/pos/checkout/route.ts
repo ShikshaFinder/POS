@@ -48,9 +48,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 })
     }
 
+    const toNonNegativeNumber = (value: unknown, fallback = 0) => {
+      const parsed = typeof value === 'number' ? value : Number(value)
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+    }
+
     // Validate all products and stock outside the transaction (simple, reliable)
     const processedItems: any[] = [];
-    let calculatedTotal = 0;
+    let calculatedSubtotal = 0;
+    let calculatedTaxAmount = 0;
 
     for (const item of items) {
       const product = await prisma.product.findUnique({
@@ -64,20 +70,26 @@ export async function POST(req: NextRequest) {
       }
       const itemPrice = item.price || item.unitPrice || product.unitPrice || 0;
       const itemTotal = itemPrice * item.quantity;
-      calculatedTotal += itemTotal;
+
+      const productTaxRate = toNonNegativeNumber((product as any).gstRate, taxPercent)
+      const itemTaxRate = toNonNegativeNumber(item.taxRate ?? item.gstRate, productTaxRate)
+      const itemTaxAmount = itemTotal * (itemTaxRate / 100)
+
+      calculatedSubtotal += itemTotal;
+      calculatedTaxAmount += itemTaxAmount;
 
       processedItems.push({
         productId: item.productId,
         quantity: item.quantity,
         price: itemPrice,
+        taxRate: itemTaxRate,
         product: product
       });
     }
 
     // Use calculated total if not provided
     if (!totalAmount) {
-      const tax = calculatedTotal * (taxPercent / 100);
-      totalAmount = calculatedTotal + tax;
+      totalAmount = calculatedSubtotal + calculatedTaxAmount;
     }
 
     // Default amountPaid to totalAmount if not provided

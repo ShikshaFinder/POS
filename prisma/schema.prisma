@@ -1,6 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma_v2"
+  provider      = "prisma-client-js"
+  // Output to default location (node_modules/@prisma/client)
+  // output        = "../src/generated/prisma_v2"
+  
+  // Only include necessary binary targets for deployment
+  // "native" = local development, "rhel-openssl-3.0.x" = Vercel serverless
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -23,20 +28,19 @@ enum TaskStatus {
 }
 
 enum CustomerTier {
-  VENDOR      // Wholesale buyers, highest discount
-  RETAILER    // Shop owners, medium discount
-  CUSTOMER    // End consumers, MRP or minimal discount
+  VENDOR // Wholesale buyers, highest discount
+  RETAILER // Shop owners, medium discount
+  CUSTOMER // End consumers, MRP or minimal discount
 }
 
 // Sales Pipeline Status for Customer Kanban
 enum CustomerStatus {
-  LEAD        // New potential customer
-  PROSPECT    // Qualified and engaged
+  LEAD // New potential customer
+  PROSPECT // Qualified and engaged
   NEGOTIATING // In active discussions
-  WON         // Converted to paying customer
-  LOST        // Did not convert
+  WON // Converted to paying customer
+  LOST // Did not convert
 }
-
 
 // Core user and org models
 model User {
@@ -79,6 +83,7 @@ model User {
   taskComments            TaskComment[]
   taskCommentReads        TaskCommentRead[]
   taskAttachments         TaskAttachment[]
+  taskFollows             TaskFollower[]
   attendance              Attendance[]
   leaveRequests           LeaveRequest[]
   approvedLeaves          LeaveRequest[]           @relation("LeaveApprover")
@@ -93,40 +98,104 @@ model User {
   stockAlertsAcknowledged StockAlert[]             @relation("AlertAcknowledger")
 
   // POS Relations
-  ownedPOSLocations       POSLocation[]      @relation("POSOwner")
-  posAlertsAcknowledged   POSStockAlert[]    @relation("POSAlertAcknowledger")
-  posOrdersCreated        POSOrder[]         @relation("POSOrderCreator")
-  posTransactionsCashier  POSTransaction[]   @relation("POSTransactionCashier")
-  posSessions             POSSession[]       @relation("POSSessionCashier")
-  stockSnapshotsVerified  StockSnapshot[]
-  createdSegments         CustomerSegment[]  @relation("SegmentCreator")
-  approvalRequestsMade    ApprovalQueue[]    @relation("ApprovalRequester")
-  approvalsGiven          ApprovalQueue[]    @relation("ApprovalApprover")
-  
-  // Stock Transfer Relations
-  transfersRequested      StockTransferOrder[] @relation("TransferRequester")
-  transfersApproved       StockTransferOrder[] @relation("TransferApprover")
-  transfersDispatched     StockTransferOrder[] @relation("TransferDispatcher")
-  transfersReceived       StockTransferOrder[] @relation("TransferReceiver")
+  ownedPOSLocations      POSLocation[]    @relation("POSOwner")
+  posAlertsAcknowledged  POSStockAlert[]  @relation("POSAlertAcknowledger")
+  posOrdersCreated       POSOrder[]       @relation("POSOrderCreator")
+  posTransactionsCashier POSTransaction[] @relation("POSTransactionCashier")
+  posSessions            POSSession[]     @relation("POSSessionCashier")
 
   // Import Relations
   importBatches ImportBatch[] @relation("ImportBatchUser")
+  recordedDailyStocks    DailyStockRecord[] @relation("RecordedDailyStocks")
+  verifiedDailyStocks    DailyStockRecord[] @relation("VerifiedDailyStocks")
+
+  // Membership approvals
+  approvedMemberships    OrganizationMembership[] @relation("MembershipApprover")
+
+  // HR & Payroll Relations
+  employeeSalaries       EmployeeSalary[]
+  payrollItems           PayrollItem[]
+  leaveBalances          LeaveBalance[]
+  overtimeRecords        OvertimeRecord[]
+  overtimeApprovals      OvertimeRecord[]         @relation("OvertimeApprover")
+  payrollsProcessed      Payroll[]                @relation("PayrollProcessor")
+  
+  // Employee Purchases & Bonus Relations
+  employeePurchases         EmployeePurchase[]
+  employeePurchasesCreated  EmployeePurchase[]    @relation("EmployeePurchaseCreator")
+  employeeBonuses           EmployeeBonus[]
+  employeeBonusesCreated    EmployeeBonus[]       @relation("BonusCreator")
+  employeeBonusesApproved   EmployeeBonus[]       @relation("BonusApprover")
+
+  // Expense Relations
+  expensesCreated          Expense[]              @relation("ExpenseCreator")
+  recurringExpensesCreated RecurringExpense[]      @relation("RecurringExpenseCreator")
 }
 
 model Organization {
-  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  id                      String  @id @default(auto()) @map("_id") @db.ObjectId
   name                    String
-  slug                    String   @unique
-  code                    String   @unique // 6-8 character alphanumeric code for joining
-  ownerId                 String   @db.ObjectId
-  procurementWorkflowMode String?  @default("FULL") // "FULL" or "DIRECT"
+  slug                    String  @unique
+  code                    String  @unique // 6-8 character alphanumeric code for joining
+  ownerId                 String  @db.ObjectId
+  procurementWorkflowMode String? @default("FULL") // "FULL" or "DIRECT"
+  challanInventoryAutoUpdate Boolean? @default(true) // Toggle inventory deduction on challan dispatch
+  globalTaxPercent        Float   @default(0) // Global tax percentage
   // Catalog settings
-  catalogPricingMode      String?  @default("SHOW_MARKED") // SHOW_MARKED, SHOW_SELLING, HIDE_PRICING, CONTACT_FOR_PRICE
-  catalogEnabled          Boolean  @default(false) // Enable public catalog for this org
+  catalogPricingMode      String? @default("SHOW_MARKED") // SHOW_MARKED, SHOW_SELLING, HIDE_PRICING, CONTACT_FOR_PRICE
+  catalogEnabled          Boolean @default(true) // Enable public catalog for this org
   catalogDescription      String? // Public catalog description
   catalogLogoUrl          String? // Logo for public catalog
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+
+  // Business Address Details (for GST calculation and invoicing)
+  businessAddress String? // Full business address
+  city            String? // City
+  state           String? // State (for GST calculation - CGST/SGST vs IGST)
+  stateCode       String? // State code (e.g., "27" for Maharashtra)
+  pincode         String? // PIN code
+  gstNumber       String? // Organization's GST number
+  panNumber       String? // PAN number
+  cinNumber       String? // CIN for companies
+
+  // Contact Details
+  contactPhone String? // Primary contact number
+  contactEmail String? // Primary contact email
+  website      String? // Company website
+  
+  // Banking Details (for Tally and invoice footer)
+  bankName          String? // Bank name
+  bankAccountNumber String? // Account number
+  bankIfscCode      String? // IFSC code
+  bankBranchName    String? // Branch name
+  bankBranchAddress String? // Branch address
+  bankAccountType   String? // CURRENT, SAVINGS
+  
+  // Validation tracking
+  companyDetailsComplete Boolean @default(false) // Track if all required details are filled
+
+  // Invoice Settings
+  invoicePrefix       String? @default("INV") // Invoice number prefix
+  invoiceTerms        String? // Default terms and conditions
+  invoiceDeclaration  String? // Declaration text for invoice footer
+  authorizedSignatory String? // Name of authorized signatory
+  signatureImageUrl   String? // Digital signature image URL
+  companyStampUrl     String? // Company stamp/seal image URL
+
+  // Additional Tax Identifiers
+  fssaiLicenseNumber String? // FSSAI license for food businesses
+  udyamNumber        String? // Udyam registration number (MSME)
+  tanNumber          String? // TAN for TDS
+
+  // Super Admin Control
+  isPaused           Boolean  @default(false) // If true, organization is paused (e.g., for payment issues)
+
+  // Onboarding tracking
+  onboardingCompleted   Boolean   @default(false)
+  onboardingCompletedAt DateTime?
+  onboardingSteps       Json?     @default("{}") // { rawMaterials: bool, supplier: bool, customer: bool, product: bool, margins: bool, quickBill: bool, inviteB2B: bool, invitePOS: bool }
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   owner        User                     @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   memberships  OrganizationMembership[]
@@ -196,37 +265,55 @@ model Organization {
   productCategories       ProductCategory[]
   publicInquiries         PublicInquiry[]
   storage                 OrganizationStorage?
+  dailyStockRecords       DailyStockRecord[]
 
   // POS Relations
-  posLocations     POSLocation[]
-  posStockAlerts   POSStockAlert[]
-  posOrders        POSOrder[]
-  posInvoices      POSInvoice[]
-  posTransactions  POSTransaction[]
-  posCustomers     POSCustomer[]
-  posSessions      POSSession[]
+  posLocations    POSLocation[]
+  posStockAlerts  POSStockAlert[]
+  posOrders       POSOrder[]
+  posInvoices     POSInvoice[]
+  posTransactions POSTransaction[]
+  posCustomers    POSCustomer[]
+  posSessions     POSSession[]
 
   // Import Relations
   importBatches ImportBatch[]
 
-  // Email Marketing Relations
-  emailCampaigns EmailCampaign[]
-  posCouponCodes POSCouponCode[]
-
-  // Tier Pricing Relations
-  tierPricing TierPricing[]
-
   complaintIssueTypes ComplaintIssueType[]
+
+  // HR & Payroll Relations
+  holidays            Holiday[]
+  weeklyOffs          WeeklyOff[]
+  salaryComponents    SalaryComponent[]
+  employeeSalaries    EmployeeSalary[]
+  payrolls            Payroll[]
+  leaveTypes          LeaveType[]
+  leaveBalances       LeaveBalance[]
+  overtimeRecords     OvertimeRecord[]
+  employeePurchases   EmployeePurchase[]
+  employeeBonuses     EmployeeBonus[]
+
+  // Expense Relations
+  expenses           Expense[]
+  expenseCategories  ExpenseCategory[]
+  recurringExpenses  RecurringExpense[]
 }
 
 model OrganizationMembership {
-  id             String @id @default(auto()) @map("_id") @db.ObjectId
-  userId         String @db.ObjectId
-  organizationId String @db.ObjectId
-  role           String
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String    @db.ObjectId
+  organizationId  String    @db.ObjectId
+  role            String    // ADMIN, MEMBER, OWNER
+  status          String    @default("ACTIVE") // PENDING, ACTIVE, REJECTED
+  requestedRole   String?   // The functional role code they requested (e.g., "8" for SALES)
+  approvedById    String?   @db.ObjectId
+  approvedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
 
-  user         User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user         User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedBy   User?         @relation("MembershipApprover", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([userId, organizationId])
 }
@@ -246,6 +333,7 @@ model Task {
   priority              TaskPriority @default(MEDIUM)
   status                TaskStatus   @default(PENDING)
   dueDate               DateTime?
+  tags                  String[]     @default([])
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
   assignmentEmailSent   Boolean      @default(false)
@@ -257,6 +345,7 @@ model Task {
   // Legacy single assignee (kept for backward compatibility)
   comments      TaskComment[]
   attachments   TaskAttachment[]
+  followers     TaskFollower[]
   notifications Notification[]   @relation("TaskNotifications")
 
   @@index([organizationId, assignedToId])
@@ -332,6 +421,20 @@ model TaskCommentRead {
   @@index([userId])
 }
 
+// TaskFollower: Users following a task for notifications
+model TaskFollower {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  taskId     String   @db.ObjectId
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  followedAt DateTime @default(now())
+
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+}
+
 model UserProfile {
   id                String  @id @default(auto()) @map("_id") @db.ObjectId
   userId            String  @unique @db.ObjectId
@@ -374,35 +477,55 @@ model Department {
 
 // Connections and contacts
 model Connection {
-  id                        String                   @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId            String                   @db.ObjectId
-  organization              Organization             @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  name                      String
-  type                      String // e.g., "SUPPLIER", "CUSTOMER", "BOTH"
-  businessCategory          String // e.g., "DAIRY_FARM", "DISTRIBUTOR"
-  primaryContactId          String?
-  createdById               String?                  @db.ObjectId // Track who created this connection
-  createdBy                 User?                    @relation("CreatedConnections", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  contacts                  ContactPerson[]
-  fssaiLicenses             FSSAILicense[]
-  gstNumber                 String?
-  creditLimit               Float?                   @default(0)
-  paymentTermsDays          Int?                     @default(0)
-  hasColdStorage            Boolean?                 @default(false)
-  deliveryPreferences       String?
-  discountPercent           Float?                   @default(0) // Discount/margin percentage for this connection
-  village                   String? // Customer village/location
-  state                     String? // Customer state
-  
+  id                  String          @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId      String          @db.ObjectId
+  organization        Organization    @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name                String
+  type                String // e.g., "SUPPLIER", "CUSTOMER", "BOTH"
+  businessCategory    String // e.g., "DAIRY_FARM", "DISTRIBUTOR"
+  primaryContactId    String?
+  createdById         String?         @db.ObjectId // Track who created this connection
+  createdBy           User?           @relation("CreatedConnections", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  contacts            ContactPerson[]
+  fssaiLicenses       FSSAILicense[]
+  gstNumber           String?
+  panNumber           String? // PAN number (for TDS)
+  creditLimit         Float?          @default(0)
+  paymentTermsDays    Int?            @default(0)
+  hasColdStorage      Boolean?        @default(false)
+  deliveryPreferences String?
+  discountPercent     Float?          @default(0) // Discount/margin percentage for this connection
+  discountCategories  String[]        @default([]) // Categories where discount applies (empty = all)
+
+  // Billing Address
+  billingAddressLine1 String? // Address line 1
+  billingAddressLine2 String? // Address line 2
+  village             String? // Customer village/location (legacy - use billingAddressLine1)
+  city                String? // City
+  state               String? // State name
+  stateCode           String? // State code (e.g., "27" for Maharashtra)
+  pincode             String? // PIN code
+  country             String? @default("India") // Country
+
+  // Shipping Address (if different from billing)
+  shippingAddressLine1       String?
+  shippingAddressLine2       String?
+  shippingCity               String?
+  shippingState              String?
+  shippingStateCode          String?
+  shippingPincode            String?
+  shippingCountry            String? @default("India")
+  useSeperateShippingAddress Boolean @default(false)
+
   // Multi-Tier Pricing (Phase 2)
-  customerTier              CustomerTier             @default(CUSTOMER) // VENDOR, RETAILER, CUSTOMER
-  tierAssignedAt            DateTime?
-  tierAssignedById          String?                  @db.ObjectId
-  
+  customerTier     CustomerTier @default(CUSTOMER) // VENDOR, RETAILER, CUSTOMER
+  tierAssignedAt   DateTime?
+  tierAssignedById String?      @db.ObjectId
+
   // Sales Pipeline Status for Customer Kanban
-  customerStatus            CustomerStatus           @default(LEAD)
-  customerStatusChangedAt   DateTime?
-  
+  customerStatus          CustomerStatus @default(LEAD)
+  customerStatusChangedAt DateTime?
+
   defaultCollectionCenterId String?                  @db.ObjectId
   defaultCollectionCenter   MilkCollectionCenter?    @relation("DefaultCollectionCenter", fields: [defaultCollectionCenterId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   procurements              MilkProcurementEntry[]
@@ -428,6 +551,8 @@ model Connection {
   customerProductMargins CustomerProductMargin[]
   materialRequirements   ProductionMaterialRequirement[] @relation("MaterialSupplier")
   stockAlerts            StockAlert[]                    @relation("AlertSupplier")
+  suppliedMaterials      ConnectionMaterial[]            // Materials this supplier provides
+  expenses               Expense[]                       @relation("ExpenseSupplier")
 
   @@index([createdById])
 }
@@ -451,39 +576,101 @@ model FSSAILicense {
   expiryDate    DateTime?
 }
 
+// Supplier-Material relationship (which suppliers provide which materials)
+model ConnectionMaterial {
+  id                String     @id @default(auto()) @map("_id") @db.ObjectId
+  connectionId      String     @db.ObjectId
+  connection        Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  materialId        String     @db.ObjectId
+  material          Product    @relation("SuppliedMaterials", fields: [materialId], references: [id], onDelete: Cascade)
+  unitPrice         Float?     // Supplier's price for this material
+  leadTimeDays      Int?       // Delivery lead time in days
+  minimumOrderQty   Float?     // Minimum order quantity
+  preferredSupplier Boolean    @default(false) // Is this the preferred supplier?
+  notes             String?    // Additional notes
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@unique([connectionId, materialId])
+  @@index([materialId])
+}
+
 // Products & catalog
 model Product {
-  id                         String                          @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId             String                          @db.ObjectId
-  organization               Organization                    @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  sku                        String?                         @unique
-  name                       String
-  category                   String // e.g., "MILK", "CURD", "BUTTER"
-  subCategory                String?
-  description                String?
-  unit                       String // e.g., "LITRE", "KG", "PIECE"
-  packSize                   String? // human readable: "200 ml", "1 L"
-  minFatPercent              Float?
-  minSnfPercent              Float?
-  shelfLifeDays              Int?
-  storageTempMin             Float?
-  storageTempMax             Float?
-  requiresColdChain          Boolean                         @default(false)
-  unitPrice                  Float? // Selling price
-  costPrice                  Float? // Internal cost (for profit calculation)
-  markedPrice                Float? // MRP - Maximum Retail Price (displayed)
-  currentStock               Float?                          @default(0) // Float for Float
-  reorderLevel               Float?                          @default(0) // Float for Float
-  minOrderQuantity           Float?                          @default(0) // Float for Float
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String           @db.ObjectId
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sku               String?          @unique
+  name              String
+  alias             String? // Short name/code for quick search (Tally: alias field)
+  category          String // e.g., "MILK", "CURD", "BUTTER"
+  subCategory       String?
+  description       String?
+  unit              String // e.g., "LITRE", "KG", "PIECE"
+  packSize          String? // human readable: "200 ml", "1 L"
+  minFatPercent     Float?
+  minSnfPercent     Float?
+  shelfLifeDays     Int?
+  storageTempMin    Float?
+  storageTempMax    Float?
+  requiresColdChain Boolean          @default(false)
+  unitPrice         Float? // Selling price
+  costPrice         Float? // Internal cost (for profit calculation)
+  markedPrice       Float? // MRP - Maximum Retail Price (displayed)
+  currentStock      Float?           @default(0) // Float for Float
+  stockMfgDate      DateTime?        // Manual manufacturing date for initial stock
+  // Composition and quality fields
+  moisturePercent   Float?
+  proteinPercent    Float?
+  lactosePercent    Float?
+  totalSolidsPercent Float?
+  acidityMin        Float?
+  acidityMax        Float?
+  phMin             Float?
+  phMax             Float?
+  reorderLevel      Float?           @default(0) // Float for Float
+  minOrderQuantity  Float?           @default(0) // Float for Float
   // Catalog fields
-  longDescription            String? // Rich description for catalog
-  youtubeVideoUrl            String? // Embedded YouTube video URL
-  isPublished                Boolean                         @default(false) // Show on public catalog?
-  catalogOrder               Int? // Display order in catalog
-  categoryId                 String?                         @db.ObjectId // Link to ProductCategory
-  productCategory            ProductCategory?                @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  longDescription   String? // Rich description for catalog
+  youtubeVideoUrl   String? // Embedded YouTube video URL
+  isPublished       Boolean          @default(false) // Show on public catalog?
+  catalogOrder      Int? // Display order in catalog
+  categoryId        String?          @db.ObjectId // Link to ProductCategory
+  productCategory   ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // HSN/SAC and GST Details (for Tally integration)
+  hsnCode           String? // HSN/SAC code for GST (e.g., "04039020" for buttermilk)
+  hsnDescription    String? // Description for HSN code (as per GST tariff)
+  sacCode           String? // SAC code for services (alternative to HSN)
+  gstRate           Float?    @default(5) // GST rate percentage (e.g., 5 for 5%)
+  cessRate          Float?    @default(0) // Cess rate percentage (if applicable)
+  cessAmount        Float?    @default(0) // Fixed cess amount per unit (if applicable)
+  taxabilityType    String?   @default("TAXABLE") // TAXABLE, EXEMPT, NIL_RATED, NON_GST
+  typeOfSupply      String?   @default("GOODS") // GOODS or SERVICES
+  reverseCharge     Boolean   @default(false) // Is reverse charge applicable
+  abatementPercent  Float?    @default(0) // Abatement percentage for services
+  rateOfDuty        Float?    @default(0) // Customs/Excise duty rate (for imports)
+  gstApplicableFrom DateTime? // Date from which GST is applicable
+
+  // Alternate Units (for products sold in multiple units)
+  alternateUnit           String? // e.g., "BOX" when primary unit is "KG"
+  alternateUnitConversion Float? // e.g., 15 (1 BOX = 15 KG)
+  reportingUOM            String? // Unit of Measurement for reporting (e.g., "KG")
+
+  // Additional Product Details
+  batchTracking             Boolean @default(false) // Maintain in batches (for Tally)
+  manufacturingDateTracking Boolean @default(false) // Track date of manufacturing
+  expiryDateTracking        Boolean @default(false) // Track expiry dates
+
+  // Opening Balance (for Tally import)
+  openingStockQty   Float?    @default(0) // Opening stock quantity
+  openingStockRate  Float?    @default(0) // Opening rate per unit
+  openingStockValue Float?    @default(0) // Opening stock value (qty * rate)
+  openingStockDate  DateTime? // As of date for opening stock
+
   priceHistory               ProductPriceHistory[]
   inventoryStocks            InventoryStock[]
+  dailyStockRecords          DailyStockRecord[]
   orderItems                 OrderItem[]
   productionBatches          ProductionBatchItem[]
   productionBatchesByProduct ProductionBatch[]
@@ -499,18 +686,20 @@ model Product {
   stockAlerts                StockAlert[]                    @relation("ProductAlerts")
   images                     ProductImage[] // Multiple product images
   publicInquiries            PublicInquiry[] // Inquiries about this product
+  supplierMaterials          ConnectionMaterial[]            @relation("SuppliedMaterials") // Suppliers for this material
 
   // POS Relations
   posStock            POSProductStock[]
   posPricing          POSProductPricing[]
-  posStockAlerts      POSStockAlert[]        @relation("POSStockAlertProduct")
-  posOrderItems       POSOrderItem[]         @relation("POSOrderItemProduct")
-  posTransactionItems POSTransactionItem[]   @relation("POSTransactionItemProduct")
-  stockSnapshots      StockSnapshot[]
-  stockTransferItems  StockTransferItem[]
-
-  // Tier Pricing Relations
-  tierPricing TierPricing[]
+  posStockAlerts      POSStockAlert[]      @relation("POSStockAlertProduct")
+  posOrderItems       POSOrderItem[]       @relation("POSOrderItemProduct")
+  posTransactionItems POSTransactionItem[] @relation("POSTransactionItemProduct")
+  
+  // Employee Purchase Relations
+  employeePurchases   EmployeePurchase[]
+  
+  // Purchase Order Item Relations
+  poItems             POItem[]             @relation("POItemProduct")
 }
 
 model ProductPriceHistory {
@@ -550,6 +739,8 @@ model MilkCollectionCenter {
   mandaliPayments           MandaliPayment[]
   bmcPayments               BMCPayment[]
   defaultConnections        Connection[]             @relation("DefaultCollectionCenter")
+  dailyStockRecords         DailyStockRecord[]
+  expenses                  Expense[]                @relation("ExpenseCollectionCenter")
 
   @@index([type])
   @@index([parentMandaliId])
@@ -575,7 +766,7 @@ model MilkProcurementEntry {
   paymentStatus      String                @default("PENDING") // e.g., "PENDING", "PAID"
   milkType           String?
   createdAt          DateTime              @default(now())
-  dairyReceipt       DairyMilkReceipt?
+  dairyReceipts      DairyMilkReceipt[]
   directDairyReceipt DirectDairyReceipt?
 }
 
@@ -784,7 +975,8 @@ model DairyMilkReceipt {
   clr                Float
   qcStatus           String // "PASS" or "FAIL"
   qcNotes            String?
-  procurementEntryId String?               @unique @db.ObjectId
+  gatePassNumber     String?
+  procurementEntryId String?               @db.ObjectId
   procurementEntry   MilkProcurementEntry? @relation(fields: [procurementEntryId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   createdAt          DateTime              @default(now())
 
@@ -912,6 +1104,7 @@ model ProductionBatch {
   manufacturingDate DateTime?
   expiryDate        DateTime?
   status            String                @default("IN_PRODUCTION") // e.g., "IN_PRODUCTION", "COMPLETED"
+  remarks           String?               // Field to store rejection reason or notes
   items             ProductionBatchItem[]
   orderItems        OrderItem[]
   inventoryStocks   InventoryStock[]
@@ -1031,6 +1224,12 @@ model QuoteLineItem {
   totalPrice  Float
 }
 
+enum OrderSource {
+  MANUAL
+  POS
+  B2B
+}
+
 model SalesOrder {
   id                  String               @id @default(auto()) @map("_id") @db.ObjectId
   organizationId      String               @db.ObjectId
@@ -1039,11 +1238,13 @@ model SalesOrder {
   connectionId        String               @db.ObjectId
   connection          Connection           @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   stage               String?
+  source              OrderSource?         @default(MANUAL)
   deliveryAddress     String?
   distanceKm          Float?
   vehicleReq          String?
-  deliveryDate        DateTime?            // Customer requested delivery date
+  deliveryDate        DateTime? // Customer requested delivery date
   createdAt           DateTime             @default(now())
+  updatedAt           DateTime?            @updatedAt
   items               OrderItem[]
   invoices            Invoice[]
   productionPlanItems ProductionPlanItem[] @relation("OrderPlanItems")
@@ -1068,36 +1269,197 @@ model OrderItem {
 }
 
 model Invoice {
-  id                 String       @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId     String       @db.ObjectId
-  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  invoiceNumber      String       @unique
-  salesOrderId       String?      @db.ObjectId
-  salesOrder         SalesOrder?  @relation(fields: [salesOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  dueDate            DateTime?
-  totalAmount        Float
-  paidAmount         Float        @default(0)
-  status             String?
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceNumber  String
+  salesOrderId   String?      @db.ObjectId
+  salesOrder     SalesOrder?  @relation(fields: [salesOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dueDate        DateTime?
+  invoiceDate    DateTime?     @default(now()) // Invoice date
+
+  // Amount Breakdown
+  subtotal        Float  @default(0) // Total before tax
+  discountAmount  Float  @default(0) // Discount amount
+  discountPercent Float? @default(0) // Discount percentage
+
+  // GST Tax Breakdown
+  taxableAmount  Float  @default(0) // Amount on which tax is calculated
+  cgstRate       Float? @default(0) // CGST rate percentage
+  cgstAmount     Float  @default(0) // CGST amount
+  sgstRate       Float? @default(0) // SGST rate percentage
+  sgstAmount     Float  @default(0) // SGST amount
+  igstRate       Float? @default(0) // IGST rate percentage
+  igstAmount     Float  @default(0) // IGST amount
+  cessAmount     Float  @default(0) // Cess amount (if applicable)
+  totalTaxAmount Float  @default(0) // Total tax (CGST+SGST or IGST + Cess)
+
+  // Rounding and Final Amount
+  roundOff      Float   @default(0) // Round-off amount (+/-)
+  totalAmount   Float // Final invoice amount
+  amountInWords String? // Amount in words (e.g., "INR Two Lakh Five Thousand Only")
+
+  paidAmount    Float   @default(0)
+  balanceAmount Float   @default(0) // totalAmount - paidAmount
+  status        String?
+
+  // Invoice Type
+  invoiceType       String  @default("TAX_INVOICE") // TAX_INVOICE, BILL_OF_SUPPLY, PROFORMA
+  supplyType        String  @default("B2B") // B2B, B2C, SEZWOP, SEZWP, DEEMED_EXPORT
+  isInterState      Boolean @default(false) // true = IGST, false = CGST+SGST
+  placeOfSupply     String? // Place/State of supply
+  placeOfSupplyCode String? // State code of place of supply
+
+  // E-Way Bill
+  eWayBillNumber  String? // E-Way Bill number (if applicable)
+  eWayBillDate    DateTime? // E-Way Bill generation date
+  vehicleNumber   String? // Vehicle number for transport
+  transportMode   String? // ROAD, RAIL, AIR, SHIP
+  transporterName String? // Transporter name
+  transporterId   String? // Transporter GST ID
+  lrNumber        String? // LR/RR/Airway Bill number
+
+  // Other References
+  poNumber       String? // Customer PO number
+  poDate         DateTime? // Customer PO date
+  challanNumber  String? // Delivery challan reference
+  otherReference String? // Any other reference
+
+  // IRN for E-Invoicing (GST)
+  irn          String? // Invoice Reference Number
+  irnAckNumber String? // IRN acknowledgement number
+  irnAckDate   DateTime? // IRN acknowledgement date
+  qrCodeData   String? // QR Code data for GST
+  signedQrCode String? // Signed QR Code
+
   // Approval workflow fields
-  approvalStatus     String       @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED
-  approvedById       String?      @db.ObjectId
-  approvedAt         DateTime?
-  rejectionReason    String?
-  // Customer GST and billing details (copied from connection at invoice time)
-  customerGstNumber  String?
-  customerName       String?
-  customerAddress    String?
-  customerState      String?
+  approvalStatus  String    @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED
+  approvedById    String?   @db.ObjectId
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  // Customer/Buyer Billing Details (copied from connection at invoice time)
+  customerGstNumber String?
+  customerName      String?
+  customerAddress   String?
+  customerCity      String?
+  customerState     String?
+  customerStateCode String? // State code for GST
+  customerPincode   String?
+  customerPhone     String?
+
+  // Shipping Address (if different from billing)
+  shipToName      String?
+  shipToAddress   String?
+  shipToCity      String?
+  shipToState     String?
+  shipToStateCode String?
+  shipToPincode   String?
+
+  // Seller Details (snapshot from organization)
+  sellerName      String?
+  sellerAddress   String?
+  sellerCity      String?
+  sellerState     String?
+  sellerStateCode String?
+  sellerPincode   String?
+  sellerGstNumber String?
+  sellerPanNumber String?
+
   // Invoice notes and terms
   notes              String?
   termsAndConditions String?
+  
+  // Auto-generation tracking
+  autoGenerated Boolean @default(false)
+  emailSent     Boolean @default(false)
+  emailSentAt   DateTime?
+  
+  // Payment tracking
+  paymentMethod    String? // CASH, UPI, CARD, NEFT, RTGS, CHEQUE
+  paymentReference String? // Transaction ID / Cheque number
+  paymentDate      DateTime?
+  
+  // Tally export tracking
+  tallyExported      Boolean   @default(false)
+  tallyExportedAt    DateTime?
+  tallyVoucherNumber String?
+  
+  // Source tracking
+  source String? // 'B2B', 'POS', 'CRM', 'MANUAL'
+  declaration        String? // Declaration text
+
+  // Quantity Summary
+  totalQuantity Float? @default(0) // Total quantity of items
+
   // Email tracking
-  sentToCustomer     Boolean      @default(false)
-  sentAt             DateTime?
-  customerEmail      String?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  payments           Payment[]
+  sentToCustomer Boolean       @default(false)
+  sentAt         DateTime?
+  customerEmail  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  payments       Payment[]
+  items          InvoiceItem[]
+
+  @@unique([organizationId, invoiceNumber])
+}
+
+// Invoice Line Item - Detailed breakdown per product with tax
+model InvoiceItem {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceId String  @db.ObjectId
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  // Product Details (snapshot at invoice time)
+  productId          String? @db.ObjectId
+  productName        String // Product name
+  productDescription String? // Product description
+  hsnCode            String? // HSN/SAC code
+  sku                String? // SKU code
+
+  // Quantity and Unit
+  quantity Float // Quantity
+  unit     String // Unit of measurement (KG, LITRE, PIECE, etc.)
+  unitName String? // Full unit name for display
+
+  // Pricing
+  mrp             Float? // Maximum Retail Price
+  rateBeforeTax   Float // Rate before tax per unit
+  rateAfterTax    Float? // Rate including tax per unit
+  discountPercent Float  @default(0) // Discount percentage
+  discountAmount  Float  @default(0) // Discount amount
+
+  // Taxable Value
+  taxableValue Float // Quantity * Rate - Discount
+
+  // GST Breakdown
+  gstRate    Float @default(0) // GST rate percentage
+  cgstRate   Float @default(0) // CGST rate (half of GST)
+  cgstAmount Float @default(0) // CGST amount
+  sgstRate   Float @default(0) // SGST rate (half of GST)
+  sgstAmount Float @default(0) // SGST amount
+  igstRate   Float @default(0) // IGST rate (full GST for inter-state)
+  igstAmount Float @default(0) // IGST amount
+
+  // Cess (if applicable)
+  cessRate   Float @default(0) // Cess rate percentage
+  cessAmount Float @default(0) // Cess amount
+
+  // Total
+  totalTaxAmount Float @default(0) // Total tax on this item
+  totalAmount    Float // Total amount including tax
+
+  // Batch and Expiry (optional)
+  batchNumber String? // Batch number
+  mfgDate     DateTime? // Manufacturing date
+  expiryDate  DateTime? // Expiry date
+
+  // Serial number in invoice
+  serialNumber Int? // Line item serial number (1, 2, 3...)
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
 }
 
 model Payment {
@@ -1112,6 +1474,19 @@ model Payment {
   bankName       String?
   paidAt         DateTime
   status         String?
+  direction      String       @default("IN") // IN | OUT
+  categoryId     String?      @db.ObjectId
+  linkedType     String?
+  linkedId       String?
+  particulars    String?
+  notes          String?
+  createdById    String?      @db.ObjectId
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, direction, paidAt])
+  @@index([linkedType, linkedId])
+  @@index([categoryId])
 }
 
 model DeliveryChallan {
@@ -1151,7 +1526,7 @@ model StorageLocation {
   operational    Boolean?         @default(true)
   maintenanceLog Json? // JSON field
   stocks         InventoryStock[]
-  transfersFrom  StockTransferOrder[] @relation("TransferFromStorage")
+  dailyStockRecords DailyStockRecord[]
 }
 
 model InventoryStock {
@@ -1181,7 +1556,57 @@ model InventoryTransaction {
   qty            Float
   referenceType  String? // e.g., "SalesOrder", "ProductionBatch"
   referenceId    String?
+  reason         String? // Description/Return reason
   createdAt      DateTime       @default(now())
+}
+
+model DailyStockRecord {
+  id              String                @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String                @db.ObjectId
+  organization    Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productId       String                @db.ObjectId
+  product         Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locationId      String?               @db.ObjectId
+  location        StorageLocation?      @relation(fields: [locationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  mandaliId       String?               @db.ObjectId
+  mandali         MilkCollectionCenter? @relation(fields: [mandaliId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  date            DateTime
+  session         String? // "morning" or "evening"
+
+  // Stock movement
+  openingStock    Float     @default(0)
+  received        Float     @default(0)
+  dispatched      Float     @default(0)
+  wastage         Float     @default(0)
+  adjustments     Float     @default(0)
+  closingStock    Float     @default(0)
+  expectedClosing Float     @default(0)
+  variance        Float     @default(0)
+
+  // Quality parameters
+  avgFat          Float?
+  avgSnf          Float?
+  temperature     Float?
+
+  // Financials
+  ratePerUnit     Float?
+  openingValue    Float?
+  closingValue    Float?
+
+  // Metadata
+  remarks         String?
+  recordedById    String?   @db.ObjectId
+  recordedBy      User?     @relation("RecordedDailyStocks", fields: [recordedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  verifiedById    String?   @db.ObjectId
+  verifiedBy      User?     @relation("VerifiedDailyStocks", fields: [verifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([organizationId, productId, locationId, date, session])
+  @@index([organizationId])
+  @@index([productId])
+  @@index([date])
 }
 
 // Material Requests
@@ -1215,9 +1640,19 @@ model PurchaseOrder {
   supplier             Connection                      @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   expectedDate         DateTime?
   actualDate           DateTime?
+  status               String                          @default("DRAFT") // DRAFT, SENT, CONFIRMED, RECEIVED, CANCELLED
+  totalAmount          Float?                          // Computed from items
+  receivedDate         DateTime?
+  markedAsPurchase     Boolean                         @default(false)
+  notes                String?
+  expenseId            String?                         @db.ObjectId // Link to auto-generated expense
   createdAt            DateTime                        @default(now())
+  updatedAt            DateTime                        @updatedAt
   items                POItem[]
   materialRequirements ProductionMaterialRequirement[] @relation("MaterialPO")
+
+  @@index([organizationId])
+  @@index([status])
 }
 
 model POItem {
@@ -1227,6 +1662,8 @@ model POItem {
   description     String
   qty             Float
   unitPrice       Float
+  productId       String?       @db.ObjectId // Link to raw material product for stock updates
+  product         Product?      @relation("POItemProduct", fields: [productId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 }
 
 model Bill {
@@ -1320,6 +1757,7 @@ model Notification {
   posAlertId     String?      @db.ObjectId
   posOrderId     String?      @db.ObjectId
   posInvoiceId   String?      @db.ObjectId
+  materialId     String?      @db.ObjectId // For Inventory Shortfall
   createdAt      DateTime     @default(now())
 }
 
@@ -1484,11 +1922,12 @@ model MassComplaint {
   complaintNumber String           @unique
   customerId      String?          @db.ObjectId
   customer        Connection?      @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  salesOrderId    String?          @db.ObjectId // Link to B2B order (for vendor complaints)
   productId       String?          @db.ObjectId
   product         Product?         @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   batchId         String?          @db.ObjectId
   batch           ProductionBatch? @relation(fields: [batchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  issueType       String // e.g., "POUCH_LEAKAGE", "SOUR_CURD", "PANEER_DEFECT", "EXPIRED", "OTHER"
+  issueType       String // e.g., "POUCH_LEAKAGE", "SOUR_CURD", "PANEER_DEFECT", "EXPIRED", "DELIVERY_ISSUE", "WRONG_ITEMS", "OTHER"
   quantity        Float // Quantity affected
   description     String?
   complaintDate   DateTime
@@ -1867,7 +2306,6 @@ model ProductCategory {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   products       Product[]
-  tierPricing    TierPricing[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -1951,7 +2389,6 @@ model POSLocation {
   // Pricing Settings
   useCustomPricing      Boolean @default(false)
   globalDiscountPercent Float?  @default(0) // Global discount for this POS
-  varianceAlertThreshold Float? @default(5) // Stock variance threshold percentage
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1963,16 +2400,9 @@ model POSLocation {
   orders        POSOrder[]
   invoices      POSInvoice[]
   transactions  POSTransaction[]
-  customers     POSCustomer[]      @relation("POSLocationCustomers")
-  sessions      POSSession[]       @relation("POSLocationSessions")
+  customers     POSCustomer[]        @relation("POSLocationCustomers")
+  sessions      POSSession[]         @relation("POSLocationSessions")
   invites       OrganizationInvite[] @relation("POSLocationInvite")
-  emailCampaigns EmailCampaign[]
-  couponCodes    POSCouponCode[]
-  stockSnapshots StockSnapshot[]   @relation("POSStockSnapshots")
-  eodReports     EODReport[]       @relation("POSEODReports")
-  customerSegments CustomerSegment[] @relation("POSLocationSegments")
-  transfersFrom  StockTransferOrder[] @relation("TransferFromPOS")
-  transfersTo    StockTransferOrder[] @relation("TransferToPOS")
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -2187,54 +2617,54 @@ model POSPayment {
 
 // POS Transaction - Retail sales transactions at POS location
 model POSTransaction {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String        @db.ObjectId
-  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  posLocationId   String?       @db.ObjectId
-  posLocation     POSLocation?  @relation(fields: [posLocationId], references: [id], onDelete: SetNull)
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  posLocationId  String?      @db.ObjectId
+  posLocation    POSLocation? @relation(fields: [posLocationId], references: [id], onDelete: SetNull)
 
   // Transaction Info
-  receiptNumber   String        @unique
-  transactionDate DateTime      @default(now())
-  status          String        @default("COMPLETED") // PENDING, COMPLETED, CANCELLED, REFUNDED
+  receiptNumber   String   @unique
+  transactionDate DateTime @default(now())
+  status          String   @default("COMPLETED") // PENDING, COMPLETED, CANCELLED, REFUNDED
 
   // Customer Info (optional for walk-in)
-  customerId      String?       @db.ObjectId
-  customer        POSCustomer?  @relation("POSCustomerTransactions", fields: [customerId], references: [id], onDelete: SetNull)
-  customerName    String?
-  customerPhone   String?
+  customerId    String?      @db.ObjectId
+  customer      POSCustomer? @relation("POSCustomerTransactions", fields: [customerId], references: [id], onDelete: SetNull)
+  customerName  String?
+  customerPhone String?
 
   // Cashier
-  cashierId       String        @db.ObjectId
-  cashier         User          @relation("POSTransactionCashier", fields: [cashierId], references: [id])
+  cashierId String @db.ObjectId
+  cashier   User   @relation("POSTransactionCashier", fields: [cashierId], references: [id])
 
   // Financials
-  subtotal        Float         @default(0)
-  discountAmount  Float         @default(0)
-  discountPercent Float         @default(0)
-  taxAmount       Float         @default(0)
-  taxPercent      Float         @default(0)
-  totalAmount     Float         @default(0)
-  amountPaid      Float         @default(0)  // Alias for paidAmount
-  paidAmount      Float         @default(0)
-  changeGiven     Float         @default(0)  // Alias for changeAmount
-  changeAmount    Float         @default(0)
+  subtotal        Float @default(0)
+  discountAmount  Float @default(0)
+  discountPercent Float @default(0)
+  taxAmount       Float @default(0)
+  taxPercent      Float @default(0)
+  totalAmount     Float @default(0)
+  amountPaid      Float @default(0) // Alias for paidAmount
+  paidAmount      Float @default(0)
+  changeGiven     Float @default(0) // Alias for changeAmount
+  changeAmount    Float @default(0)
 
   // Payment Info - Primary method and breakdown
-  paymentMethod   String        @default("CASH") // CASH, CARD, UPI, WALLET, MIXED
-  cashAmount      Float         @default(0)
-  cardAmount      Float         @default(0)
-  upiAmount       Float         @default(0)
-  walletAmount    Float         @default(0)
-  paymentDetails  String?       // JSON for mixed payments
+  paymentMethod  String  @default("CASH") // CASH, CARD, UPI, WALLET, MIXED
+  cashAmount     Float   @default(0)
+  cardAmount     Float   @default(0)
+  upiAmount      Float   @default(0)
+  walletAmount   Float   @default(0)
+  paymentDetails String? // JSON for mixed payments
 
-  notes           String?
+  notes String?
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  items           POSTransactionItem[]
+  items POSTransactionItem[]
 
   @@index([organizationId, status])
   @@index([posLocationId])
@@ -2249,7 +2679,7 @@ model POSTransactionItem {
   productId     String         @db.ObjectId
   product       Product        @relation("POSTransactionItemProduct", fields: [productId], references: [id])
 
-  productName    String  // Snapshot of product name at time of sale
+  productName    String // Snapshot of product name at time of sale
   productSku     String? // Snapshot of product SKU
   quantity       Float
   unitPrice      Float
@@ -2269,33 +2699,24 @@ model POSCustomer {
   posLocation    POSLocation? @relation("POSLocationCustomers", fields: [posLocationId], references: [id], onDelete: SetNull)
 
   // Customer Info
-  name           String
-  phone          String?
-  email          String?
-  address        String?
+  name    String
+  phone   String?
+  email   String?
+  address String?
 
   // Loyalty & Analytics
-  totalSpent     Float    @default(0)
-  visitCount     Int      @default(0)
-  lastVisitDate  DateTime?
-  loyaltyPoints  Int      @default(0)
+  totalSpent    Float     @default(0)
+  visitCount    Int       @default(0)
+  lastVisitDate DateTime?
+  loyaltyPoints Int       @default(0)
 
-  // Email Marketing
-  tags              String[]  @default([])
-  marketingConsent  Boolean   @default(false)
-  emailVerified     Boolean   @default(false)
-  lastEmailSent     DateTime?
-  unsubscribedAt    DateTime?
+  notes String?
 
-  notes          String?
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  transactions   POSTransaction[] @relation("POSCustomerTransactions")
-  emailCampaignRecipients EmailCampaignRecipient[]
-  segmentMemberships CustomerSegmentMember[] @relation("CustomerSegments")
+  transactions POSTransaction[] @relation("POSCustomerTransactions")
 
   @@index([organizationId])
   @@index([posLocationId])
@@ -2311,33 +2732,33 @@ model POSSession {
   posLocation    POSLocation? @relation("POSLocationSessions", fields: [posLocationId], references: [id], onDelete: SetNull)
 
   // Session Info
-  sessionNumber  String       @unique
-  cashierId      String       @db.ObjectId
-  cashier        User         @relation("POSSessionCashier", fields: [cashierId], references: [id])
+  sessionNumber String @unique
+  cashierId     String @db.ObjectId
+  cashier       User   @relation("POSSessionCashier", fields: [cashierId], references: [id])
 
   // Status: OPEN, CLOSED, SUSPENDED
-  status         String       @default("OPEN")
+  status String @default("OPEN")
 
   // Opening
-  openingBalance Float        @default(0)
-  openedAt       DateTime     @default(now())
+  openingBalance Float    @default(0)
+  openedAt       DateTime @default(now())
 
   // Closing
   closingBalance Float?
   closedAt       DateTime?
   actualCash     Float?
-  cashDifference Float?       @default(0)
+  cashDifference Float?    @default(0)
   closingNotes   String?
 
   // Totals
-  totalSales     Float        @default(0)
-  totalCash      Float        @default(0)
-  totalCard      Float        @default(0)
-  totalUpi       Float        @default(0)
-  transactionCount Int        @default(0)
+  totalSales       Float @default(0)
+  totalCash        Float @default(0)
+  totalCard        Float @default(0)
+  totalUpi         Float @default(0)
+  transactionCount Int   @default(0)
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId, status])
   @@index([cashierId])
@@ -2363,7 +2784,7 @@ model ImportBatch {
   // File info
   sourceFileName String
   sourceFileUrl  String? // Azure Blob URL for audit
-  fileFormat     String  // EXCEL, CSV, XML
+  fileFormat     String // EXCEL, CSV, XML
 
   // Import stats
   totalRows    Int
@@ -2420,393 +2841,461 @@ model ImportRecord {
   @@index([entityType, entityId])
 }
 
-// ============================================
-// EMAIL MARKETING MODELS
-// ============================================
+// ==========================================
+// HR & Payroll Management System
+// ==========================================
 
-// Email Campaign - Marketing campaigns sent to POS customers
-model EmailCampaign {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String   @db.ObjectId
+// Holiday - Organization holidays calendar
+model Holiday {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  posLocationId  String?  @db.ObjectId
-  posLocation    POSLocation? @relation(fields: [posLocationId], references: [id], onDelete: SetNull)
-  
-  // Campaign details
-  name           String
-  subject        String
-  emailBody      String   // HTML email body with template variables
-  
-  // Targeting criteria
-  targetTags     String[] // Customer tags to target
-  minTotalSpent  Float?   // Minimum total spent
-  maxTotalSpent  Float?   // Maximum total spent
-  minVisitCount  Int?     // Minimum visit count
-  
-  // Coupon code (optional)
-  couponCodeId   String?  @db.ObjectId
-  couponCode     POSCouponCode? @relation(fields: [couponCodeId], references: [id], onDelete: SetNull)
-  
-  // Campaign status
-  status         String   @default("DRAFT") // DRAFT, SENDING, SENT, FAILED
-  recipientCount Int      @default(0)
-  sentCount      Int      @default(0)
-  errorCount     Int      @default(0)
-  
-  sentAt         DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  // Relations
-  recipients     EmailCampaignRecipient[]
-  
-  @@index([organizationId, status])
-  @@index([posLocationId])
-}
-
-// Email Campaign Recipient - Tracks individual email sends
-model EmailCampaignRecipient {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  campaignId   String   @db.ObjectId
-  campaign     EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
-  customerId   String   @db.ObjectId
-  customer     POSCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  
-  status       String   @default("PENDING") // PENDING, SENT, FAILED
-  sentAt       DateTime?
-  errorMessage String?
-  
-  // Email engagement tracking
-  opened       Boolean  @default(false)
-  openedAt     DateTime?
-  clicked      Boolean  @default(false)
-  clickedAt    DateTime?
-  
-  createdAt    DateTime @default(now())
-  
-  @@unique([campaignId, customerId])
-  @@index([campaignId, status])
-  @@index([customerId])
-}
-
-// POS Coupon Code - Discount codes for marketing campaigns
-model POSCouponCode {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String   @db.ObjectId
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  posLocationId  String?  @db.ObjectId
-  posLocation    POSLocation? @relation(fields: [posLocationId], references: [id], onDelete: SetNull)
-  
-  code           String   @unique
+  name           String // e.g., "Diwali", "Christmas", "Republic Day"
+  date           DateTime // The holiday date
+  isPaid         Boolean      @default(true) // Is this a paid holiday?
+  isRecurring    Boolean      @default(false) // Repeats every year on same date
   description    String?
-  
-  discountType   String   // PERCENTAGE, FIXED_AMOUNT
-  discountValue  Float
-  
-  minPurchase    Float?   // Minimum purchase amount
-  maxDiscount    Float?   // Maximum discount amount (for percentage)
-  
-  usageLimit     Int?     // Total usage limit
-  usageCount     Int      @default(0)
-  
-  perCustomerLimit Int?   // Usage limit per customer
-  
-  validFrom      DateTime
-  validUntil     DateTime?
-  
-  isActive       Boolean  @default(true)
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  // Relations
-  campaigns      EmailCampaign[]
-  
-  @@index([organizationId, isActive])
-  @@index([posLocationId])
-}
-
-// ============================================
-// TIER PRICING MODELS
-// ============================================
-
-// TierPricing - Multi-tier pricing for products/categories (VENDOR, RETAILER, CUSTOMER)
-model TierPricing {
-  id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String       @db.ObjectId
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  // Either product-level or category-level pricing
-  productId      String?      @db.ObjectId
-  product        Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  categoryId     String?      @db.ObjectId
-  category       ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  
-  // Discount percentages for each tier
-  vendorDiscount    Float @default(0)   // Highest discount (wholesale)
-  retailerDiscount  Float @default(0)   // Medium discount (shop owners)
-  customerDiscount  Float @default(0)   // Lowest discount (end consumers)
-  
-  isActive       Boolean  @default(true)
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  @@index([organizationId, productId, isActive])
-  @@index([organizationId, categoryId, isActive])
-}
-
-// ============================================
-// STOCK TRANSFER MODELS
-// ============================================
-
-// StockTransferOrder - Transfer stock between warehouses and POS locations
-model StockTransferOrder {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String        @db.ObjectId
-  
-  // Transfer reference
-  transferNumber String        @unique
-  
-  // Source (from warehouse/storage or another POS)
-  fromStorageId  String?       @db.ObjectId
-  fromStorage    StorageLocation? @relation("TransferFromStorage", fields: [fromStorageId], references: [id], onDelete: SetNull)
-  fromPosId      String?       @db.ObjectId
-  fromPos        POSLocation?  @relation("TransferFromPOS", fields: [fromPosId], references: [id], onDelete: SetNull)
-  
-  // Destination POS
-  toPosId        String        @db.ObjectId
-  toPos          POSLocation   @relation("TransferToPOS", fields: [toPosId], references: [id], onDelete: Cascade)
-  
-  // Status: REQUESTED, APPROVED, DISPATCHED, IN_TRANSIT, COMPLETED, CANCELLED
-  status         String        @default("REQUESTED")
-  
-  // Request details
-  requestedById  String        @db.ObjectId
-  requestedBy    User          @relation("TransferRequester", fields: [requestedById], references: [id], onDelete: NoAction)
-  requestedAt    DateTime      @default(now())
-  notes          String?
-  
-  // Approval
-  approvedById   String?       @db.ObjectId
-  approvedBy     User?         @relation("TransferApprover", fields: [approvedById], references: [id], onDelete: SetNull)
-  approvedAt     DateTime?
-  
-  // Dispatch
-  dispatchedAt   DateTime?
-  dispatchedById String?       @db.ObjectId
-  dispatchedBy   User?         @relation("TransferDispatcher", fields: [dispatchedById], references: [id], onDelete: SetNull)
-  
-  // Receipt
-  receivedAt     DateTime?
-  receivedById   String?       @db.ObjectId
-  receivedBy     User?         @relation("TransferReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
-  receiptNotes   String?
-  
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  
-  // Relations
-  items          StockTransferItem[]
-  
-  @@index([organizationId, status])
-  @@index([toPosId])
-  @@index([fromPosId])
-  @@index([fromStorageId])
-}
-
-// StockTransferItem - Individual items in a transfer order
-model StockTransferItem {
-  id             String              @id @default(auto()) @map("_id") @db.ObjectId
-  transferId     String              @db.ObjectId
-  transfer       StockTransferOrder  @relation(fields: [transferId], references: [id], onDelete: Cascade)
-  productId      String              @db.ObjectId
-  product        Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  // Quantities at different stages
-  requestedQty   Float
-  approvedQty    Float?
-  dispatchedQty  Float?
-  receivedQty    Float?
-  
-  // Variance tracking
-  varianceQty    Float?
-  varianceReason String?
-  
-  createdAt      DateTime            @default(now())
-  
-  @@index([transferId])
-  @@index([productId])
-}
-
-// ============================================
-// APPROVAL QUEUE MODELS
-// ============================================
-
-// ApprovalQueue - General approval queue for various entity types
-model ApprovalQueue {
-  id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String       @db.ObjectId
-  
-  // Entity reference
-  entityType     String       // "STOCK_ADJUSTMENT", "PRICE_CHANGE", etc.
-  entityId       String       @db.ObjectId
-  action         String       // "ADJUST", "CREATE", "UPDATE", "DELETE"
-  
-  // Request details
-  requestedById  String       @db.ObjectId
-  requestedBy    User         @relation("ApprovalRequester", fields: [requestedById], references: [id], onDelete: NoAction)
-  requestData    Json?        // Details of the request
-  
-  // Priority: LOW, MEDIUM, HIGH, URGENT
-  priority       String       @default("MEDIUM")
-  
-  // Status: PENDING, APPROVED, REJECTED, AUTO_APPROVED, CANCELLED
-  status         String       @default("PENDING")
-  
-  // Approval details
-  approvedById   String?      @db.ObjectId
-  approvedBy     User?        @relation("ApprovalApprover", fields: [approvedById], references: [id], onDelete: SetNull)
-  approvedAt     DateTime?
-  rejectedReason String?
-  
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  
-  @@index([organizationId, status])
-  @@index([entityType, entityId])
-  @@index([requestedById])
-}
 
-// ============================================
-// POS CUSTOMER SEGMENTATION MODELS
-// ============================================
-
-// CustomerSegment - Groups of customers based on criteria
-model CustomerSegment {
-  id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String       @db.ObjectId
-  posLocationId  String?      @db.ObjectId
-  posLocation    POSLocation? @relation("POSLocationSegments", fields: [posLocationId], references: [id], onDelete: SetNull)
-  
-  name           String
-  description    String?
-  color          String?      @default("#6366f1") // Hex color for UI
-  
-  // Dynamic segment criteria (JSON)
-  criteria       Json?        // { minSpent, maxSpent, minVisits, tags, etc. }
-  isDynamic      Boolean      @default(true) // Auto-update members based on criteria
-  
-  memberCount    Int          @default(0)
-  
-  createdById    String       @db.ObjectId
-  createdBy      User         @relation("SegmentCreator", fields: [createdById], references: [id], onDelete: NoAction)
-  
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  
-  // Relations
-  members        CustomerSegmentMember[]
-  
+  @@unique([organizationId, date])
   @@index([organizationId])
-  @@index([posLocationId])
+  @@index([date])
 }
 
-// CustomerSegmentMember - Many-to-many link between segments and customers
-model CustomerSegmentMember {
-  id         String          @id @default(auto()) @map("_id") @db.ObjectId
-  segmentId  String          @db.ObjectId
-  segment    CustomerSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
-  customerId String          @db.ObjectId
-  customer   POSCustomer     @relation("CustomerSegments", fields: [customerId], references: [id], onDelete: Cascade)
-  
-  createdAt  DateTime        @default(now())
-  
-  @@unique([segmentId, customerId])
-  @@index([segmentId])
-  @@index([customerId])
-}
-
-// ============================================
-// POS STOCK & REPORTING MODELS
-// ============================================
-
-// StockSnapshot - Daily stock snapshots for verification and variance tracking
-model StockSnapshot {
+// WeeklyOff - Recurring weekly off days configuration
+model WeeklyOff {
   id             String       @id @default(auto()) @map("_id") @db.ObjectId
   organizationId String       @db.ObjectId
-  posLocationId  String       @db.ObjectId
-  posLocation    POSLocation  @relation("POSStockSnapshots", fields: [posLocationId], references: [id], onDelete: Cascade)
-  productId      String       @db.ObjectId
-  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dayOfWeek      Int // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  isPaid         Boolean      @default(true) // Is this a paid off day?
+  isHalfDay      Boolean      @default(false) // Is this a half-day (e.g., Saturday half-day)?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, dayOfWeek])
+  @@index([organizationId])
+}
+
+// SalaryComponent - Configurable salary components (allowances/deductions)
+model SalaryComponent {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String       @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name            String // e.g., "Basic Pay", "HRA", "TA", "PF", "TDS"
+  type            String // "EARNING" or "DEDUCTION"
+  calculationType String // "FIXED" or "PERCENTAGE"
+  defaultValue    Float        @default(0) // Default amount or percentage
+  isActive        Boolean      @default(true)
+  isTaxable       Boolean      @default(true) // Is this component taxable?
+  description     String?
+  sortOrder       Int          @default(0) // Display order
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  employeeSalaryComponents EmployeeSalaryComponent[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// EmployeeSalary - Salary structure for each employee
+model EmployeeSalary {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Snapshot info
-  date           DateTime     @db.Date
-  session        String       @default("EOD") // "OPENING", "MID_DAY", "EOD"
+  // Salary configuration
+  salaryType     String       @default("MONTHLY") // "MONTHLY" or "DAILY"
+  basicPay       Float // Base salary amount
+  effectiveFrom  DateTime     @default(now()) // When this salary structure is effective
+  effectiveTo    DateTime? // End date (null = current)
   
-  // Stock values
-  openingStock   Float        @default(0)
-  closingStock   Float        @default(0)
-  systemStock    Float        @default(0)
-  physicalStock  Float?       // Physically counted stock
+  // Employment details
+  employeeId     String? // Employee ID/Code (e.g., "EMP001")
+  designation    String? // Job title/designation
+  joiningDate    DateTime?
+  bankAccountNo  String?
+  bankIfscCode   String?
+  bankName       String?
+  panNumber      String?
   
-  // Variance
-  variance       Float?       // Difference: physicalStock - systemStock
-  variancePercent Float?      // Percentage variance
-  varianceReason String?      // Reason for variance if flagged
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  components   EmployeeSalaryComponent[]
+  payrollItems PayrollItem[]
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([effectiveFrom])
+}
+
+// EmployeeSalaryComponent - Individual salary components for an employee
+model EmployeeSalaryComponent {
+  id                 String          @id @default(auto()) @map("_id") @db.ObjectId
+  employeeSalaryId   String          @db.ObjectId
+  employeeSalary     EmployeeSalary  @relation(fields: [employeeSalaryId], references: [id], onDelete: Cascade)
+  salaryComponentId  String          @db.ObjectId
+  salaryComponent    SalaryComponent @relation(fields: [salaryComponentId], references: [id], onDelete: Cascade)
   
-  // Status: PENDING, VERIFIED, FLAGGED
-  status         String       @default("PENDING")
+  // Override values for this employee
+  calculationType    String // "FIXED" or "PERCENTAGE" (can override component default)
+  value              Float // Amount or percentage value
   
-  // Verification
-  verifiedById   String?      @db.ObjectId
-  verifiedBy     User?        @relation(fields: [verifiedById], references: [id], onDelete: SetNull)
-  verifiedAt     DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@unique([employeeSalaryId, salaryComponentId])
+  @@index([employeeSalaryId])
+}
+
+// Payroll - Monthly payroll batch
+model Payroll {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  month          Int // 1-12
+  year           Int // e.g., 2026
+  
+  // Payroll totals
+  totalGrossPay  Float        @default(0)
+  totalDeductions Float       @default(0)
+  totalNetPay    Float        @default(0)
+  totalOvertime  Float        @default(0)
+  employeeCount  Int          @default(0)
+  
+  status         String       @default("DRAFT") // "DRAFT", "PROCESSING", "PROCESSED", "PAID"
+  processedAt    DateTime?
+  paidAt         DateTime?
+  processedById  String?      @db.ObjectId
+  processedBy    User?        @relation("PayrollProcessor", fields: [processedById], references: [id], onDelete: SetNull)
   
   notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  items PayrollItem[]
+
+  @@unique([organizationId, month, year])
+  @@index([organizationId])
+  @@index([month, year])
+}
+
+// PayrollItem - Individual employee salary in a payroll
+model PayrollItem {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  payrollId        String         @db.ObjectId
+  payroll          Payroll        @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  employeeSalaryId String         @db.ObjectId
+  employeeSalary   EmployeeSalary @relation(fields: [employeeSalaryId], references: [id], onDelete: Cascade)
+  userId           String         @db.ObjectId
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Attendance summary
+  totalDays        Int // Total days in month
+  workingDays      Int // Working days (excluding weekly offs & holidays)
+  presentDays      Float // Days present (half days count as 0.5)
+  absentDays       Float // Days absent
+  paidLeaveDays    Float @default(0) // Paid leave days
+  unpaidLeaveDays  Float @default(0) // Unpaid leave days
+  holidayDays      Int   @default(0) // Holiday days
+  weeklyOffDays    Int   @default(0) // Weekly off days
+  
+  // Overtime
+  overtimeHours    Float @default(0)
+  overtimeRate     Float @default(1.5) // Multiplier (1.5x, 2x)
+  overtimeAmount   Float @default(0)
+  
+  // Bonus
+  bonusAmount      Float @default(0) // Total bonus for this payroll period
+  bonusBreakdown   Json? // { "Performance": 5000, "Festival": 2000, ... }
+  
+  // Employee Product Purchase Deductions
+  purchaseDeduction Float @default(0) // Total deduction for product purchases
+  purchaseBreakdown Json? // [{ productName: "...", quantity: 2, amount: 500 }, ...]
+  
+  // Pay calculation
+  basicPay         Float // Base pay for the period
+  grossEarnings    Float // Total earnings (basic + allowances + overtime + bonus)
+  totalDeductions  Float // Total deductions (including purchase deductions)
+  netPay           Float // Final amount payable
+  
+  // Breakdown stored as JSON for flexibility
+  earningsBreakdown   Json? // { "HRA": 5000, "TA": 2000, "Bonus": 3000, ... }
+  deductionsBreakdown Json? // { "PF": 1800, "TDS": 500, "Product Purchases": 1000, ... }
+  
+  // Payment tracking
+  status           String    @default("PENDING") // "PENDING", "PAID"
+  paidAt           DateTime?
+  paymentRef       String? // Payment reference/transaction ID
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([payrollId])
+  @@index([userId])
+  @@index([employeeSalaryId])
+}
+
+// LeaveType - Types of leaves available
+model LeaveType {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String       @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name            String // e.g., "Casual Leave", "Sick Leave", "Annual Leave"
+  code            String // e.g., "CL", "SL", "AL"
+  isPaid          Boolean      @default(true)
+  maxDaysPerYear  Float // Maximum days allowed per year
+  carryForward    Boolean      @default(false) // Can unused leaves be carried forward?
+  maxCarryForward Float        @default(0) // Max days that can be carried forward
+  description     String?
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  leaveBalances LeaveBalance[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+// LeaveBalance - Track leave balance for each employee per leave type
+model LeaveBalance {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leaveTypeId    String       @db.ObjectId
+  leaveType      LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  
+  year           Int // Financial/calendar year
+  allocated      Float // Total allocated for the year
+  used           Float        @default(0) // Used leaves
+  pending        Float        @default(0) // Pending approval
+  carriedForward Float        @default(0) // Carried from previous year
   
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+
+  @@unique([userId, leaveTypeId, year])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([year])
+}
+
+// OvertimeRecord - Track overtime hours
+model OvertimeRecord {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  @@unique([organizationId, posLocationId, productId, date, session], name: "organizationId_posLocationId_productId_date_session")
-  @@index([posLocationId, date])
+  date           DateTime
+  hours          Float // Overtime hours
+  rate           Float        @default(1.5) // Rate multiplier (1.5x, 2x)
+  reason         String? // Reason for overtime
+  
+  status         String       @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  approvedById   String?      @db.ObjectId
+  approvedBy     User?        @relation("OvertimeApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?
+  
+  // Calculated amount (based on daily rate * hours * multiplier)
+  amount         Float        @default(0)
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([date])
   @@index([status])
 }
 
-// EODReport - End of Day reports for POS locations
-model EODReport {
+// EmployeePurchase - Track employee purchases of company products (deducted from salary)
+model EmployeePurchase {
   id             String       @id @default(auto()) @map("_id") @db.ObjectId
   organizationId String       @db.ObjectId
-  posLocationId  String       @db.ObjectId
-  posLocation    POSLocation  @relation("POSEODReports", fields: [posLocationId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId      String       @db.ObjectId
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   
-  // Report info
-  reportDate     DateTime     @db.Date
-  reportType     String       @default("DAILY") // "DAILY", "WEEKLY", "MONTHLY"
+  quantity       Float // Quantity purchased
+  unitPrice      Float // Price per unit at time of purchase
+  totalAmount    Float // Total amount (quantity * unitPrice)
   
-  // Sales summary
-  totalSales        Float     @default(0)
-  totalTransactions Int       @default(0)
-  totalOrders       Int       @default(0)
+  purchaseDate   DateTime     @default(now()) // When the purchase was made
+  month          Int // Month for payroll deduction (1-12)
+  year           Int // Year for payroll deduction
   
-  // Inventory summary
-  stockValue     Float        @default(0)
-  lowStockCount  Int          @default(0)
-  varianceCount  Int          @default(0)
-  expiringCount  Int          @default(0)
+  // Deduction tracking
+  isDeducted     Boolean      @default(false) // Has this been deducted from payroll?
+  payrollItemId  String?      @db.ObjectId // Link to payroll item when deducted
+  deductedAt     DateTime?
   
-  // Additional data stored as JSON
-  highlights     Json?        // Key highlights, top products, etc.
+  notes          String?
+  createdById    String       @db.ObjectId
+  createdBy      User         @relation("EmployeePurchaseCreator", fields: [createdById], references: [id], onDelete: Cascade)
   
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  
-  @@unique([organizationId, posLocationId, reportDate, reportType], name: "organizationId_posLocationId_reportDate_reportType")
-  @@index([posLocationId, reportDate])
-  @@index([reportType])
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([productId])
+  @@index([month, year])
+  @@index([isDeducted])
 }
 
+// EmployeeBonus - Track bonus payments for employees
+model EmployeeBonus {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  amount         Float // Bonus amount
+  bonusType      String // "PERFORMANCE", "FESTIVAL", "ANNUAL", "SPECIAL", "OTHER"
+  month          Int // Month for payroll inclusion (1-12)
+  year           Int // Year for payroll inclusion
+  
+  reason         String? // Reason for bonus
+  
+  // Payroll tracking
+  isIncluded     Boolean      @default(false) // Has this been included in payroll?
+  payrollItemId  String?      @db.ObjectId // Link to payroll item when included
+  includedAt     DateTime?
+  
+  approvedById   String?      @db.ObjectId
+  approvedBy     User?        @relation("BonusApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?
+  
+  createdById    String       @db.ObjectId
+  createdBy      User         @relation("BonusCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([month, year])
+  @@index([isIncluded])
+}
+
+
+// ==========================================
+// EXPENSE TRACKING SYSTEM
+// ==========================================
+
+enum ExpenseCategoryType {
+  MILK_PROCUREMENT
+  RAW_MATERIAL_PURCHASE
+  TRANSPORTATION
+  ELECTRICITY
+  LABOR_WAGES
+  EQUIPMENT_MAINTENANCE
+  RENT
+  TESTING_QC
+  OVERHEAD
+  PAYROLL
+  OTHER
+}
+
+// ExpenseCategory - Configurable expense categories per organization
+model ExpenseCategory {
+  id             String              @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String              @db.ObjectId
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String              // Display name: "Milk Procurement", "Electricity", etc.
+  type           ExpenseCategoryType // Enum type for system identification
+  description    String?
+  isDefault      Boolean             @default(false) // System-seeded default categories
+  isActive       Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  expenses          Expense[]
+  recurringExpenses RecurringExpense[]
+
+  @@unique([organizationId, type])
+  @@index([organizationId])
+}
+
+// Expense - Individual expense entries (auto-generated or manual)
+model Expense {
+  id             String          @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String          @db.ObjectId
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  categoryId     String          @db.ObjectId
+  category       ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  amount         Float
+  date           DateTime
+  description    String
+  notes          String?
+  session        String?         // "morning" or "evening" (for dairy-related expenses)
+
+  // Auto-generation tracking
+  isAutoGenerated Boolean  @default(false)
+  sourceType      String?  // "MANUAL", "MILK_PROCUREMENT", "PURCHASE_ORDER", "PAYROLL", "BILL", "RECURRING"
+  sourceId        String?  // Polymorphic reference to the originating record ID
+
+  // Relations
+  supplierId          String?               @db.ObjectId
+  supplier            Connection?           @relation("ExpenseSupplier", fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  collectionCenterId  String?               @db.ObjectId
+  collectionCenter    MilkCollectionCenter? @relation("ExpenseCollectionCenter", fields: [collectionCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdById         String                @db.ObjectId
+  createdBy           User                  @relation("ExpenseCreator", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Payment tracking
+  paymentStatus String @default("PAID") // "PENDING", "PAID", "PARTIAL"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([categoryId])
+  @@index([date])
+  @@index([sourceType, sourceId])
+  @@index([supplierId])
+}
+
+// RecurringExpense - Templates for auto-generating periodic expense entries
+model RecurringExpense {
+  id             String          @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String          @db.ObjectId
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  categoryId     String          @db.ObjectId
+  category       ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name           String          // e.g., "Office Rent", "Electricity Bill"
+  amount         Float
+  description    String?
+  frequency      String          // "DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"
+  startDate      DateTime
+  endDate        DateTime?       // Null = runs indefinitely
+  isActive       Boolean         @default(true)
+  lastGeneratedDate DateTime?    // Last date an expense was auto-generated
+  nextDueDate    DateTime        // Next scheduled generation date
+  createdById    String          @db.ObjectId
+  createdBy      User            @relation("RecurringExpenseCreator", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([organizationId])
+  @@index([isActive, nextDueDate])
+}

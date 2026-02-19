@@ -36,6 +36,10 @@ export async function GET(req: NextRequest) {
         unit: true,
         category: true,
         categoryId: true,
+        description: true,
+        alias: true,
+        packSize: true,
+        subCategory: true,
         images: {
           where: {
             isPrimary: true
@@ -71,7 +75,11 @@ export async function GET(req: NextRequest) {
       category: product.productCategory?.name || product.category,
       categoryId: product.categoryId || product.productCategory?.id || null,
       gstRate: 0, // Default GST rate
-      imageUrl: product.images?.[0]?.url || null
+      imageUrl: product.images?.[0]?.url || null,
+      description: product.description || null,
+      barcode: product.alias || null, // DB field 'alias' maps to 'barcode' for POS display
+      packSize: product.packSize || null,
+      subCategory: product.subCategory || null
     }))
 
     return NextResponse.json({

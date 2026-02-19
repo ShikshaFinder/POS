@@ -5,8 +5,8 @@ import { toast } from 'sonner'
 import { format } from 'date-fns'
 import {
     Clock, PlayCircle, StopCircle, History,
-    Banknote, CreditCard, Smartphone, Wallet,
-    TrendingUp, TrendingDown, User
+    Banknote, CreditCard, Smartphone,
+    User
 } from 'lucide-react'
 import ShiftOpenModal from '@/components/pos/ShiftOpenModal'
 import ShiftCloseModal from '@/components/pos/ShiftCloseModal'
@@ -24,8 +24,7 @@ interface Session {
     totalSales: number
     totalCash: number
     totalCard: number
-    totalUPI: number
-    totalWallet: number
+    totalUpi: number
     transactionCount: number
     status: string
     notes: string | null
@@ -155,7 +154,7 @@ export default function SessionsPage() {
                             {currentSession.cashier && (
                                 <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
                                     <User className="h-3 w-3" />
-                                    {currentSession.cashier.name}
+                                    {currentSession.cashier.profile?.fullName || currentSession.cashier.name}
                                 </p>
                             )}
                         </div>
@@ -183,11 +182,7 @@ export default function SessionsPage() {
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <Smartphone className="h-3 w-3 text-purple-600" />
-                                    <span>₹{currentSession.totalUPI.toFixed(0)}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <Wallet className="h-3 w-3 text-orange-600" />
-                                    <span>₹{currentSession.totalWallet.toFixed(0)}</span>
+                                    <span>₹{(currentSession.totalUpi || 0).toFixed(0)}</span>
                                 </div>
                             </div>
                         </div>
@@ -247,7 +242,7 @@ export default function SessionsPage() {
                                         <td className="py-3 px-2">
                                             {formatDuration(session.openedAt, session.closedAt)}
                                         </td>
-                                        <td className="py-3 px-2">{session.cashier?.name || '-'}</td>
+                                        <td className="py-3 px-2">{session.cashier?.profile?.fullName || session.cashier?.name || '-'}</td>
                                         <td className="py-3 px-2 text-right font-medium">
                                             ₹{session.totalSales.toFixed(2)}
                                         </td>
