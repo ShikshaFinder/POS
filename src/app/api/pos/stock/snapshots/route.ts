@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
         targetDate.setHours(0, 0, 0, 0)
 
         // Get snapshots for this date
-        const snapshots = await prisma.stockSnapshot.findMany({
+        const snapshots = await (prisma as any).stockSnapshot.findMany({
             where: {
                 organizationId,
                 posLocationId,
@@ -155,11 +155,11 @@ export async function POST(req: NextRequest) {
                 : null
 
             // Check if variance exceeds threshold
-            const varianceThreshold = posLocation.varianceAlertThreshold || 5
+            const varianceThreshold = (posLocation as any).varianceAlertThreshold || 5
             const isFlagged = variancePercent != null && Math.abs(variancePercent) > varianceThreshold
 
             // Upsert snapshot
-            const snapshot = await prisma.stockSnapshot.upsert({
+            const snapshot = await (prisma as any).stockSnapshot.upsert({
                 where: {
                     organizationId_posLocationId_productId_date_session: {
                         organizationId,

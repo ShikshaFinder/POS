@@ -1,13 +1,8 @@
 import { prisma } from './prisma'
 import { MongoClient, ObjectId } from 'mongodb'
-import fs from 'fs'
-import path from 'path'
-
-const LOG_FILE = 'C:\\Users\\ashis\\codes\\POS\\notif-debug.log';
 
 function logToFile(msg: string) {
-    const timestamp = new Date().toISOString();
-    fs.appendFileSync(LOG_FILE, `[${timestamp}] ${msg}\n`);
+    console.log(`[Notifications] ${msg}`);
 }
 
 interface CreateNotificationParams {

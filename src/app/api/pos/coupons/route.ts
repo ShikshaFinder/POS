@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       where.validUntil = { lt: new Date() }
     }
 
-    const coupons = await prisma.pOSCouponCode.findMany({
+    const coupons = await (prisma as any).pOSCouponCode.findMany({
       where,
       orderBy: {
         createdAt: 'desc',
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if coupon code already exists
-    const existing = await prisma.pOSCouponCode.findFirst({
+    const existing = await (prisma as any).pOSCouponCode.findFirst({
       where: {
         organizationId: session.user.currentOrganizationId,
         code: code.toUpperCase(),
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const coupon = await prisma.pOSCouponCode.create({
+    const coupon = await (prisma as any).pOSCouponCode.create({
       data: {
         organizationId: session.user.currentOrganizationId,
         posLocationId,

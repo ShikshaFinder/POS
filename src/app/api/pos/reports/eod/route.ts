@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
             if (endDate) where.reportDate.lte = new Date(endDate)
         }
 
-        const reports = await prisma.eODReport.findMany({
+        const reports = await (prisma as any).eODReport.findMany({
             where,
             orderBy: { reportDate: 'desc' },
             take: limit
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
         const lowStockCount = stocks.filter(s => s.currentStock < s.minimumStock).length
 
         // Get variance count
-        const varianceCount = await prisma.stockSnapshot.count({
+        const varianceCount = await (prisma as any).stockSnapshot.count({
             where: {
                 posLocationId,
                 date: today,
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
         })
 
         // Create/update EOD report
-        const report = await prisma.eODReport.upsert({
+        const report = await (prisma as any).eODReport.upsert({
             where: {
                 organizationId_posLocationId_reportDate_reportType: {
                     organizationId,

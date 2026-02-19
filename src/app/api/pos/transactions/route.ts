@@ -186,12 +186,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate totals
-    const finalDiscountAmount = discountPercent
+    const roundMoney = (v: number) => Math.round(v * 100) / 100
+    const finalDiscountAmount = roundMoney(discountPercent
       ? (subtotal * discountPercent) / 100
-      : discountAmount
-    const afterDiscount = subtotal - finalDiscountAmount
-    const totalAmount = afterDiscount + taxAmount
-    const changeGiven = amountPaid - totalAmount
+      : discountAmount)
+    const afterDiscount = roundMoney(subtotal - finalDiscountAmount)
+    const totalAmount = roundMoney(afterDiscount + taxAmount)
+    const changeGiven = roundMoney(amountPaid - totalAmount)
 
     if (changeGiven < 0) {
       return NextResponse.json(

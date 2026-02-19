@@ -21,10 +21,11 @@ export async function GET(req: NextRequest) {
         const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999)
 
         // Fetch invoices (representing completed sales) for the day
+        // Include both PAID and PARTIALLY_PAID to avoid undercounting revenue
         const invoices = await prisma.invoice.findMany({
             where: {
                 organizationId,
-                status: 'PAID',
+                status: { in: ['PAID', 'PARTIALLY_PAID'] },
                 createdAt: {
                     gte: startOfDay,
                     lte: endOfDay
