@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Find the coupon
-    const coupon = await prisma.pOSCouponCode.findFirst({
+    const coupon = await (prisma as any).pOSCouponCode.findFirst({
       where: {
         organizationId: session.user.currentOrganizationId,
         code: code.toUpperCase(),
@@ -112,9 +112,10 @@ export async function POST(req: NextRequest) {
     // in the current schema. These would require additional models/fields to implement.
 
     // Calculate discount
+    const roundMoney = (v: number) => Math.round(v * 100) / 100
     let discountAmount = 0
     if (coupon.discountType === 'PERCENTAGE') {
-      discountAmount = (orderAmount * coupon.discountValue) / 100
+      discountAmount = roundMoney((orderAmount * coupon.discountValue) / 100)
       // Apply max discount cap if specified
       if (coupon.maxDiscount && discountAmount > coupon.maxDiscount) {
         discountAmount = coupon.maxDiscount
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const finalAmount = orderAmount - discountAmount
+    const finalAmount = roundMoney(orderAmount - discountAmount)
 
     return NextResponse.json({
       valid: true,

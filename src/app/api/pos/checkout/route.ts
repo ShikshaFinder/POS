@@ -53,53 +53,58 @@ export async function POST(req: NextRequest) {
       return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
     }
 
-    // Validate all products and stock outside the transaction (simple, reliable)
-    const processedItems: any[] = [];
-    let calculatedSubtotal = 0;
-    let calculatedTaxAmount = 0;
+    const roundMoney = (value: number) => Math.round(value * 100) / 100
 
-    for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId }
-      });
-      if (!product) {
-        return NextResponse.json({ error: `Product ${item.productId} not found` }, { status: 404 });
-      }
-      if ((product.currentStock ?? 0) < item.quantity) {
-        return NextResponse.json({ error: `Insufficient stock for ${product.name}` }, { status: 400 });
-      }
-      const itemPrice = item.price || item.unitPrice || product.unitPrice || 0;
-      const itemTotal = itemPrice * item.quantity;
-
-      const productTaxRate = toNonNegativeNumber((product as any).gstRate, taxPercent)
-      const itemTaxRate = toNonNegativeNumber(item.taxRate ?? item.gstRate, productTaxRate)
-      const itemTaxAmount = itemTotal * (itemTaxRate / 100)
-
-      calculatedSubtotal += itemTotal;
-      calculatedTaxAmount += itemTaxAmount;
-
-      processedItems.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        price: itemPrice,
-        taxRate: itemTaxRate,
-        product: product
-      });
-    }
-
-    // Use calculated total if not provided
-    if (!totalAmount) {
-      totalAmount = calculatedSubtotal + calculatedTaxAmount;
-    }
-
-    // Default amountPaid to totalAmount if not provided
-    if (!amountPaid) {
-      amountPaid = totalAmount;
-    }
-
-    // Start a simple transaction for DB writes only
+    // Start a transaction that includes stock validation + DB writes
+    // This prevents race conditions where concurrent requests oversell stock
     // Increased timeout to 30 seconds for large orders with many items
     const result = await prisma.$transaction(async (tx) => {
+
+      // Validate all products and stock INSIDE the transaction
+      const processedItems: any[] = [];
+      let calculatedSubtotal = 0;
+      let calculatedTaxAmount = 0;
+
+      for (const item of items) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId }
+        });
+        if (!product) {
+          throw new Error(`Product ${item.productId} not found`);
+        }
+        if ((product.currentStock ?? 0) < item.quantity) {
+          throw new Error(`Insufficient stock for ${product.name}`);
+        }
+        const itemPrice = item.price || item.unitPrice || product.unitPrice || 0;
+        const itemDiscount = toNonNegativeNumber(item.discountAmount ?? item.discount, 0);
+        const itemTotal = roundMoney(itemPrice * item.quantity);
+        const itemNetTotal = roundMoney(itemTotal - itemDiscount);
+
+        const productTaxRate = toNonNegativeNumber((product as any).gstRate, taxPercent)
+        const itemTaxRate = toNonNegativeNumber(item.taxRate ?? item.gstRate, productTaxRate)
+        const itemTaxAmount = roundMoney(itemNetTotal * (itemTaxRate / 100))
+
+        calculatedSubtotal = roundMoney(calculatedSubtotal + itemTotal);
+        calculatedTaxAmount = roundMoney(calculatedTaxAmount + itemTaxAmount);
+
+        processedItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          price: itemPrice,
+          taxRate: itemTaxRate,
+          product: product
+        });
+      }
+
+      // Use calculated total if not provided
+      if (!totalAmount) {
+        totalAmount = roundMoney(calculatedSubtotal + calculatedTaxAmount);
+      }
+
+      // Default amountPaid to totalAmount only if not explicitly provided (including 0)
+      if (amountPaid === undefined || amountPaid === null) {
+        amountPaid = totalAmount;
+      }
 
       // Create invoice/order
       const invoiceNumber = `INV-${Date.now()}`
@@ -218,7 +223,7 @@ export async function POST(req: NextRequest) {
         });
 
         // 🔔 Create notification if stock falls below reorder level
-        if (updatedProduct.currentStock <= (updatedProduct.reorderLevel || 0)) {
+        if ((updatedProduct.currentStock ?? 0) <= (updatedProduct.reorderLevel || 0)) {
           const { createNotification } = await import('../../../../lib/notifications');
           const sessionEmail = (session.user as any).email;
           const userId = (session.user as any).id || (sessionEmail ? (await tx.user.findUnique({
@@ -255,6 +260,20 @@ export async function POST(req: NextRequest) {
           });
         }
       }
+
+      // Increment coupon usage count if a coupon was applied
+      if (couponCode) {
+        await (tx as any).pOSCouponCode.updateMany({
+          where: {
+            organizationId,
+            code: couponCode.toUpperCase(),
+          },
+          data: {
+            usageCount: { increment: 1 }
+          }
+        });
+      }
+
       return { salesOrder, invoice };
     }, {
       timeout: 30000,
@@ -262,25 +281,22 @@ export async function POST(req: NextRequest) {
 
     // 🔔 Create notification for successful sale
     try {
-      const fs = await import('fs');
-      const logFilePath = 'C:\\Users\\ashis\\codes\\POS\\notif-debug.log';
       let userId = (session.user as any).id;
 
       const sessionEmail = (session.user as any).email;
       if (!userId && sessionEmail) {
-        fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] [Checkout] UserId missing, searching by email: ${sessionEmail}\n`);
+        console.log(`[Checkout] UserId missing, searching by email: ${sessionEmail}`);
         const user = await prisma.user.findUnique({
           where: { email: sessionEmail },
           select: { id: true }
         });
         if (user) {
           userId = user.id;
-          fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] [Checkout] Found userId from DB: ${userId}\n`);
+          console.log(`[Checkout] Found userId from DB: ${userId}`);
         }
       }
 
-      const logMsg = `[Checkout] Triggering notification. Org: ${organizationId}, User: ${userId}\n`;
-      fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] ${logMsg}`);
+      console.log(`[Checkout] Triggering notification. Org: ${organizationId}, User: ${userId}`);
 
       const { createNotification } = await import('../../../../lib/notifications');
       const nf = await createNotification({
@@ -290,10 +306,9 @@ export async function POST(req: NextRequest) {
         body: `Invoice ${result.invoice.invoiceNumber} for ${customerName || 'Walk-in Customer'} has been processed. Total: ₹${totalAmount}`,
         posInvoiceId: result.invoice.id
       });
-      fs.appendFileSync('C:\\Users\\ashis\\codes\\POS\\notif-debug.log', `[${new Date().toISOString()}] [Checkout] Result: ${nf ? 'SUCCESS' : 'FAILED'}\n`);
+      console.log(`[Checkout] Notification result: ${nf ? 'SUCCESS' : 'FAILED'}`);
     } catch (e: any) {
-      const fs = await import('fs');
-      fs.appendFileSync('C:\\Users\\ashis\\codes\\POS\\notif-debug.log', `[${new Date().toISOString()}] [Checkout] TRIGGER ERROR: ${e.message}\n`);
+      console.error(`[Checkout] Notification error: ${e.message}`);
     }
 
     // 🔔 Send WhatsApp notification with PDF invoice (async - non-blocking)
@@ -371,8 +386,16 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     console.error('Checkout error:', error)
+    // Return appropriate status codes for known validation errors
+    const message = error.message || 'Failed to process checkout'
+    if (message.includes('not found')) {
+      return NextResponse.json({ error: message }, { status: 404 })
+    }
+    if (message.includes('Insufficient stock')) {
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
     return NextResponse.json(
-      { error: error.message || 'Failed to process checkout' },
+      { error: message },
       { status: 500 }
     )
   }

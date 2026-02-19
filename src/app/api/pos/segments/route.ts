@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
       where.posLocationId = posLocationId
     }
 
-    const segments = await prisma.customerSegment.findMany({
+    const segments = await (prisma as any).customerSegment.findMany({
       where,
       include: {
         createdBy: {
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if segment name already exists
-    const existing = await prisma.customerSegment.findFirst({
+    const existing = await (prisma as any).customerSegment.findFirst({
       where: {
         organizationId: session.user.currentOrganizationId,
         name,
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
       memberCount = await prisma.pOSCustomer.count({ where: customerWhere })
     }
 
-    const segment = await prisma.customerSegment.create({
+    const segment = await (prisma as any).customerSegment.create({
       data: {
         organizationId: session.user.currentOrganizationId,
         posLocationId,
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
       })
 
       if (customers.length > 0) {
-        await prisma.customerSegmentMember.createMany({
+        await (prisma as any).customerSegmentMember.createMany({
           data: customers.map((customer) => ({
             segmentId: segment.id,
             customerId: customer.id,

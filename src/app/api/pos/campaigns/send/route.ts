@@ -4,7 +4,16 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let _resend: Resend | null = null
+function getResend() {
+  if (!_resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set')
+    }
+    _resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return _resend
+}
 
 // Constants for email sending configuration
 const EMAIL_BATCH_SIZE = 10
@@ -30,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get the campaign
-    const campaign = await prisma.emailCampaign.findUnique({
+    const campaign = await (prisma as any).emailCampaign.findUnique({
       where: { id: campaignId },
       include: {
         organization: {
@@ -118,7 +127,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update campaign status to SENDING
-    await prisma.emailCampaign.update({
+    await (prisma as any).emailCampaign.update({
       where: { id: campaignId },
       data: {
         status: 'SENDING',
@@ -133,7 +142,7 @@ export async function POST(req: NextRequest) {
       status: 'PENDING',
     }))
 
-    await prisma.emailCampaignRecipient.createMany({
+    await (prisma as any).emailCampaignRecipient.createMany({
       data: recipientData,
     })
 
@@ -166,7 +175,7 @@ export async function POST(req: NextRequest) {
             }
 
             // Send email using Resend
-            await resend.emails.send({
+            await getResend().emails.send({
               from: process.env.RESEND_FROM_EMAIL || 'noreply@example.com',
               to: customer.email!,
               subject: campaign.subject,
@@ -174,7 +183,7 @@ export async function POST(req: NextRequest) {
             })
 
             // Update recipient status
-            await prisma.emailCampaignRecipient.updateMany({
+            await (prisma as any).emailCampaignRecipient.updateMany({
               where: {
                 campaignId: campaign.id,
                 customerId: customer.id,
@@ -186,7 +195,7 @@ export async function POST(req: NextRequest) {
             })
 
             // Update customer lastEmailSent
-            await prisma.pOSCustomer.update({
+            await (prisma.pOSCustomer.update as any)({
               where: { id: customer.id },
               data: {
                 lastEmailSent: new Date(),
@@ -199,7 +208,7 @@ export async function POST(req: NextRequest) {
             errorCount++
 
             // Update recipient with error
-            await prisma.emailCampaignRecipient.updateMany({
+            await (prisma as any).emailCampaignRecipient.updateMany({
               where: {
                 campaignId: campaign.id,
                 customerId: customer.id,
@@ -215,7 +224,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update campaign status
-    await prisma.emailCampaign.update({
+    await (prisma as any).emailCampaign.update({
       where: { id: campaignId },
       data: {
         status: 'SENT',

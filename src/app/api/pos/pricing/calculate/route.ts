@@ -66,18 +66,18 @@ export async function POST(req: NextRequest) {
         })
 
         // Get tier pricing for products
-        const productPricing = await prisma.tierPricing.findMany({
+        const productPricing = await (prisma as any).tierPricing.findMany({
             where: {
                 organizationId,
                 productId: { in: productIds },
                 isActive: true
             }
         })
-        const productPricingMap = new Map(productPricing.map(p => [p.productId, p]))
+        const productPricingMap = new Map<string, any>(productPricing.map((p: any) => [p.productId, p]))
 
         // Get category pricing for fallback
         const categoryIds = products.map(p => p.categoryId).filter(Boolean) as string[]
-        const categoryPricing = await prisma.tierPricing.findMany({
+        const categoryPricing = await (prisma as any).tierPricing.findMany({
             where: {
                 organizationId,
                 categoryId: { in: categoryIds },
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
                 isActive: true
             }
         })
-        const categoryPricingMap = new Map(categoryPricing.map(p => [p.categoryId, p]))
+        const categoryPricingMap = new Map<string, any>(categoryPricing.map((p: any) => [p.categoryId, p]))
 
         // Calculate prices
         const pricing = products.map(product => {

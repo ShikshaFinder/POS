@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
         const status = searchParams.get('status') || 'IN_TRANSIT'
 
         // Get transfers destined for this POS
-        const transfers = await prisma.stockTransferOrder.findMany({
+        const transfers = await (prisma as any).stockTransferOrder.findMany({
             where: {
                 toPosId: posLocationId,
                 status: status === 'ALL' ? undefined : status
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Verify transfer is for this POS and in transit
-        const transfer = await prisma.stockTransferOrder.findFirst({
+        const transfer = await (prisma as any).stockTransferOrder.findFirst({
             where: {
                 id: transferId,
                 toPosId: posLocationId,
@@ -108,59 +108,65 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Transfer not found or not ready to receive' }, { status: 404 })
         }
 
-        // Process each item
-        for (const item of transfer.items) {
-            const receivedItem = receivedItems?.find((r: any) => r.id === item.id)
-            const receivedQty = receivedItem?.receivedQty ?? item.dispatchedQty ?? item.approvedQty ?? item.requestedQty
-            const varianceQty = receivedQty - (item.dispatchedQty || item.approvedQty || item.requestedQty)
+        // Process all items and mark transfer complete in a single transaction
+        // to prevent partial receives if the operation fails midway
+        const updatedTransfer = await prisma.$transaction(async (tx) => {
+            // Process each item
+            for (const item of transfer.items) {
+                const receivedItem = receivedItems?.find((r: any) => r.id === item.id)
+                const receivedQty = receivedItem?.receivedQty ?? item.dispatchedQty ?? item.approvedQty ?? item.requestedQty
+                const varianceQty = receivedQty - (item.dispatchedQty || item.approvedQty || item.requestedQty)
 
-            // Update transfer item
-            await prisma.stockTransferItem.update({
-                where: { id: item.id },
-                data: {
-                    receivedQty,
-                    varianceQty: varianceQty !== 0 ? varianceQty : null,
-                    varianceReason: varianceQty !== 0 ? (receivedItem?.varianceReason || 'Transit variance') : null
-                }
-            })
+                // Update transfer item
+                await (tx as any).stockTransferItem.update({
+                    where: { id: item.id },
+                    data: {
+                        receivedQty,
+                        varianceQty: varianceQty !== 0 ? varianceQty : null,
+                        varianceReason: varianceQty !== 0 ? (receivedItem?.varianceReason || 'Transit variance') : null
+                    }
+                })
 
-            // Add to POS stock
-            await prisma.pOSProductStock.upsert({
-                where: {
-                    posLocationId_productId: {
+                // Add to POS stock
+                await tx.pOSProductStock.upsert({
+                    where: {
+                        posLocationId_productId: {
+                            posLocationId,
+                            productId: item.productId
+                        }
+                    },
+                    create: {
                         posLocationId,
-                        productId: item.productId
+                        productId: item.productId,
+                        currentStock: receivedQty,
+                        lastStockUpdate: new Date()
+                    },
+                    update: {
+                        currentStock: { increment: receivedQty },
+                        lastStockUpdate: new Date()
                     }
+                })
+            }
+
+            // Mark transfer as completed
+            return await (tx as any).stockTransferOrder.update({
+                where: { id: transferId },
+                data: {
+                    status: 'COMPLETED',
+                    receivedAt: new Date(),
+                    receivedById: userId,
+                    receiptNotes: notes
                 },
-                create: {
-                    posLocationId,
-                    productId: item.productId,
-                    currentStock: receivedQty,
-                    lastStockUpdate: new Date()
-                },
-                update: {
-                    currentStock: { increment: receivedQty },
-                    lastStockUpdate: new Date()
+                include: {
+                    items: {
+                        include: {
+                            product: { select: { name: true, sku: true, unit: true } }
+                        }
+                    }
                 }
             })
-        }
-
-        // Mark transfer as completed
-        const updatedTransfer = await prisma.stockTransferOrder.update({
-            where: { id: transferId },
-            data: {
-                status: 'COMPLETED',
-                receivedAt: new Date(),
-                receivedById: userId,
-                receiptNotes: notes
-            },
-            include: {
-                items: {
-                    include: {
-                        product: { select: { name: true, sku: true, unit: true } }
-                    }
-                }
-            }
+        }, {
+            timeout: 30000,
         })
 
         return NextResponse.json({

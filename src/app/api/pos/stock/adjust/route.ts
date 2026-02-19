@@ -97,8 +97,6 @@ export async function POST(req: NextRequest) {
         // 🔔 Create notification if stock falls below reorder level
         if (newStock <= (updatedStock.product.reorderLevel || 0)) {
             try {
-                const fs = await import('fs');
-                const logFilePath = 'C:\\Users\\ashis\\codes\\POS\\notif-debug.log';
                 let currentUserId = userId;
 
                 if (!currentUserId && (session.user as any).email) {
@@ -111,7 +109,7 @@ export async function POST(req: NextRequest) {
                     }
                 }
 
-                fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] [StockAdjust] Triggering low stock for: ${updatedStock.product.name}. Org: ${organizationId}, User: ${currentUserId}\n`);
+                console.log(`[StockAdjust] Triggering low stock for: ${updatedStock.product.name}. Org: ${organizationId}, User: ${currentUserId}`);
 
                 const { createNotification } = await import('../../../../../lib/notifications');
                 await createNotification({
@@ -122,15 +120,14 @@ export async function POST(req: NextRequest) {
                     posAlertId: productId
                 });
             } catch (err: any) {
-                const fs = await import('fs');
-                fs.appendFileSync('C:\\Users\\ashis\\codes\\POS\\notif-debug.log', `[${new Date().toISOString()}] [StockAdjust] NOTIF ERROR: ${err.message}\n`);
+                console.error(`[StockAdjust] Notification error: ${err.message}`);
             }
         }
 
         // Create approval request for significant adjustments (optional)
         const adjustmentAmount = Math.abs(newStock - oldStock)
         if (adjustmentAmount > 10 || newStock === 0) {
-            await prisma.approvalQueue.create({
+            await (prisma as any).approvalQueue.create({
                 data: {
                     organizationId,
                     entityType: 'STOCK_ADJUSTMENT',

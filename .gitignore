@@ -57,3 +57,4 @@ src/app/api/test-notif/
 # Temporary Debug Files
 debug-auth-data*.js
 debug-output*.json
+.next

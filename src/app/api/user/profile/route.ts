@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest) {
         }, null, 2));
 
         // Update User name directly
-        await prisma.user.update({
+        await (prisma.user.update as any)({
             where: { email: session.user.email },
             data: {
                 name: name

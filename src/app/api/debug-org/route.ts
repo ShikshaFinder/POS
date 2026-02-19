@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         const data = {
             id: user.id,
             email: user.email,
-            name: user.name,
+            name: (user as any).name,
             defaultOrganizationId: user.defaultOrganizationId,
             defaultOrganization: user.defaultOrganization,
             memberships: user.memberships,
