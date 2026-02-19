@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -28,12 +29,22 @@ async function generateUniqueSKU(organizationId: string, name: string, category:
   return sku
 }
 
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const userId = (session.user as any).id
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { ownedPOSLocations: { take: 1 } }
+    });
+
+    const posLocationId = (session.user as any).posLocationId || user?.ownedPOSLocations?.[0]?.id;
+    const posType = (session.user as any).posType;
 
     const organizationId = (session.user as any).currentOrganizationId
     const { searchParams } = new URL(req.url)
@@ -66,7 +77,7 @@ export async function GET(req: NextRequest) {
         sku: true,
         unitPrice: true,
         markedPrice: true,
-        currentStock: true,
+        currentStock: true, // Organization stock
         reorderLevel: true,
         unit: true,
         category: true,
@@ -82,31 +93,62 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true
           }
-        }
+        },
+        // Include POS stock if location is available and NOT Dairy Associated (or fallback)
+        ...(posLocationId && posType !== 'DAIRY_ASSOCIATED' && {
+          posStock: {
+            where: { posLocationId },
+            select: { currentStock: true }
+          }
+        }),
+        // Include Inventory Stocks for Dairy Associated
+        ...(posType === 'DAIRY_ASSOCIATED' && {
+          inventoryStocks: {
+            select: { quantity: true }
+          }
+        })
       },
       orderBy: [
-        { currentStock: 'desc' }, // In-stock items first
         { name: 'asc' }
       ]
     })
 
-    // Transform to include imageUrl
-    const transformedProducts = products.map(product => ({
-      id: product.id,
-      name: product.name,
-      sku: product.sku,
-      unitPrice: product.unitPrice,
-      markedPrice: product.markedPrice,
-      currentStock: product.currentStock,
-      reorderLevel: product.reorderLevel,
-      unit: product.unit,
-      category: product.productCategory?.name || product.category,
-      categoryId: product.categoryId || product.productCategory?.id,
-      gstRate: 0,
-      imageUrl: product.images?.[0]?.url || null
-    }))
+    // Transform to include imageUrl and correct stock
+    const transformedProducts = products.map(product => {
+      // Calculate effective stock based on POS location/type
+      let effectiveStock = 0;
 
-    return NextResponse.json({ products: transformedProducts })
+      if (posType === 'DAIRY_ASSOCIATED') {
+        // Sum up all inventory stocks (Main Warehouse)
+        effectiveStock = (product as any).inventoryStocks?.reduce((sum: number, stock: any) => sum + stock.quantity, 0) || 0;
+      } else if (posLocationId && (product as any).posStock && (product as any).posStock.length > 0) {
+        // Use Local POS Stock
+        effectiveStock = (product as any).posStock[0].currentStock;
+      } else {
+        // Fallback
+        effectiveStock = 0;
+      }
+
+      return {
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        unitPrice: product.unitPrice,
+        markedPrice: product.markedPrice,
+        currentStock: effectiveStock,
+        reorderLevel: product.reorderLevel,
+        unit: product.unit,
+        category: product.productCategory?.name || product.category,
+        categoryId: product.categoryId || product.productCategory?.id,
+        gstRate: 0,
+        imageUrl: product.images?.[0]?.url || null
+      };
+    })
+
+    // Sort by stock locally since we modified the values
+    const sortedProducts = transformedProducts.sort((a, b) => b.currentStock - a.currentStock);
+
+    return NextResponse.json({ products: sortedProducts })
   } catch (error) {
     console.error('Error fetching products:', error)
     return NextResponse.json(
@@ -115,6 +157,7 @@ export async function GET(req: NextRequest) {
     )
   }
 }
+
 
 // POST /api/pos/products - Create a new product
 export async function POST(req: NextRequest) {

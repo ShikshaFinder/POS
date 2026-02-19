@@ -1,84 +1,62 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
-// GET /api/pos/orders - Get orders for POS owner's location
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
-
-    // Find POS location where user is owner
-    const posLocation = await prisma.pOSLocation.findFirst({
-      where: {
-        ownerId: userId,
-        status: 'ACTIVE',
-      },
-      select: { id: true },
+    const userId = (session.user as any).id;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { ownedPOSLocations: { take: 1 } }
     });
 
-    if (!posLocation) {
-      return NextResponse.json({ error: 'No POS location found' }, { status: 404 });
+    if (!user?.ownedPOSLocations?.[0]) {
+      return NextResponse.json({ error: 'No POS location assigned' }, { status: 404 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const status = searchParams.get('status');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const posLocationId = user.ownedPOSLocations[0].id;
+    // We trust the session organization ID, but if user reports visibility issues,
+    // we might need to debug if this matches CRM.
+    const organizationId = (session.user as any).currentOrganizationId;
 
-    const where: any = { posLocationId: posLocation.id };
-    if (status) where.status = status;
-
-    const [orders, total] = await Promise.all([
-      prisma.pOSOrder.findMany({
-        where,
-        include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  sku: true,
-                  unit: true,
-                },
-              },
-            },
-          },
-          invoice: {
-            select: {
-              id: true,
-              invoiceNumber: true,
-              status: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.pOSOrder.count({ where }),
-    ]);
-
-    return NextResponse.json({
-      orders,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+    const orders = await prisma.pOSOrder.findMany({
+      where: {
+        posLocationId,
+        organizationId
       },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: { name: true, unit: true }
+            }
+          }
+        },
+        invoice: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            status: true,
+            totalAmount: true,
+            balanceAmount: true,
+            dueDate: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
     });
+
+    return NextResponse.json({ orders });
+
   } catch (error) {
-    console.error('Failed to fetch orders:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch orders' },
-      { status: 500 }
-    );
+    console.error('Error fetching POS orders:', error);
+    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
   }
 }

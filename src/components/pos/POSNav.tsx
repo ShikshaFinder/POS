@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -29,6 +30,8 @@ const navigation = [
   { name: 'Dashboard', href: '/pos', icon: LayoutDashboard },
   { name: 'Products', href: '/pos/products', icon: Box },
   { name: 'Stock', href: '/pos/stock', icon: Package },
+  // { name: 'Local Stock', href: '/pos/stock/management', icon: Box }, // Consolidated into Filling Stock
+  { name: 'Filling Stock', href: '/pos/stock/filling', icon: ShoppingCart }, // New item for Non-Dairy
   { name: 'Customers', href: '/pos/customers', icon: Users },
   { name: 'Today\'s Sales', href: '/pos/sales', icon: TrendingUp },
   { name: 'Reports', href: '/pos/reports', icon: BarChart3 },
@@ -42,6 +45,7 @@ interface POSNavProps {
 }
 
 export function POSNav({ isOpen, onClose }: POSNavProps) {
+  const { data: session } = useSession()
   const pathname = usePathname()
   const router = useRouter()
   const [isMobile, setIsMobile] = useState(false)
@@ -273,6 +277,14 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
 
           {/* Rest of navigation items (Products, Stock, etc.) */}
           {navigation.slice(1).map((item) => {
+            // Hide Filling Stock links if POS type is not NON_DAIRY
+            if (item.name === 'Filling Stock') {
+              const posType = (session?.user as any)?.posType;
+              if (posType !== 'NON_DAIRY') {
+                return null;
+              }
+            }
+
             const isActive = pathname === item.href
             return (
               <Link
@@ -311,9 +323,19 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
         <div className="border-t border-gray-200 p-4 flex-shrink-0 bg-gray-50/50">
           <p className="text-xs text-center text-gray-500 font-medium">
             Flavi POS v2.0
+            <br />
+            <span className="text-[10px] text-gray-400">
+              {session?.user ? (
+                <>
+                  Type: {(session.user as any).posType || 'None'}
+                  <br />
+                  Loc: {(session.user as any).posLocationId?.substring(0, 8) || 'None'}
+                </>
+              ) : 'Loading...'}
+            </span>
           </p>
         </div>
-      </aside>
+      </aside >
     </>
   )
 }

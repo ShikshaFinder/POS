@@ -104,6 +104,21 @@ export const authOptions: NextAuthOptions = {
           organizationName = user.memberships[0].organization.name;
         }
 
+        // Fetch POS Location if user is an owner and we have an organization ID
+        let posLocation = null;
+        if (currentOrgId) {
+          posLocation = await prisma.pOSLocation.findFirst({
+            where: {
+              ownerId: user.id,
+              organizationId: currentOrgId
+            },
+            select: {
+              id: true,
+              type: true
+            }
+          });
+        }
+
         return {
           id: user.id,
           email: user.email,
@@ -119,7 +134,9 @@ export const authOptions: NextAuthOptions = {
             country: user.profile?.country,
             bio: user.profile?.bio,
             website: null // Schema doesn't have website yet
-          }
+          },
+          posLocationId: posLocation?.id,
+          posType: posLocation?.type
         } as User;
       },
     }),
@@ -132,6 +149,8 @@ export const authOptions: NextAuthOptions = {
         token.organizationName = (user as any).organizationName;
         token.role = (user as any).role;
         token.profile = (user as any).profile;
+        token.posLocationId = (user as any).posLocationId;
+        token.posType = (user as any).posType;
       }
       return token;
     },
@@ -142,6 +161,8 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).organizationName = token.organizationName as string;
         (session.user as any).role = token.role as string;
         (session.user as any).profile = token.profile;
+        (session.user as any).posLocationId = token.posLocationId;
+        (session.user as any).posType = token.posType;
       }
       return session;
     },

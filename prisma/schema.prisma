@@ -42,6 +42,11 @@ enum CustomerStatus {
   LOST // Did not convert
 }
 
+enum POSType {
+  DAIRY_ASSOCIATED
+  NON_DAIRY
+}
+
 // Core user and org models
 model User {
   id                      String                   @id @default(auto()) @map("_id") @db.ObjectId
@@ -2376,6 +2381,7 @@ model POSLocation {
 
   // Status: PENDING (invited), ACTIVE, INACTIVE, SUSPENDED
   status String @default("PENDING")
+  type   POSType @default(DAIRY_ASSOCIATED)
 
   // Owner (set after invitation accepted)
   ownerId String? @db.ObjectId

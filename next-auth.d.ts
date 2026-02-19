@@ -19,6 +19,8 @@ declare module "next-auth" {
         bio?: string | null;
         website?: string | null;
       };
+      posLocationId?: string;
+      posType?: 'DAIRY_ASSOCIATED' | 'NON_DAIRY';
     };
   }
 
