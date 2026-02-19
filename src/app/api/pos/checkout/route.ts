@@ -77,15 +77,15 @@ export async function POST(req: NextRequest) {
         }
         const itemPrice = item.price || item.unitPrice || product.unitPrice || 0;
         const itemDiscount = toNonNegativeNumber(item.discountAmount ?? item.discount, 0);
-        const itemTotal = itemPrice * item.quantity;
-        const itemNetTotal = itemTotal - itemDiscount;
+        const itemTotal = roundMoney(itemPrice * item.quantity);
+        const itemNetTotal = roundMoney(itemTotal - itemDiscount);
 
         const productTaxRate = toNonNegativeNumber((product as any).gstRate, taxPercent)
         const itemTaxRate = toNonNegativeNumber(item.taxRate ?? item.gstRate, productTaxRate)
         const itemTaxAmount = roundMoney(itemNetTotal * (itemTaxRate / 100))
 
-        calculatedSubtotal += itemTotal;
-        calculatedTaxAmount += itemTaxAmount;
+        calculatedSubtotal = roundMoney(calculatedSubtotal + itemTotal);
+        calculatedTaxAmount = roundMoney(calculatedTaxAmount + itemTaxAmount);
 
         processedItems.push({
           productId: item.productId,
