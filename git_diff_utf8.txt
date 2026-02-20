@@ -1,0 +1,184 @@
+﻿commit abbabc7625255a14ac611253c9f028a42713ed89
+Author: Ashish <ASHISH-VASAVA@users.noreply.github.com>
+Date:   Thu Feb 19 16:55:39 2026 +0530
+
+    two pos
+
+diff --git a/src/app/api/pos/checkout/route.ts b/src/app/api/pos/checkout/route.ts
+index 6202364..c3523cd 100644
+--- a/src/app/api/pos/checkout/route.ts
++++ b/src/app/api/pos/checkout/route.ts
+@@ -12,6 +12,8 @@ export async function POST(req: NextRequest) {
+     }
+ 
+     const organizationId = (session.user as any).currentOrganizationId
++    const posLocationId = (session.user as any).posLocationId
++    const posType = (session.user as any).posType
+     const body = await req.json()
+ 
+     // Support both old format (direct) and new format (nested objects from billing page)
+@@ -53,6 +55,131 @@ export async function POST(req: NextRequest) {
+       return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+     }
+ 
++    // Verify POS Type logic
++    if (posType === 'NON_DAIRY') {
++      if (!posLocationId) {
++        return NextResponse.json({ error: 'POS Location ID missing for Non-Dairy POS' }, { status: 400 })
++      }
++
++      // 1. Validate Stock against POSProductStock
++      const processedItems: any[] = []
++      let calculatedSubtotal = 0
++
++      for (const item of items) {
++        const product = await prisma.product.findUnique({
++          where: { id: item.productId }
++        })
++        if (!product) {
++          return NextResponse.json({ error: `Product ${item.productId} not found` }, { status: 404 })
++        }
++
++        const posStock = await prisma.pOSProductStock.findUnique({
++          where: {
++            posLocationId_productId: {
++              posLocationId,
++              productId: item.productId
++            }
++          }
++        })
++
++        const currentStock = posStock?.currentStock ?? 0
++        if (currentStock < item.quantity) {
++          return NextResponse.json({ error: `Insufficient local stock for ${product.name} (Available: ${currentStock})` }, { status: 400 })
++        }
++
++        const itemPrice = item.price || item.unitPrice || product.unitPrice || 0
++        const itemTotal = itemPrice * item.quantity
++        calculatedSubtotal += itemTotal
++
++        processedItems.push({
++          productId: item.productId,
++          productName: product.name,
++          productSku: product.sku,
++          quantity: item.quantity,
++          unitPrice: itemPrice,
++          taxRate: 0, // Simplified for now
++          total: itemTotal
++        })
++      }
++
++      if (!totalAmount) {
++        totalAmount = calculatedSubtotal
++      }
++      if (!amountPaid) amountPaid = totalAmount
++
++      // 2. Transaction: Create POSTransaction + Deduct Stock
++      const result = await prisma.$transaction(async (tx) => {
++        const receiptNumber = `RCPT-${Date.now()}`
++
++        // Create/Find Customer if needed (optional)
++        let customerId = undefined
++        if (customerName) {
++          const existingRequest = customerPhone ? { phone: customerPhone } : { name: customerName };
++          // Simple check - in real app might need better logic
++        }
++
++        const transaction = await tx.pOSTransaction.create({
++          data: {
++            organizationId,
++            posLocationId,
++            receiptNumber,
++            status: 'COMPLETED',
++            totalAmount,
++            amountPaid,
++            changeAmount: changeGiven,
++            paymentMethod: paymentMethod,
++            cashierId: (session.user as any).id,
++            customerName: customerName,
++            customerPhone: customerPhone,
++            items: {
++              create: processedItems.map(item => ({
++                productId: item.productId,
++                productName: item.productName,
++                productSku: item.productSku,
++                quantity: item.quantity,
++                unitPrice: item.unitPrice,
++                total: item.total
++              }))
++            }
++          }
++        })
++
++        // Deduct Stock
++        for (const item of processedItems) {
++          await tx.pOSProductStock.update({
++            where: {
++              posLocationId_productId: {
++                posLocationId,
++                productId: item.productId
++              }
++            },
++            data: {
++              currentStock: { decrement: item.quantity }
++            }
++          })
++        }
++
++        return transaction
++      })
++
++      return NextResponse.json({
++        success: true,
++        transaction: {
++          id: result.id,
++          receiptNumber: result.receiptNumber,
++        },
++        orderId: result.id, // Mapping for frontend compat
++        invoiceNumber: result.receiptNumber,
++        receiptNumber: result.receiptNumber,
++        whatsAppSent: false
++      })
++
++    }
++
++    // ==========================================
++    // EXISTING LOGIC (DAIRY_ASSOCIATED / Default)
++    // ==========================================
++
+     // Validate all products and stock outside the transaction (simple, reliable)
+     const processedItems: any[] = [];
+     let calculatedSubtotal = 0;
+@@ -65,6 +192,7 @@ export async function POST(req: NextRequest) {
+       if (!product) {
+         return NextResponse.json({ error: `Product ${item.productId} not found` }, { status: 404 });
+       }
++      // Global stock check for DAIRY_ASSOCIATED
+       if ((product.currentStock ?? 0) < item.quantity) {
+         return NextResponse.json({ error: `Insufficient stock for ${product.name}` }, { status: 400 });
+       }
+@@ -235,14 +363,22 @@ export async function POST(req: NextRequest) {
+           });
+         }
+ 
+-        // Create inventory transaction if stock exists
++        // Create inventory transaction and decrement InventoryStock
+         const stock = await tx.inventoryStock.findFirst({
+           where: {
+             organizationId,
+             productId: item.productId
+-          }
++          },
++          orderBy: { quantity: 'desc' } // Prioritize location with most stock
+         });
++
+         if (stock) {
++          // Decrement actual inventory stock
++          await tx.inventoryStock.update({
++            where: { id: stock.id },
++            data: { quantity: { decrement: item.quantity } }
++          });
++
+           await tx.inventoryTransaction.create({
+             data: {
+               organizationId,

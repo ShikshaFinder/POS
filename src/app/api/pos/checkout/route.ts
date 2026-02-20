@@ -187,13 +187,27 @@ export async function POST(req: NextRequest) {
 
     for (const item of items) {
       const product = await prisma.product.findUnique({
-        where: { id: item.productId }
+        where: { id: item.productId },
+        include: {
+          inventoryStocks: {
+            select: { quantity: true }
+          }
+        }
       });
       if (!product) {
         return NextResponse.json({ error: `Product ${item.productId} not found` }, { status: 404 });
       }
+
+      // Calculate effective global stock for DAIRY_ASSOCIATED
+      let availableStock = 0;
+      if (product.inventoryStocks && product.inventoryStocks.length > 0) {
+        availableStock = product.inventoryStocks.reduce((sum: number, stock: any) => sum + stock.quantity, 0);
+      } else {
+        availableStock = product.currentStock ?? 0;
+      }
+
       // Global stock check for DAIRY_ASSOCIATED
-      if ((product.currentStock ?? 0) < item.quantity) {
+      if (availableStock < item.quantity) {
         return NextResponse.json({ error: `Insufficient stock for ${product.name}` }, { status: 400 });
       }
       const itemPrice = item.price || item.unitPrice || product.unitPrice || 0;
@@ -216,12 +230,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Use calculated total if not provided
-    if (!totalAmount) {
+    if (totalAmount === undefined || totalAmount === null) {
       totalAmount = calculatedSubtotal + calculatedTaxAmount;
     }
 
     // Default amountPaid to totalAmount if not provided
-    if (!amountPaid) {
+    if (amountPaid === undefined || amountPaid === null) {
       amountPaid = totalAmount;
     }
 
@@ -346,7 +360,7 @@ export async function POST(req: NextRequest) {
         });
 
         // 🔔 Create notification if stock falls below reorder level
-        if (updatedProduct.currentStock <= (updatedProduct.reorderLevel || 0)) {
+        if ((updatedProduct.currentStock ?? 0) <= (updatedProduct.reorderLevel || 0)) {
           const { createNotification } = await import('../../../../lib/notifications');
           const sessionEmail = (session.user as any).email;
           const userId = (session.user as any).id || (sessionEmail ? (await tx.user.findUnique({
@@ -363,32 +377,34 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Create inventory transaction and decrement InventoryStock
-        const stock = await tx.inventoryStock.findFirst({
-          where: {
-            organizationId,
-            productId: item.productId
-          },
-          orderBy: { quantity: 'desc' } // Prioritize location with most stock
-        });
-
-        if (stock) {
-          // Decrement actual inventory stock
-          await tx.inventoryStock.update({
-            where: { id: stock.id },
-            data: { quantity: { decrement: item.quantity } }
-          });
-
-          await tx.inventoryTransaction.create({
-            data: {
+        // Create inventory transaction and decrement InventoryStock if schema supports it
+        if ((tx as any).inventoryStock) {
+          const stock = await (tx as any).inventoryStock.findFirst({
+            where: {
               organizationId,
-              stockId: stock.id,
-              type: 'OUT',
-              qty: item.quantity,
-              referenceType: 'SalesOrder',
-              referenceId: salesOrder.id
-            }
+              productId: item.productId
+            },
+            orderBy: { quantity: 'desc' } // Prioritize location with most stock
           });
+
+          if (stock) {
+            // Decrement actual inventory stock
+            await (tx as any).inventoryStock.update({
+              where: { id: stock.id },
+              data: { quantity: { decrement: item.quantity } }
+            });
+
+            await (tx as any).inventoryTransaction.create({
+              data: {
+                organizationId,
+                stockId: stock.id,
+                type: 'OUT',
+                qty: item.quantity,
+                referenceType: 'SalesOrder',
+                referenceId: salesOrder.id
+              }
+            });
+          }
         }
       }
       return { salesOrder, invoice };

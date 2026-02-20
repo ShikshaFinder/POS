@@ -30,13 +30,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No valid product IDs found' }, { status: 400 })
     }
 
+    const posLocationId = (session.user as any).posLocationId
+    const posType = (session.user as any).posType
+
     // Fetch all products in one query
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
       select: {
         id: true,
         name: true,
-        currentStock: true
+        currentStock: true,
+        ...(posType === 'NON_DAIRY' && posLocationId && {
+          posStock: {
+            where: { posLocationId },
+            select: { currentStock: true }
+          }
+        }),
+        ...(posType !== 'NON_DAIRY' && {
+          inventoryStocks: {
+            select: { quantity: true }
+          }
+        })
       }
     })
 
@@ -53,7 +67,15 @@ export async function POST(req: NextRequest) {
       }
 
       const requestedQty = item.quantity || item.qty || 0
-      const availableStock = product.currentStock ?? 0
+
+      let availableStock = 0;
+      if (posType === 'NON_DAIRY' && posLocationId) {
+        availableStock = (product as any).posStock?.[0]?.currentStock ?? 0;
+      } else if (posType !== 'NON_DAIRY' && (product as any).inventoryStocks && (product as any).inventoryStocks.length > 0) {
+        availableStock = (product as any).inventoryStocks.reduce((sum: number, stock: any) => sum + stock.quantity, 0);
+      } else {
+        availableStock = (product as any).currentStock ?? 0;
+      }
 
       if (availableStock < requestedQty) {
         invalidItems.push(item.productId)
