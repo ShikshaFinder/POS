@@ -111,7 +111,7 @@ export default function SessionsPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-32 md:pb-6">
             <h1 className="text-2xl font-bold text-gray-900">Session Management</h1>
 
             {/* Current Session Card */}
