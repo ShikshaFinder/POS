@@ -606,9 +606,8 @@ export default function BillingPage() {
         onSearchClick={() => searchInputRef.current?.focus()}
         onHeldBillsClick={() => setShowHeldBills(true)}
         onMenuClick={() => {
-          // This will trigger the sidebar from POSNav
-          const menuButton = document.querySelector('[aria-label="Toggle navigation menu"]') as HTMLButtonElement
-          menuButton?.click()
+          // Dispatch custom event to trigger the sidebar from POSLayout
+          window.dispatchEvent(new CustomEvent('toggle-mobile-menu'))
         }}
       />
 

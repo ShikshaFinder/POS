@@ -59,16 +59,22 @@ export default function POSLayout({ children }: { children: ReactNode }) {
       })
     }
 
+    const handleToggleMobileMenu = () => {
+      setMobileMenuOpen(true)
+    }
+
     window.addEventListener('beforeunload', handleBeforeUnload)
     window.addEventListener('transaction-synced', handleSyncSuccess as EventListener)
     window.addEventListener('transaction-sync-failed', handleSyncFailed as EventListener)
     window.addEventListener('transaction-validation-error', handleValidationError as EventListener)
+    window.addEventListener('toggle-mobile-menu', handleToggleMobileMenu)
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       window.removeEventListener('transaction-synced', handleSyncSuccess as EventListener)
       window.removeEventListener('transaction-sync-failed', handleSyncFailed as EventListener)
       window.removeEventListener('transaction-validation-error', handleValidationError as EventListener)
+      window.removeEventListener('toggle-mobile-menu', handleToggleMobileMenu)
     }
   }, [])
 
