@@ -86,18 +86,43 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // Low stock items
-    const lowStockItems = await prisma.product.count({
+    // Fetch all products with their inventory stocks to calculate low stock items
+    const productsForStock = await prisma.product.findMany({
       where: {
         organizationId,
-        currentStock: { lte: 10 },
-        reorderLevel: { not: null }
+      },
+      include: {
+        inventoryStocks: {
+          where: {
+            organizationId
+          }
+        }
+      }
+    })
+
+    let lowStockItems = 0;
+
+    productsForStock.forEach(product => {
+      const reorderLevel = product.reorderLevel || 0;
+      if (product.inventoryStocks.length === 0) {
+        // Product with no InventoryStock records - use currentStock from Product table
+        const quantity = product.currentStock || 0;
+        if (quantity > 0 && quantity <= reorderLevel) {
+          lowStockItems++;
+        }
+      } else {
+        // Product with InventoryStock records
+        product.inventoryStocks.forEach(stock => {
+          if (stock.quantity > 0 && stock.quantity <= reorderLevel) {
+            lowStockItems++;
+          }
+        })
       }
     })
 
     // Total customers (from Connection with type CUSTOMER)
     const totalCustomers = await prisma.connection.count({
-      where: { 
+      where: {
         organizationId,
         type: 'CUSTOMER'
       }
@@ -113,7 +138,7 @@ export async function GET(req: NextRequest) {
           status: 'OPEN'
         }
       })
-      
+
       if (session) {
         activeSession = {
           sessionNumber: session.sessionNumber,
