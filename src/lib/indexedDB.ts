@@ -321,16 +321,21 @@ class IndexedDBManager {
     })
   }
 
-  async getProductsByCategory(categoryId: string): Promise<CachedProduct[]> {
-    const db = await this.init()
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction([PRODUCTS_STORE], 'readonly')
-      const store = tx.objectStore(PRODUCTS_STORE)
-      const index = store.index('categoryId')
-      const request = index.getAll(categoryId)
+  async getProductsByCategory(categoryString: string): Promise<CachedProduct[]> {
+    const allProducts = await this.getAllProducts()
+    const target = categoryString.toLowerCase()
 
-      request.onsuccess = () => resolve(request.result || [])
-      request.onerror = () => reject(request.error)
+    return allProducts.filter(p => {
+      // Direct UUID or ID match
+      if (p.categoryId === categoryString) return true
+
+      // Legacy string match (from UI tabs passing "paneer" instead of UUIDs)
+      if (p.category && p.category.toLowerCase() === target) return true
+
+      // Extra fallback just in case 'legacy_paneer' is passed explicitly
+      if (p.categoryId === `legacy_${categoryString}`) return true
+
+      return false
     })
   }
 

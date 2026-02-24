@@ -57,7 +57,26 @@ export function POSNav({ isOpen, onClose }: POSNavProps) {
         const res = await fetch('/api/pos/categories')
         if (res.ok) {
           const data = await res.json()
-          setCategories(data.categories || [])
+          const cats = data.categories || []
+
+          // Sort categories: >0 products first, then alphabetical
+          const sortedCats = [...cats].sort((a: any, b: any) => {
+            const countA = a.productCount || 0
+            const countB = b.productCount || 0
+
+            // Priority 1: Has products vs Empty
+            const aHasProducts = countA > 0 ? 1 : 0
+            const bHasProducts = countB > 0 ? 1 : 0
+
+            if (aHasProducts !== bHasProducts) {
+              return bHasProducts - aHasProducts // 1 comes before 0
+            }
+
+            // Priority 2: Alphabetical name
+            return a.name.localeCompare(b.name)
+          })
+
+          setCategories(sortedCats)
         }
       } catch (error) {
         console.error('Failed to fetch categories:', error)

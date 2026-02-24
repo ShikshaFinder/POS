@@ -130,6 +130,21 @@ export default function CheckoutPage() {
     fetchProducts()
   }, [searchQuery, selectedCategory])
 
+  const sortCategories = (cats: any[]) => {
+    return [...cats].sort((a, b) => {
+      const countA = a.productCount || 0
+      const countB = b.productCount || 0
+
+      const aHasProducts = countA > 0 ? 1 : 0
+      const bHasProducts = countB > 0 ? 1 : 0
+
+      if (aHasProducts !== bHasProducts) {
+        return bHasProducts - aHasProducts
+      }
+      return a.name.localeCompare(b.name)
+    })
+  }
+
   const fetchCategories = async () => {
     try {
       // Try cached categories first
@@ -138,11 +153,12 @@ export default function CheckoutPage() {
       if (hasCachedData) {
         const cachedCategories = await productSyncService.getCategories()
         if (cachedCategories.length > 0) {
-          setCategories(cachedCategories.map(c => ({
+          const mappedCats = cachedCategories.map(c => ({
             id: c.id,
             name: c.name,
             productCount: c.productCount
-          })))
+          }))
+          setCategories(sortCategories(mappedCats))
           return
         }
       }
@@ -151,18 +167,19 @@ export default function CheckoutPage() {
       const res = await fetch('/api/pos/categories')
       if (res.ok) {
         const data = await res.json()
-        setCategories(data.categories || [])
+        setCategories(sortCategories(data.categories || []))
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
       // Try cache on network failure
       const cachedCategories = await productSyncService.getCategories()
       if (cachedCategories.length > 0) {
-        setCategories(cachedCategories.map(c => ({
+        const mappedCats = cachedCategories.map(c => ({
           id: c.id,
           name: c.name,
           productCount: c.productCount
-        })))
+        }))
+        setCategories(sortCategories(mappedCats))
       }
     }
   }
