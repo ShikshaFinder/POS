@@ -22,7 +22,7 @@ export default function CategoryTabs({
     const totalProducts = categories.reduce((sum, cat) => sum + cat.productCount, 0)
 
     return (
-        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap pb-2" role="tablist" aria-label="Product categories">
+        <div className="flex items-center gap-x-3 pb-2 overflow-x-auto whitespace-nowrap custom-scrollbar hide-scrollbar" role="tablist" aria-label="Product categories">
             {/* All Tab */}
             <button
                 onClick={() => onCategoryChange(null)}
@@ -30,7 +30,7 @@ export default function CategoryTabs({
                 aria-selected={selectedCategory === null}
                 aria-label={`All products, ${totalProducts} items`}
                 className={cn(
-                    "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all touch-feedback tap-target",
+                    "flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all touch-feedback tap-target",
                     selectedCategory === null
                         ? "bg-blue-600 text-white shadow-md scale-105"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300"
@@ -56,7 +56,7 @@ export default function CategoryTabs({
                     aria-selected={selectedCategory === category.id}
                     aria-label={`${category.name}, ${category.productCount} items`}
                     className={cn(
-                        "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all touch-feedback tap-target",
+                        "flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all touch-feedback tap-target",
                         selectedCategory === category.id
                             ? "bg-blue-600 text-white shadow-md scale-105"
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300"
