@@ -153,9 +153,9 @@ class IndexedDBManager {
     return new Promise(async (resolve, reject) => {
       const tx = db.transaction([TRANSACTIONS_STORE], 'readwrite')
       const store = tx.objectStore(TRANSACTIONS_STORE)
-      
+
       const getRequest = store.get(id)
-      
+
       getRequest.onsuccess = () => {
         const transaction = getRequest.result
         if (!transaction) {
@@ -165,11 +165,11 @@ class IndexedDBManager {
 
         const updated = { ...transaction, ...updates }
         const putRequest = store.put(updated)
-        
+
         putRequest.onsuccess = () => resolve()
         putRequest.onerror = () => reject(putRequest.error)
       }
-      
+
       getRequest.onerror = () => reject(getRequest.error)
     })
   }
@@ -191,7 +191,7 @@ class IndexedDBManager {
     return new Promise((resolve, reject) => {
       const tx = db.transaction([TRANSACTIONS_STORE], 'readonly')
       const store = tx.objectStore(TRANSACTIONS_STORE)
-      
+
       let request: IDBRequest
       if (status) {
         const index = store.index('status')
@@ -233,11 +233,11 @@ class IndexedDBManager {
   async clearSyncedTransactions(): Promise<void> {
     const db = await this.init()
     const synced = await this.getAllTransactions('synced')
-    
+
     return new Promise((resolve, reject) => {
       const tx = db.transaction([TRANSACTIONS_STORE], 'readwrite')
       const store = tx.objectStore(TRANSACTIONS_STORE)
-      
+
       let completed = 0
       synced.forEach(transaction => {
         const request = store.delete(transaction.id)
@@ -283,6 +283,32 @@ class IndexedDBManager {
     })
   }
 
+  async updateProduct(id: string, updates: Partial<CachedProduct>): Promise<void> {
+    const db = await this.init()
+    return new Promise(async (resolve, reject) => {
+      const tx = db.transaction([PRODUCTS_STORE], 'readwrite')
+      const store = tx.objectStore(PRODUCTS_STORE)
+
+      const getRequest = store.get(id)
+
+      getRequest.onsuccess = () => {
+        const product = getRequest.result
+        if (!product) {
+          reject(new Error('Product not found in local cache'))
+          return
+        }
+
+        const updated = { ...product, ...updates }
+        const putRequest = store.put(updated)
+
+        putRequest.onsuccess = () => resolve()
+        putRequest.onerror = () => reject(putRequest.error)
+      }
+
+      getRequest.onerror = () => reject(getRequest.error)
+    })
+  }
+
   async getAllProducts(): Promise<CachedProduct[]> {
     const db = await this.init()
     return new Promise((resolve, reject) => {
@@ -311,7 +337,7 @@ class IndexedDBManager {
   async searchProducts(query: string): Promise<CachedProduct[]> {
     const allProducts = await this.getAllProducts()
     const lowerQuery = query.toLowerCase()
-    return allProducts.filter(p => 
+    return allProducts.filter(p =>
       p.name.toLowerCase().includes(lowerQuery) ||
       (p.sku && p.sku.toLowerCase().includes(lowerQuery)) ||
       (p.barcode && p.barcode.toLowerCase().includes(lowerQuery))
@@ -392,14 +418,14 @@ class IndexedDBManager {
     return new Promise((resolve, reject) => {
       const tx = db.transaction([PRODUCT_IMAGES_STORE], 'readwrite')
       const store = tx.objectStore(PRODUCT_IMAGES_STORE)
-      
+
       const imageData: CachedProductImage = {
         productId,
         blob,
         mimeType,
         cachedAt: Date.now()
       }
-      
+
       const request = store.put(imageData)
 
       request.onsuccess = () => resolve()
@@ -462,13 +488,13 @@ class IndexedDBManager {
     return new Promise((resolve, reject) => {
       const tx = db.transaction([SYNC_METADATA_STORE], 'readwrite')
       const store = tx.objectStore(SYNC_METADATA_STORE)
-      
+
       const metadata: SyncMetadata = {
         key,
         value,
         updatedAt: Date.now()
       }
-      
+
       const request = store.put(metadata)
 
       request.onsuccess = () => resolve()

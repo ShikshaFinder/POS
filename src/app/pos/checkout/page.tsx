@@ -395,6 +395,14 @@ export default function CheckoutPage() {
       // Save to IndexedDB first (INSTANT - offline-first)
       const localId = await syncManager.addTransaction(transactionData)
 
+      // Instantly decrement stock in the local offline cache for immediate UI feedback
+      for (const item of cart) {
+        await productSyncService.decrementProductStock(item.id, item.quantity)
+      }
+
+      // Refetch products to immediately render the new locally cached stock availability
+      await fetchProducts()
+
       // Generate a local receipt number for immediate display
       const localReceiptNumber = localId.substring(0, 12).toUpperCase()
 

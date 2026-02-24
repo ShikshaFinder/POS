@@ -177,12 +177,12 @@ class ProductSyncService {
       })
 
       let cachedImagesCount = 0
-      
+
       // Cache images in batches to avoid overwhelming the browser
       const batchSize = 5
       for (let i = 0; i < productsWithImages.length; i += batchSize) {
         const batch = productsWithImages.slice(i, i + batchSize)
-        
+
         await Promise.all(
           batch.map(async (product) => {
             if (product.imageUrl) {
@@ -276,6 +276,21 @@ class ProductSyncService {
     } catch (error) {
       console.error('Failed to get cached products:', error)
       return []
+    }
+  }
+
+  /**
+   * Decrement stock of a specific product directly in local cache
+   */
+  async decrementProductStock(productId: string, quantity: number): Promise<void> {
+    try {
+      const product = await indexedDBManager.getProduct(productId)
+      if (product && product.currentStock !== null) {
+        const newStock = Math.max(0, product.currentStock - quantity)
+        await indexedDBManager.updateProduct(productId, { currentStock: newStock })
+      }
+    } catch (error) {
+      console.error('Failed to decrement product stock locally:', error)
     }
   }
 
