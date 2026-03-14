@@ -15,6 +15,7 @@ declare global {
 const prisma =
   globalThis.prisma ??
   new PrismaClient({
+    datasourceUrl: process.env.DATABASE_URL,
     // Reduce query logging in production for better performance
     log: process.env.NODE_ENV === 'development'
       ? ['query', 'error', 'warn']

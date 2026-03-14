@@ -1,29 +1,28 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET - Get EOD reports for this POS
 export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = (session.user as any).id
+        const userId = user.id
 
-        const user = await prisma.user.findUnique({
+        const dbUser = await prisma.user.findUnique({
             where: { id: userId },
             include: { ownedPOSLocations: { take: 1 } }
         })
 
-        if (!user?.ownedPOSLocations?.[0]) {
+        if (!dbUser?.ownedPOSLocations?.[0]) {
             return NextResponse.json({ error: 'No POS location assigned' }, { status: 404 })
         }
 
-        const posLocationId = user.ownedPOSLocations[0].id
-        const organizationId = user.ownedPOSLocations[0].organizationId
+        const posLocationId = dbUser.ownedPOSLocations[0].id
+        const organizationId = dbUser.ownedPOSLocations[0].organizationId
 
         const { searchParams } = new URL(req.url)
         const startDate = searchParams.get('startDate')
@@ -58,23 +57,23 @@ export async function GET(req: NextRequest) {
 // POST - Generate today's EOD report
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = (session.user as any).id
+        const userId = user.id
 
-        const user = await prisma.user.findUnique({
+        const dbUser = await prisma.user.findUnique({
             where: { id: userId },
             include: { ownedPOSLocations: { take: 1 } }
         })
 
-        if (!user?.ownedPOSLocations?.[0]) {
+        if (!dbUser?.ownedPOSLocations?.[0]) {
             return NextResponse.json({ error: 'No POS location assigned' }, { status: 404 })
         }
 
-        const posLocation = user.ownedPOSLocations[0]
+        const posLocation = dbUser.ownedPOSLocations[0]
         const posLocationId = posLocation.id
         const organizationId = posLocation.organizationId
 

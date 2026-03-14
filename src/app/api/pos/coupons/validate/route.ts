@@ -1,17 +1,16 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // POST /api/pos/coupons/validate - Validate and calculate discount for a coupon code
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!session.user.currentOrganizationId) {
+    if (!user.currentOrganizationId) {
       return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
     }
 
@@ -29,7 +28,7 @@ export async function POST(req: NextRequest) {
     // Find the coupon
     const coupon = await (prisma as any).pOSCouponCode.findFirst({
       where: {
-        organizationId: session.user.currentOrganizationId,
+        organizationId: user.currentOrganizationId,
         code: code.toUpperCase(),
       },
     })

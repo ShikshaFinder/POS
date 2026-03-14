@@ -1,6 +1,5 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Resend } from 'resend'
 
@@ -22,12 +21,12 @@ const MAX_EMAILS_PER_SEND = 100
 // POST /api/pos/campaigns/send - Send email campaign
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!session.user.currentOrganizationId) {
+    if (!user.currentOrganizationId) {
       return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
     }
 
@@ -68,7 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check authorization
-    if (campaign.organizationId !== session.user.currentOrganizationId) {
+    if (campaign.organizationId !== user.currentOrganizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

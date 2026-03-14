@@ -1,17 +1,16 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../../lib/auth'
 import { prisma } from '../../../../lib/prisma'
 
 export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const organizationId = (session.user as any).currentOrganizationId
-        const userId = (session.user as any).id
+        const organizationId = user.currentOrganizationId
+        const userId = user.id
 
         console.log('[Notifications API] Fetching for org:', organizationId, 'user:', userId);
         if (!organizationId || !userId) {
@@ -85,15 +84,15 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
         const body = await req.json()
         const { id, allRead } = body
-        const organizationId = (session.user as any).currentOrganizationId
-        const userId = (session.user as any).id
+        const organizationId = user.currentOrganizationId
+        const userId = user.id
 
         if (allRead) {
             if ((prisma as any).notification) {

@@ -1,16 +1,15 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const organizationId = (session.user as any).currentOrganizationId
+        const organizationId = user.currentOrganizationId
 
         // 1. Get all product categories
         const categories = await prisma.productCategory.findMany({
@@ -75,5 +74,41 @@ export async function GET(req: NextRequest) {
             { error: 'Failed to fetch categories' },
             { status: 500 }
         )
+    }
+}
+
+// POST /api/pos/categories - Create a new category
+export async function POST(req: NextRequest) {
+    try {
+        const user = await authenticateRequest(req)
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const organizationId = user.currentOrganizationId
+        if (!organizationId) {
+            return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
+        }
+
+        const body = await req.json()
+        const { name } = body
+
+        if (!name) {
+            return NextResponse.json({ error: 'Category name is required' }, { status: 400 })
+        }
+
+        const category = await prisma.productCategory.create({
+            data: {
+                organizationId,
+                name: name.trim(),
+                slug: name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36),
+            },
+            select: { id: true, name: true },
+        })
+
+        return NextResponse.json({ category }, { status: 201 })
+    } catch (error) {
+        console.error('Error creating category:', error)
+        return NextResponse.json({ error: 'Failed to create category' }, { status: 500 })
     }
 }

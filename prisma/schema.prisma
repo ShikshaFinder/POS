@@ -297,6 +297,15 @@ model Organization {
   expenses           Expense[]
   expenseCategories  ExpenseCategory[]
   recurringExpenses  RecurringExpense[]
+
+  // POS Mobile Relations
+  posSuppliers      POSSupplier[]
+  posUdharPayments  POSUdharPayment[]
+  posExpenses       POSExpense[]
+  posTaxProfile     POSTaxProfile?
+  posHolidays       POSHoliday[]
+  posDailyItems     POSDailyItem[]
+  posDailyBatches   POSDailyBatch[]
 }
 
 model OrganizationMembership {
@@ -3298,4 +3307,226 @@ model RecurringExpense {
 
   @@index([organizationId])
   @@index([isActive, nextDueDate])
+}
+
+// ============================================
+// POS MOBILE MODELS
+// ============================================
+
+// POSSupplier - Lightweight supplier for POS mobile
+model POSSupplier {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name         String
+  supplierCode String
+  phone        String
+  email        String?
+  address      String?
+  city         String?
+  state        String?
+  pincode      String?
+  gstNumber    String?
+
+  totalPurchases Float    @default(0)
+  totalPaid      Float    @default(0)
+  balance        Float    @default(0)
+  products       String[] @db.ObjectId // Product IDs
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([phone])
+}
+
+// POSUdharPayment - Credit/udhar payment tracking
+model POSUdharPayment {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  customerId    String  @db.ObjectId
+  customerName  String
+  amount        Float
+  paymentMethod String  // Cash, UPI, Card
+  paymentDate   DateTime
+  dueDate       DateTime?
+  status        String  @default("pending") // pending, confirmed, cancelled
+  confirmedBy   String?
+  confirmedAt   DateTime?
+  notes         String?
+  receiptNumber String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([status])
+}
+
+// POSExpense - Simple expense entries for mobile POS
+model POSExpense {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  category    String // RENT, ELECTRICITY, SALARY, TRANSPORT, GOVERNMENT_FEE, MAINTENANCE, MARKETING, OTHER
+  amount      Float
+  description String?
+  date        DateTime
+  createdById String  @db.ObjectId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([date])
+  @@index([category])
+}
+
+// POSTaxProfile - Tax and banking details per organization
+model POSTaxProfile {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @unique @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  panNumber         String?
+  gstNumber         String?
+  businessType      String? // PROPRIETORSHIP, PARTNERSHIP, PRIVATE_LIMITED, LLP
+  bankAccountNumber String?
+  bankIFSC          String?
+  bankName          String?
+  financialYear     String?
+  employeeCount     Int?
+  otherIncome       Float?
+  notes             String?
+  submittedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// POSHoliday - Shop holidays for POS (different from HR holiday)
+model POSHoliday {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  date      String   // YYYY-MM-DD
+  isFullDay Boolean  @default(true)
+  slots     String[] // ["morning", "afternoon", "evening"]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, date])
+  @@index([organizationId])
+}
+
+// GlobalProduct - Shared product catalog for cloning
+model GlobalProduct {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  categoryId  String  @db.ObjectId
+  category    GlobalCategory @relation(fields: [categoryId], references: [id])
+
+  name        String
+  nameEn      String?
+  nameHi      String?
+  nameGu      String?
+  image       String?
+  price       Float    @default(0)
+  costPrice   Float    @default(0)
+  description String?
+  unit        String?  // KG, G, ML, L, Pcs
+  barcode     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+}
+
+// GlobalCategory - Shared category catalog
+model GlobalCategory {
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  name    String
+  nameEn  String?
+  nameHi  String?
+  nameGu  String?
+  icon    String?
+  image   String?
+
+  products GlobalProduct[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// POSDailyItem - Subscription item configuration per customer
+model POSDailyItem {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId     String       @db.ObjectId
+
+  productId    String   @db.ObjectId
+  productName  String
+  quantity     Float    @default(1)
+  price        Float    @default(0)
+  activeDays   String[] // ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  startDate    DateTime
+  endDate      DateTime?
+  isPaused     Boolean  @default(false)
+  deliverySlot String?  // morning, afternoon, evening
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([customerId])
+}
+
+// POSDailyBatch - Daily subscription processing batch
+model POSDailyBatch {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  date                String // YYYY-MM-DD
+  status              String @default("processing") // processing, completed, skipped_holiday
+  totalCustomers      Int    @default(0)
+  totalItemsProcessed Int    @default(0)
+  totalAmount         Float  @default(0)
+
+  items POSDailyBatchItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, date])
+  @@index([organizationId])
+}
+
+// POSDailyBatchItem - Individual item within a daily batch
+model POSDailyBatchItem {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  batchId   String     @db.ObjectId
+  batch     POSDailyBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  customerId    String  @db.ObjectId
+  dailyItemId   String  @db.ObjectId
+  productId     String  @db.ObjectId
+  productName   String
+  quantity      Float
+  amount        Float
+  transactionId String? @db.ObjectId
+  isBacktrack   Boolean @default(false)
+  deliverySlot  String?
+  processedAt   DateTime @default(now())
+
+  @@index([batchId])
+  @@index([customerId])
 }

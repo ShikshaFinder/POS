@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { prisma } from '@/lib/prisma'
 
 // GET - Get pending stock transfers for this POS to receive
 export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const authUser = await authenticateRequest(req)
+        if (!authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = (session.user as any).id
+        const userId = authUser.id
 
         // Get user's POS location
         const user = await prisma.user.findUnique({
@@ -66,12 +65,12 @@ export async function GET(req: NextRequest) {
 // POST - Receive a stock transfer
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const authUser = await authenticateRequest(req)
+        if (!authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = (session.user as any).id
+        const userId = authUser.id
 
         // Get user's POS location
         const user = await prisma.user.findUnique({

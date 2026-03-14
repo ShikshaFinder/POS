@@ -1,14 +1,11 @@
-
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function PUT(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-
-        if (!session?.user?.email) {
+        const user = await authenticateRequest(req)
+    if (!user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
@@ -23,13 +20,13 @@ export async function PUT(req: NextRequest) {
         const debugPath = path.join(process.cwd(), 'debug-profile-update.json');
         fs.writeFileSync(debugPath, JSON.stringify({
             timestamp: new Date().toISOString(),
-            sessionUser: session.user,
+            sessionUser: user,
             receivedData: data
         }, null, 2));
 
         // Update User name directly
         await (prisma.user.update as any)({
-            where: { email: session.user.email },
+            where: { email: user.email },
             data: {
                 name: name
             }
@@ -37,17 +34,17 @@ export async function PUT(req: NextRequest) {
 
         // Upsert UserProfile
         // First find the user to get ID
-        const user = await prisma.user.findUnique({
-            where: { email: session.user.email }
+        const dbUser = await prisma.user.findUnique({
+            where: { email: user.email }
         })
 
-        if (!user) throw new Error("User not found")
+        if (!dbUser) throw new Error("User not found")
 
         const updateResult = await prisma.userProfile.upsert({
-            where: { userId: user.id },
+            where: { userId: dbUser.id },
             create: {
-                userId: user.id,
-                fullName: name || session.user.name || 'User',
+                userId: dbUser.id,
+                fullName: name || user.name || 'User',
                 phone: phone,
                 address: location,
                 postalCode: postalCode,

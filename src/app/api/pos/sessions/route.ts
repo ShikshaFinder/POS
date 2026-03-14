@@ -1,18 +1,17 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/pos/sessions - Get current and past sessions
 export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const organizationId = (session.user as any).currentOrganizationId
-        const userId = (session.user as any).id
+        const organizationId = user.currentOrganizationId
+        const userId = user.id
         const { searchParams } = new URL(req.url)
         const current = searchParams.get('current') === 'true'
 
@@ -75,13 +74,13 @@ export async function GET(req: NextRequest) {
 // POST /api/pos/sessions - Open new session
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const organizationId = (session.user as any).currentOrganizationId
-        const userId = (session.user as any).id
+        const organizationId = user.currentOrganizationId
+        const userId = user.id
         const body = await req.json()
         const { openingBalance = 0 } = body
 
@@ -151,12 +150,12 @@ export async function POST(req: NextRequest) {
 // PATCH /api/pos/sessions - Close session
 export async function PATCH(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const organizationId = (session.user as any).currentOrganizationId
+        const organizationId = user.currentOrganizationId
         const body = await req.json()
         const { sessionId, actualCash, notes } = body
 

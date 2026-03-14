@@ -1,31 +1,30 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // POST - Calculate price based on customer tier
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = (session.user as any).id
+        const userId = user.id
 
         // Get user's POS location for org context
-        const user = await prisma.user.findUnique({
+        const dbUser = await prisma.user.findUnique({
             where: { id: userId },
             include: {
                 ownedPOSLocations: { take: 1 }
             }
         })
 
-        if (!user?.ownedPOSLocations?.[0]) {
+        if (!dbUser?.ownedPOSLocations?.[0]) {
             return NextResponse.json({ error: 'No POS location assigned' }, { status: 404 })
         }
 
-        const organizationId = user.ownedPOSLocations[0].organizationId
+        const organizationId = dbUser.ownedPOSLocations[0].organizationId
 
         const body = await req.json()
         const { customerId, productIds, tier: overrideTier } = body

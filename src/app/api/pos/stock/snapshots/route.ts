@@ -1,18 +1,17 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET - Get today's stock snapshot for this POS location
 export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const authUser = await authenticateRequest(req)
+    if (!authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        let userId = (session.user as any).id
-        const userEmail = session.user.email
+        let userId = authUser.id
+        const userEmail = authUser.email
 
         let user
         if (userId) {
@@ -87,13 +86,13 @@ export async function GET(req: NextRequest) {
 // POST - Create/update stock snapshot with physical count
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const authUser = await authenticateRequest(req)
+    if (!authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        let userId = (session.user as any).id
-        const userEmail = session.user.email
+        let userId = authUser.id
+        const userEmail = authUser.email
 
         let user
         if (userId) {
