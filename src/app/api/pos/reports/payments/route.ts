@@ -1,17 +1,16 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/pos/reports/payments - Payment method breakdown
 export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const organizationId = (session.user as any).currentOrganizationId
+        const organizationId = user.currentOrganizationId
         const { searchParams } = new URL(req.url)
         const dateFrom = searchParams.get('dateFrom') || new Date().toISOString().slice(0, 10)
         const dateTo = searchParams.get('dateTo') || dateFrom

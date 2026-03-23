@@ -1,20 +1,18 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-
 // In-memory store for held bills (in production, use Redis or database)
 // For now, we'll use a simple Map keyed by organizationId + cashierId
 const heldBillsStore = new Map<string, any[]>()
 
 export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const organizationId = (session.user as any).currentOrganizationId
-        const userId = (session.user as any).id
+        const organizationId = user.currentOrganizationId
+        const userId = user.id
         const key = `${organizationId}:${userId}`
 
         const bills = heldBillsStore.get(key) || []
@@ -31,13 +29,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const organizationId = (session.user as any).currentOrganizationId
-        const userId = (session.user as any).id
+        const organizationId = user.currentOrganizationId
+        const userId = user.id
         const key = `${organizationId}:${userId}`
         const body = await req.json()
 
@@ -79,13 +77,13 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const user = await authenticateRequest(req)
+    if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const organizationId = (session.user as any).currentOrganizationId
-        const userId = (session.user as any).id
+        const organizationId = user.currentOrganizationId
+        const userId = user.id
         const key = `${organizationId}:${userId}`
 
         const { searchParams } = new URL(req.url)

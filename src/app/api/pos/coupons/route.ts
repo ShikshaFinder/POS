@@ -1,17 +1,16 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/pos/coupons - Get all coupon codes
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!session.user.currentOrganizationId) {
+    if (!user.currentOrganizationId) {
       return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
     }
 
@@ -20,7 +19,7 @@ export async function GET(req: NextRequest) {
     const posLocationId = searchParams.get('posLocationId')
 
     const where: any = {
-      organizationId: session.user.currentOrganizationId,
+      organizationId: user.currentOrganizationId,
     }
 
     if (posLocationId) {
@@ -58,12 +57,12 @@ export async function GET(req: NextRequest) {
 // POST /api/pos/coupons - Create new coupon code
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!session.user.currentOrganizationId) {
+    if (!user.currentOrganizationId) {
       return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
     }
 
@@ -103,7 +102,7 @@ export async function POST(req: NextRequest) {
     // Check if coupon code already exists
     const existing = await (prisma as any).pOSCouponCode.findFirst({
       where: {
-        organizationId: session.user.currentOrganizationId,
+        organizationId: user.currentOrganizationId,
         code: code.toUpperCase(),
       },
     })
@@ -117,7 +116,7 @@ export async function POST(req: NextRequest) {
 
     const coupon = await (prisma as any).pOSCouponCode.create({
       data: {
-        organizationId: session.user.currentOrganizationId,
+        organizationId: user.currentOrganizationId,
         posLocationId,
         code: code.toUpperCase(),
         description,

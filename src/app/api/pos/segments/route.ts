@@ -1,17 +1,16 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/pos/segments - Get all customer segments
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!session.user.currentOrganizationId) {
+    if (!user.currentOrganizationId) {
       return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
     }
 
@@ -19,7 +18,7 @@ export async function GET(req: NextRequest) {
     const posLocationId = searchParams.get('posLocationId')
 
     const where: any = {
-      organizationId: session.user.currentOrganizationId,
+      organizationId: user.currentOrganizationId,
     }
 
     if (posLocationId) {
@@ -71,12 +70,12 @@ export async function GET(req: NextRequest) {
 // POST /api/pos/segments - Create new customer segment
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!session.user.currentOrganizationId) {
+    if (!user.currentOrganizationId) {
       return NextResponse.json({ error: 'No organization selected' }, { status: 400 })
     }
 
@@ -101,7 +100,7 @@ export async function POST(req: NextRequest) {
     // Check if segment name already exists
     const existing = await (prisma as any).customerSegment.findFirst({
       where: {
-        organizationId: session.user.currentOrganizationId,
+        organizationId: user.currentOrganizationId,
         name,
       },
     })
@@ -117,7 +116,7 @@ export async function POST(req: NextRequest) {
     let memberCount = 0
     if (isDynamic && criteria) {
       const customerWhere = buildCustomerWhereClause(
-        session.user.currentOrganizationId,
+        user.currentOrganizationId,
         posLocationId,
         criteria
       )
@@ -126,7 +125,7 @@ export async function POST(req: NextRequest) {
 
     const segment = await (prisma as any).customerSegment.create({
       data: {
-        organizationId: session.user.currentOrganizationId,
+        organizationId: user.currentOrganizationId,
         posLocationId,
         name,
         description,
@@ -134,7 +133,7 @@ export async function POST(req: NextRequest) {
         criteria,
         isDynamic: isDynamic !== undefined ? isDynamic : true,
         memberCount,
-        createdById: session.user.id,
+        createdById: user.id,
       },
       include: {
         createdBy: {
@@ -162,7 +161,7 @@ export async function POST(req: NextRequest) {
     if (isDynamic && criteria) {
       const customers = await prisma.pOSCustomer.findMany({
         where: buildCustomerWhereClause(
-          session.user.currentOrganizationId,
+          user.currentOrganizationId,
           posLocationId,
           criteria
         ),

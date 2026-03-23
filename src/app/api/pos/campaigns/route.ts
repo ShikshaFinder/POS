@@ -1,3 +1,4 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 // NOTE: Email campaigns feature is not yet implemented.
 
 // This route is a placeholder for future functionality.
@@ -5,14 +6,11 @@
 // The EmailCampaign model needs to be added to the Prisma schema first.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-
 // GET /api/pos/campaigns - Get all email campaigns
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -34,8 +32,8 @@ export async function GET(req: NextRequest) {
 // POST /api/pos/campaigns - Create new email campaign
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

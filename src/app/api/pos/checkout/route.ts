@@ -1,17 +1,16 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../../lib/auth'
 import { prisma } from '../../../../lib/prisma'
 import { sendInvoiceNotification } from '../../../../lib/whatsapp-service'
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const organizationId = (session.user as any).currentOrganizationId
+    const organizationId = user.currentOrganizationId
     const body = await req.json()
 
     // Support both old format (direct) and new format (nested objects from billing page)
@@ -225,8 +224,8 @@ export async function POST(req: NextRequest) {
         // 🔔 Create notification if stock falls below reorder level
         if ((updatedProduct.currentStock ?? 0) <= (updatedProduct.reorderLevel || 0)) {
           const { createNotification } = await import('../../../../lib/notifications');
-          const sessionEmail = (session.user as any).email;
-          const userId = (session.user as any).id || (sessionEmail ? (await tx.user.findUnique({
+          const sessionEmail = user.email;
+          const userId = user.id || (sessionEmail ? (await tx.user.findUnique({
             where: { email: sessionEmail },
             select: { id: true }
           }))?.id : undefined);
@@ -281,9 +280,9 @@ export async function POST(req: NextRequest) {
 
     // 🔔 Create notification for successful sale
     try {
-      let userId = (session.user as any).id;
+      let userId = user.id;
 
-      const sessionEmail = (session.user as any).email;
+      const sessionEmail = user.email;
       if (!userId && sessionEmail) {
         console.log(`[Checkout] UserId missing, searching by email: ${sessionEmail}`);
         const user = await prisma.user.findUnique({

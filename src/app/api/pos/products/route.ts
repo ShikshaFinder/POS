@@ -1,6 +1,5 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Helper function to generate a unique SKU
@@ -30,12 +29,12 @@ async function generateUniqueSKU(organizationId: string, name: string, category:
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const organizationId = (session.user as any).currentOrganizationId
+    const organizationId = user.currentOrganizationId
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')
     const categoryId = searchParams.get('categoryId')
@@ -119,12 +118,12 @@ export async function GET(req: NextRequest) {
 // POST /api/pos/products - Create a new product
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const organizationId = (session.user as any).currentOrganizationId
+    const organizationId = user.currentOrganizationId
     if (!organizationId) {
       return NextResponse.json({ error: 'Organization ID required' }, { status: 401 })
     }
@@ -208,12 +207,12 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const user = await authenticateRequest(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const organizationId = (session.user as any).currentOrganizationId
+    const organizationId = user.currentOrganizationId
     if (!organizationId) {
       return NextResponse.json({ error: 'Organization ID required' }, { status: 401 })
     }

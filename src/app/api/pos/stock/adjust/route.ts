@@ -1,17 +1,16 @@
+import { authenticateRequest } from '@/lib/auth-mobile'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../../../lib/auth'
-import { prisma } from '../../../../../lib/prisma'
+import { prisma } from '@/lib/prisma'
 
 // POST - Manually adjust stock (with reason)
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
+        const authUser = await authenticateRequest(req)
+    if (!authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = (session.user as any).id
+        const userId = authUser.id
 
         // Get user's POS location
         const user = await prisma.user.findUnique({
@@ -99,9 +98,9 @@ export async function POST(req: NextRequest) {
             try {
                 let currentUserId = userId;
 
-                if (!currentUserId && (session.user as any).email) {
+                if (!currentUserId && user.email) {
                     const userRecord = await prisma.user.findUnique({
-                        where: { email: (session.user as any).email },
+                        where: { email: user.email },
                         select: { id: true }
                     });
                     if (userRecord) {
