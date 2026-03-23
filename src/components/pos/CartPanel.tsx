@@ -441,7 +441,7 @@ export default function CartPanel({
 
             {/* Footer - Bill Summary */}
             {items.length > 0 && (
-                <div className="border-t border-gray-200 p-4 space-y-4 shrink-0 bg-white">
+                <div className="border-t border-gray-200 p-4 pb-12 space-y-4 shrink-0 bg-white">
                     {/* Bill Discount */}
                     <div className="flex items-center gap-2">
                         <label className="text-xs text-gray-600 w-16 shrink-0" htmlFor="bill-discount-type">
@@ -588,7 +588,7 @@ export default function CartPanel({
                 <div
                     ref={drawerRef}
                     className={`
-                        fixed inset-x-0 bottom-0 z-50 bg-white/95 backdrop-blur-md rounded-t-2xl shadow-2xl
+                        fixed inset-x-0 bottom-0 z-[70] bg-white rounded-t-2xl shadow-2xl
                         transition-transform duration-300 ease-out
                         flex flex-col max-h-[85vh] safe-bottom
                         ${isOpen ? 'translate-y-0' : 'translate-y-full'}

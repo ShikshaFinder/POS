@@ -110,7 +110,7 @@ export default function SyncStatusIndicator() {
       </button>
 
       {showDetails && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50">
+        <div className="fixed sm:absolute inset-x-4 sm:inset-x-auto sm:right-0 top-24 sm:top-full mt-2 w-auto sm:w-80 max-w-sm bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50">
           <div className="space-y-3">
             <div>
               <h3 className="font-semibold text-gray-900 mb-1">Sync Status</h3>
